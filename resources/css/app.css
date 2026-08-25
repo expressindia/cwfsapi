@@ -1,0 +1,146 @@
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+body {
+    background-color: #f5f7fb;
+    font-size: 14px;
+}
+
+.app-wrapper {
+    min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 250px;
+    min-height: 100vh;
+    background: #212529;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1030;
+}
+
+.sidebar-brand {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-section {
+    padding: 20px 15px 8px;
+    color: #8d99a6;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.sidebar .nav-link {
+    color: #adb5bd;
+    padding: 11px 20px;
+    margin: 2px 12px;
+    border-radius: 7px;
+    transition: all .2s ease;
+}
+
+.sidebar .nav-link:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, .08);
+}
+
+.sidebar .nav-link.active {
+    color: #fff;
+    background-color: #0d6efd;
+}
+
+.sidebar .nav-link i {
+    width: 25px;
+}
+
+/* Main content */
+.main-content {
+    margin-left: 250px;
+    min-height: 100vh;
+}
+
+.topbar {
+    height: 70px;
+    background: #fff;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 30px;
+}
+
+.page-content {
+    padding: 30px;
+}
+
+/* Dashboard */
+.dashboard-card {
+    border: 0;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+}
+
+.status-icon {
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 20px;
+}
+
+.status-icon.success {
+    background: #d1e7dd;
+    color: #198754;
+}
+
+.status-icon.danger {
+    background: #f8d7da;
+    color: #dc3545;
+}
+
+.status-icon.warning {
+    background: #fff3cd;
+    color: #997404;
+}
+
+/* Mobile */
+.sidebar-toggle {
+    display: none;
+}
+
+@media (max-width: 991.98px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+    }
+
+    .sidebar.show {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    .sidebar-toggle {
+        display: inline-block;
+    }
+
+    .page-content {
+        padding: 20px;
+    }
+}
