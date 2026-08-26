@@ -22,6 +22,7 @@ class FullscriptTokenService
     public function refreshIfNeeded(bool $force = false): ?FullscriptToken
     {
         $token = FullscriptToken::find(1);
+        //dd($token);
 
         if ($token === null || (! $force && ! $token->expiresSoon(config('fullscript.refresh_leeway_seconds')))) {
             return $token;
@@ -43,6 +44,7 @@ class FullscriptTokenService
 
     private function refresh(FullscriptToken $token): FullscriptToken
     {
+        
         if (blank($token->refresh_token)) {
             throw new FullscriptOAuthException('The stored Fullscript token has no refresh token. Reconnect Fullscript.');
         }
@@ -60,27 +62,37 @@ class FullscriptTokenService
         $response = Http::asForm()
             ->acceptJson()
             ->timeout(15)
-            ->post(config('fullscript.token_url'), array_merge($payload, [
-                'client_id' => config('fullscript.client_id'),
-                'client_secret' => config('fullscript.client_secret'),
-            ]));
+            ->post(
+                config('fullscript.token_url'),
+                array_merge($payload, [
+                    'client_id' => config('fullscript.client_id'),
+                    'client_secret' => config('fullscript.client_secret'),
+                ])
+            );
 
         if ($response->failed()) {
-            throw new FullscriptOAuthException($this->responseMessage($response));
+            throw new FullscriptOAuthException(
+                $this->responseMessage($response)
+            );
         }
 
         $data = $response->json();
 
-        if (! is_array($data) || blank($data['access_token'] ?? null)) {
-            throw new FullscriptOAuthException('Fullscript returned a token response without an access token.');
+        // Fullscript wraps the OAuth response inside "oauth"
+        $oauth = $data['oauth'] ?? null;
+
+        if (! is_array($oauth) || blank($oauth['access_token'] ?? null)) {
+            throw new FullscriptOAuthException(
+                'Fullscript returned a token response without an access token.'
+            );
         }
 
-        return $data;
+        return $oauth;
     }
 
     private function persistTokenResponse(array $data, ?FullscriptToken $token = null): FullscriptToken
     {
-        dd("hee".$data);
+
         $token ??= FullscriptToken::firstOrNew(['id' => 1]);
         $expiresIn = max(1, (int) ($data['expires_in'] ?? 7200));
 

@@ -8,6 +8,6 @@ return [
 
     // Confirm these values against the API credentials supplied for your Sandbox app.
     'authorization_url' => env('FULLSCRIPT_AUTHORIZATION_URL', 'https://us-snd.fullscript.io/oauth/authorize'),
-    'token_url' => env('FULLSCRIPT_TOKEN_URL', 'https://api-us-snd.fullscript.io/oauth/token'),
+    'token_url' => env('FULLSCRIPT_TOKEN_URL', 'https://api-us-snd.fullscript.io/api/oauth/token'),
     'refresh_leeway_seconds' => (int) env('FULLSCRIPT_REFRESH_LEEWAY_SECONDS', 300),
 ];
