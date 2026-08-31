@@ -6,8 +6,23 @@ return [
     'redirect_uri' => env('FULLSCRIPT_REDIRECT_URI', 'http://127.0.0.1:8000/callback'),
     'scope' => env('FULLSCRIPT_SCOPE', 'catalog:read'),
 
+    
+    /*
+    |--------------------------------------------------------------------------
+    | OAuth
+    |--------------------------------------------------------------------------
+    */
     // Confirm these values against the API credentials supplied for your Sandbox app.
     'authorization_url' => env('FULLSCRIPT_AUTHORIZATION_URL', 'https://us-snd.fullscript.io/oauth/authorize'),
     'token_url' => env('FULLSCRIPT_TOKEN_URL', 'https://api-us-snd.fullscript.io/api/oauth/token'),
     'refresh_leeway_seconds' => (int) env('FULLSCRIPT_REFRESH_LEEWAY_SECONDS', 300),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fullscript API
+    |--------------------------------------------------------------------------
+    */
+
+    'api_base_url' => env( 'FULLSCRIPT_API_BASE_URL', 'https://api-us-snd.fullscript.io' ),
+
 ];

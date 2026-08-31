@@ -12,4 +12,12 @@
 return [
     'store_domain' => env('SHOPIFY_STORE_DOMAIN'),
     'access_token' => env('SHOPIFY_ACCESS_TOKEN'),
+    'store_domain' => env('SHOPIFY_STORE_DOMAIN'),
+    /*
+    |--------------------------------------------------------------------------
+    | Inventory location
+    |--------------------------------------------------------------------------
+    */
+    'inventory_location_id' => env( 'SHOPIFY_INVENTORY_LOCATION_ID' )
+
 ];

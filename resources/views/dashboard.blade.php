@@ -198,8 +198,8 @@
                         </div>
 
 
-                        <span class="badge bg-secondary-subtle text-secondary px-3 py-2">
-                            Not Configured
+                        <span class="badge bg-success-subtle text-success px-3 py-2">
+                            Connected
                         </span>
 
                     </div>
@@ -210,8 +210,7 @@
 
                     <p class="text-muted">
 
-                        Shopify integration will be configured
-                        here.
+                        Shopify integration with store
 
                     </p>
 
@@ -219,7 +218,7 @@
                     <button class="btn btn-outline-secondary"
                             disabled>
 
-                        Configure Shopify
+                        CWFSAPI Development Store
 
                     </button>
 
