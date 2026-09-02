@@ -12,51 +12,24 @@ use Throwable;
 
 class ProductSyncService
 {
-    public function __construct(
-        protected ProductTransformer $transformer,
-        protected ShopifyProductService $shopify
-    ) {
+    public function __construct( protected ProductTransformer $transformer, protected ShopifyProductService $shopify ) {
     }
 
-    public function sync(
-        array $fullscriptProduct
-    ): ProductSync {
+    public function sync( array $fullscriptProduct ): ProductSync 
+    {
 
-        $product =
-            $this->transformer->transform(
-                $fullscriptProduct
-            );
+        $product = $this->transformer->transform( $fullscriptProduct );
+        
 
-        $fullscriptProductId =
-            $product[
-                'fullscript_product_id'
-            ];
+        $fullscriptProductId = $product[ 'fullscript_product_id' ];
 
-        $sync =
-            ProductSync::firstOrCreate(
-                [
-                    'fullscript_product_id' =>
-                        $fullscriptProductId,
-                ],
-                [
-                    'status' =>
-                        'pending',
-                ]
-            );
+        $sync = ProductSync::firstOrCreate( [ 'fullscript_product_id' => $fullscriptProductId, ], [ 'status' => 'pending', ] );
 
         try {
 
-            $sync->increment(
-                'sync_attempts'
-            );
+            $sync->increment( 'sync_attempts' );
 
-            $sync->update([
-                'status' =>
-                    'syncing',
-
-                'last_error' =>
-                    null,
-            ]);
+            $sync->update([ 'status' => 'syncing', 'last_error' => null, ]);
 
             /*
             |--------------------------------------------------------------------------
@@ -65,10 +38,7 @@ class ProductSyncService
             |--------------------------------------------------------------------------
             */
 
-            $existingShopifyProduct =
-                $this->findExistingProduct(
-                    $product
-                );
+            $existingShopifyProduct = $this->findExistingProduct( $product );
 
             /*
             |--------------------------------------------------------------------------
@@ -78,20 +48,11 @@ class ProductSyncService
             |--------------------------------------------------------------------------
             */
 
-            if (
-                $existingShopifyProduct
-            ) {
+            if ( $existingShopifyProduct ) {
 
-                $shopifyProductId =
-                    $existingShopifyProduct[
-                        'product'
-                    ]['id'];
+                $shopifyProductId = $existingShopifyProduct[ 'product' ]['id'];
 
-                $shopifyProduct =
-                    $this->shopify->createOrUpdate(
-                        $product,
-                        $shopifyProductId
-                    );
+                $shopifyProduct = $this->shopify->createOrUpdate( $product, $shopifyProductId );
 
             } else {
 
@@ -103,42 +64,25 @@ class ProductSyncService
                 |--------------------------------------------------------------------------
                 */
 
-                $shopifyProduct =
-                    $this->shopify->createOrUpdate(
-                        $product
-                    );
+                $shopifyProduct = $this->shopify->createOrUpdate( $product );
             }
 
             DB::transaction(
-                function () use (
-                    $sync,
-                    $product,
-                    $shopifyProduct
-                ) {
+                function () use ( $sync, $product, $shopifyProduct ) {
 
                     $sync->update([
 
-                        'shopify_product_id' =>
-                            $shopifyProduct['id'],
+                        'shopify_product_id' => $shopifyProduct['id'],
 
-                        'shopify_handle' =>
-                            $shopifyProduct[
-                                'handle'
-                            ] ?? null,
+                        'shopify_handle' => $shopifyProduct[ 'handle' ] ?? null,
 
-                        'shopify_product_status' =>
-                            $shopifyProduct[
-                                'status'
-                            ] ?? null,
+                        'shopify_product_status' => $shopifyProduct[ 'status' ] ?? null,
 
-                        'status' =>
-                            'synced',
+                        'status' => 'synced',
 
-                        'last_synced_at' =>
-                            now(),
+                        'last_synced_at' => now(),
 
-                        'last_error' =>
-                            null,
+                        'last_error' => null,
                     ]);
 
                     /*
@@ -147,47 +91,26 @@ class ProductSyncService
                     |--------------------------------------------------------------------------
                     */
 
-                    $shopifyBySku =
-                        [];
+                    $shopifyBySku = [];
 
-                    $shopifyVariants =
-                        $shopifyProduct[
-                            'variants'
-                        ]['nodes'] ?? [];
+                    $shopifyVariants = $shopifyProduct[ 'variants'  ]['nodes'] ?? [];
 
-                    foreach (
-                        $shopifyVariants
-                        as $shopifyVariant
-                    ) {
+                    foreach ( $shopifyVariants as $shopifyVariant ) {
 
-                        $sku =
-                            trim(
-                                (string) (
-                                    $shopifyVariant[
-                                        'sku'
-                                    ] ?? ''
-                                )
-                            );
+                        $sku = trim( (string) ( $shopifyVariant[ 'sku' ] ?? '' ) );
 
                         if ($sku === '') {
                             continue;
                         }
 
-                        if (
-                            isset(
-                                $shopifyBySku[
-                                    $sku
-                                ]
-                            )
-                        ) {
+                        if ( isset( $shopifyBySku[ $sku ] ) ) {
 
                             throw new RuntimeException(
                                 "Duplicate Shopify SKU detected: {$sku}"
                             );
                         }
 
-                        $shopifyBySku[$sku] =
-                            $shopifyVariant;
+                        $shopifyBySku[$sku] = $shopifyVariant;
                     }
 
                     /*
@@ -196,86 +119,47 @@ class ProductSyncService
                     |--------------------------------------------------------------------------
                     */
 
-                    foreach (
-                        $product['variants']
-                        as $variant
-                    ) {
+                    foreach ( $product['variants'] as $variant ) {
 
-                        $sku =
-                            $variant['sku'];
+                        $sku = $variant['sku'];
 
-                        if (
-                            !isset(
-                                $shopifyBySku[
-                                    $sku
-                                ]
-                            )
-                        ) {
+                        if ( !isset( $shopifyBySku[ $sku ] ) ) {
 
                             throw new RuntimeException(
                                 "Shopify variant not found for SKU: {$sku}"
                             );
                         }
 
-                        $shopifyVariant =
-                            $shopifyBySku[
-                                $sku
-                            ];
+                        $shopifyVariant = $shopifyBySku[ $sku ];
 
                         ProductVariant::
                             updateOrCreate(
                                 [
-                                    'sku' =>
-                                        $sku,
+                                    'sku' => $sku,
                                 ],
                                 [
 
-                                    'fullscript_product_id' =>
-                                        $product[
-                                            'fullscript_product_id'
-                                        ],
+                                    'fullscript_product_id' => $product[ 'fullscript_product_id' ],
 
-                                    'fullscript_variant_id' =>
-                                        $variant[
-                                            'fullscript_variant_id'
-                                        ],
+                                    'fullscript_variant_id' => $variant[ 'fullscript_variant_id' ],
 
-                                    'shopify_product_id' =>
-                                        $shopifyProduct[
-                                            'id'
-                                        ],
+                                    'shopify_product_id' => $shopifyProduct[ 'id' ],
 
-                                    'shopify_product_status' =>
-                                        $shopifyProduct[
-                                            'status'
-                                        ] ?? null,
+                                    'shopify_product_status' => $shopifyProduct[ 'status' ] ?? null,
 
-                                    'shopify_variant_id' =>
-                                        $shopifyVariant[
-                                            'id'
-                                        ],
+                                    'shopify_variant_id' => $shopifyVariant[ 'id' ],
 
-                                    'shopify_inventory_item_id' =>
-                                        $shopifyVariant[
-                                            'inventoryItem'
-                                        ]['id'] ?? null,
+                                    'shopify_inventory_item_id' => $shopifyVariant[ 'inventoryItem' ]['id'] ?? null,
 
-                                    'fullscript_quantity' =>
-                                        $variant[
-                                            'quantity'
-                                        ],
+                                    'fullscript_quantity' => $variant[ 'quantity' ],
 
-                                    'status' =>
-                                        'synced',
+                                    'status' => 'synced',
 
-                                    'sync_attempts' =>
-                                        0,
+                                    'sync_attempts' => 0,
 
-                                    'last_error' =>
-                                        null,
+                                    'last_error' =>  null,
 
-                                    'last_synced_at' =>
-                                        now(),
+                                    'last_synced_at' => now(),
                                 ]
                             );
                     }
@@ -286,22 +170,13 @@ class ProductSyncService
 
         } catch (Throwable $e) {
 
-            $sync->update([
-                'status' =>
-                    'failed',
-
-                'last_error' =>
-                    $e->getMessage(),
-            ]);
+            $sync->update([ 'status' => 'failed', 'last_error' => $e->getMessage(), ]);
 
             Log::error(
                 'Fullscript product synchronization failed.',
                 [
-                    'fullscript_product_id' =>
-                        $fullscriptProductId,
-
-                    'error' =>
-                        $e->getMessage(),
+                    'fullscript_product_id' => $fullscriptProductId,
+                    'error' => $e->getMessage(),
                 ]
             );
 
@@ -309,22 +184,13 @@ class ProductSyncService
         }
     }
 
-    protected function findExistingProduct(
-        array $product
-    ): ?array {
+    protected function findExistingProduct( array $product ): ?array {
 
-        foreach (
-            $product['variants']
-            as $variant
-        ) {
+        foreach ( $product['variants'] as $variant ) {
 
-            $sku =
-                $variant['sku'];
+            $sku = $variant['sku'];
 
-            $existing =
-                $this->shopify->findProductBySku(
-                    $sku
-                );
+            $existing = $this->shopify->findProductBySku( $sku );
 
             if ($existing) {
 

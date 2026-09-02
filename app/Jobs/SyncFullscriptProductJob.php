@@ -2,9 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Services\Fullscript\FullscriptProductService;
 use App\Services\ProductSync\ProductSyncService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class SyncFullscriptProductJob implements ShouldQueue
@@ -23,32 +25,37 @@ class SyncFullscriptProductJob implements ShouldQueue
         300,
     ];
 
-    public function __construct(
-        public array $product
-    ) {
+    public function __construct( public string $productId ) {
     }
 
-    public function handle(
-        ProductSyncService $syncService
-    ): void {
+    public function handle( FullscriptProductService $fullscript, ProductSyncService $syncService ): void 
+    {
+        //$syncService->sync( $this->product );
 
-        $syncService->sync(
-            $this->product
-        );
+        // Get complete product from Fullscript
+        $response = $fullscript->getProduct( $this->productId );
+        // Fullscript detail response:
+        // {
+        //     "product": {...}
+        // }
+        $product = $response['product'] ?? null;
+
+        if (!$product) {
+            throw new \RuntimeException(
+                "Fullscript product {$this->productId} not found."
+            );
+        }
+        // Now send complete product to sync service
+        $syncService->sync($product);
     }
 
-    public function failed(
-        Throwable $exception
-    ): void {
-
+    public function failed( Throwable $exception ): void 
+    { 
         logger()->error(
             'Fullscript product job failed permanently.',
             [
-                'product' =>
-                    $this->product,
-
-                'error' =>
-                    $exception->getMessage(),
+                'product_id' => $this->productId,
+                'error' => $exception->getMessage(),
             ]
         );
     }

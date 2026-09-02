@@ -2,67 +2,100 @@
 
 namespace App\Services\Fullscript;
 
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use App\Services\FullscriptTokenService;
 use RuntimeException;
 
 class FullscriptProductService
 {
-    public function getProducts(
-        int $page = 1,
-        int $perPage = 100
-    ): array {
+    public function __construct(protected FullscriptTokenService $tokenService) {
+    }
 
-        /*
-        |--------------------------------------------------------------------------
-        | IMPORTANT
-        |--------------------------------------------------------------------------
-        | Replace the endpoint below with the exact Fullscript
-        | catalog/products endpoint already used by your project.
-        |--------------------------------------------------------------------------
-        */
 
-        $baseUrl = rtrim(
-            config(
-                'fullscript.api_base_url',
-                ''
-            ),
-            '/'
-        );
+    /**
+     * Get products from Fullscript.
+     */
+    public function getProducts( int $page = 1, int $perPage = 100 ): array 
+    {
+        $baseUrl = rtrim( config('fullscript.api_base_url'), '/' );
 
-        $accessToken =
-            config(
-                'fullscript.access_token'
-            );
-
-        if (
-            !$baseUrl ||
-            !$accessToken
-        ) {
-
+        if (blank($baseUrl)) {
             throw new RuntimeException(
-                'Fullscript API configuration is incomplete.'
+                'FULLSCRIPT_API_BASE_URL is not configured.'
             );
         }
 
-        $response =
-            Http::timeout(60)
-                ->withToken(
-                    $accessToken
-                )
-                ->acceptJson()
-                ->get(
-                    $baseUrl . '/products',
-                    [
-                        'page' =>
-                            $page,
+        /*
+        |--------------------------------------------------------------------------
+        | Get valid access token
+        |--------------------------------------------------------------------------
+        |
+        | This method gets the token from the database.
+        | It also refreshes the token automatically when required.
+        |
+        */
 
-                        'per_page' =>
-                            $perPage,
-                    ]
-                );
+        $accessToken = $this->tokenService ->freshAccessToken();
+        /*
+        |--------------------------------------------------------------------------
+        | Fullscript API request
+        |--------------------------------------------------------------------------
+        */
 
-        $response->throw();
+        $response = Http::withToken( $accessToken )
+            ->acceptJson()
+            ->timeout(60)
+            ->get( $baseUrl . '/catalog/products',
+                [
+                    'page[number]' => $page,
+                    'page[size]' => $perPage,
+                ]
+            );
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                $this->responseMessage( $response )
+            );
+        }
 
         return $response->json();
+    }
+
+    /**
+     * Get a single product from Fullscript.
+     */
+    public function getProduct( string $productId ): array 
+    {
+
+        $baseUrl = rtrim( config('fullscript.api_base_url'), '/' );
+
+        $accessToken = $this->tokenService ->freshAccessToken();
+
+        $response = Http::withToken( $accessToken )
+            ->acceptJson()
+            ->timeout(60)
+            ->get( $baseUrl . '/catalog/products/' . urlencode($productId) );
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                $this->responseMessage( $response )
+            );
+        }
+
+        return $response->json();
+    }
+
+    protected function responseMessage( Response $response ): string 
+    {
+        return
+            'Fullscript product request failed ' . '(HTTP ' . $response->status() . '): ' .
+            (
+                $response->json('message')
+                ??
+                $response->json('error')
+                ??
+                $response->body()
+            );
     }
 }

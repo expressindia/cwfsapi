@@ -23,6 +23,6 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'api_base_url' => env( 'FULLSCRIPT_API_BASE_URL', 'https://api-us-snd.fullscript.io' ),
+    'api_base_url' => env( 'FULLSCRIPT_API_BASE_URL', 'https://api-us-snd.fullscript.io/api' ),
 
 ];

@@ -7,143 +7,61 @@ use RuntimeException;
 
 class ProductTransformer
 {
-    public function transform(
-        array $fullscriptProduct
-    ): array {
+    public function transform(array $product): array
+    {
 
-        /*
-        |--------------------------------------------------------------------------
-        | IMPORTANT
-        |--------------------------------------------------------------------------
-        | These field names must match your actual Fullscript response.
-        |--------------------------------------------------------------------------
-        */
-
-        $fullscriptProductId =
-            (string) (
-                $fullscriptProduct['id']
-                ?? $fullscriptProduct['product_id']
-                ?? ''
-            );
-
-        if (!$fullscriptProductId) {
+        $productId = $product['id'] ?? null;
+        $name = $product['name'] ?? null;
+        
+        if (!$productId) {
             throw new RuntimeException(
                 'Fullscript product ID is missing.'
             );
         }
 
-        $name =
-            $fullscriptProduct['name']
-            ?? $fullscriptProduct['title']
-            ?? '';
-
         if (!$name) {
             throw new RuntimeException(
-                "Product {$fullscriptProductId} has no name."
+                "Product {$productId} has no name."
             );
         }
 
         return [
+            'fullscript_product_id' => $productId,
+            'title'                 => $name,
+            'description_html'      => $product['description_html'] ?? '',
+            'vendor'                => $product['brand']['name'] ?? 'Fullscript',
+            'product_type'          => 'Supplement',
 
-            'fullscript_product_id' =>
-                $fullscriptProductId,
+            // Do not automatically archive Shopify products.
+            'status'                => 'ACTIVE',
+            'handle'                => Str::slug(($product['brand']['name'] ?? 'fullscript') . '-' . $name . '-' . $productId ),
 
-            'title' =>
-                $name,
-
-            'description_html' =>
-                $fullscriptProduct[
-                    'description'
-                ] ?? '',
-
-            'vendor' =>
-                $fullscriptProduct[
-                    'brand'
-                ] ?? 'Fullscript',
-
-            'product_type' =>
-                $fullscriptProduct[
-                    'product_type'
-                ] ?? 'Supplement',
-
-            /*
-            |--------------------------------------------------------------------------
-            | Don't automatically archive products based on Fullscript status.
-            |--------------------------------------------------------------------------
-            */
-
-            'status' =>
-                'ACTIVE',
-
-            'handle' =>
-                Str::slug($name),
-
-            'variants' =>
-                $this->transformVariants(
-                    $fullscriptProduct
-                ),
-        ];
+            'variants'              => $this->transformVariants( $product['variants'] ?? [] ),
+        ]; 
     }
 
-    protected function transformVariants(
-        array $product
-    ): array {
-
-        $variants =
-            $product['variants'] ?? [];
-
-        /*
-        |--------------------------------------------------------------------------
-        | Single variant product
-        |--------------------------------------------------------------------------
-        */
-
+    protected function transformVariants(array $variants): array
+    {
         if (empty($variants)) {
-
-            $variants = [
-                $product,
-            ];
+            throw new RuntimeException(
+                'Fullscript product has no variants.'
+            );
         }
 
         $result = [];
-
         $seenSkus = [];
 
         foreach ($variants as $variant) {
 
-            $sku =
-                trim(
-                    (string) (
-                        $variant['sku']
-                        ?? ''
-                    )
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | SKU is mandatory
-            |--------------------------------------------------------------------------
-            */
+            $sku = trim( (string) ($variant['sku'] ?? '') );
 
             if ($sku === '') {
-
                 throw new RuntimeException(
                     'Fullscript variant is missing SKU.'
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Duplicate SKU inside same product
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                isset(
-                    $seenSkus[$sku]
-                )
-            ) {
-
+            if (isset($seenSkus[$sku])) {
                 throw new RuntimeException(
                     "Duplicate SKU {$sku} found in Fullscript product."
                 );
@@ -151,53 +69,30 @@ class ProductTransformer
 
             $seenSkus[$sku] = true;
 
-            $result[] = [
+            $result[] = [ 
+                
+                'fullscript_variant_id' => $variant['id'] ?? null,
 
-                'fullscript_variant_id' =>
-                    isset(
-                        $variant['id']
-                    )
-                        ? (string)
-                            $variant['id']
-                        : null,
+                'sku' => $sku,
 
-                'sku' =>
-                    $sku,
+                'price' => (string) ($variant['msrp'] ?? '0.00'),
 
-                'price' =>
-                    (string) (
-                        $variant['price']
-                        ?? '0.00'
-                    ),
+                'barcode' => $variant['upc'] ?? null,
 
-                'compare_at_price' =>
-                    isset(
-                        $variant[
-                            'compare_at_price'
-                        ]
-                    )
-                        ? (string)
-                            $variant[
-                                'compare_at_price'
-                            ]
-                        : null,
+                'units' => $variant['units'] ?? null,
 
-                'barcode' =>
-                    $variant[
-                        'barcode'
-                    ] ?? null,
+                'unit_of_measure' => $variant['unit_of_measure'] ?? null,
 
-                'quantity' =>
-                    isset(
-                        $variant[
-                            'quantity'
-                        ]
-                    )
-                        ? (int)
-                            $variant[
-                                'quantity'
-                            ]
-                        : null,
+                'availability' => $variant['availability'] ?? null,
+
+                'status' => $variant['status'] ?? null,
+
+                'supplier_sku' => $variant['supplier_sku'] ?? null,
+
+                'primary' => (bool) ($variant['primary'] ?? false),
+
+                // Fullscript does not provide inventory quantity here.
+                'quantity' => null,
             ];
         }
 
