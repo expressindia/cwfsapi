@@ -13,42 +13,22 @@ class ShopifyGraphQLService
 
     public function __construct()
     {
-        $this->storeDomain =
-            (string) config(
-                'shopify.store_domain'
-            );
+        $this->storeDomain = (string) config( 'shopify.store_domain' );
 
-        $this->apiVersion =
-            (string) config(
-                'shopify.api_version',
-                '2026-07'
-            );
+        $this->apiVersion = (string) config( 'shopify.api_version', '2026-07' );
 
-        $this->accessToken =
-            (string) config(
-                'shopify.access_token'
-            );
+        $this->accessToken = (string) config( 'shopify.access_token' );
 
-        if (
-            empty($this->storeDomain) ||
-            empty($this->accessToken)
-        ) {
+        if ( empty($this->storeDomain) || empty($this->accessToken) ) {
             throw new RuntimeException(
                 'Shopify credentials are not configured.'
             );
         }
     }
 
-    public function execute(
-        string $query,
-        array $variables = []
-    ): array {
+    public function execute( string $query, array $variables = [] ): array {
 
-        $url = sprintf(
-            'https://%s/admin/api/%s/graphql.json',
-            $this->storeDomain,
-            $this->apiVersion
-        );
+        $url = sprintf( 'https://%s/admin/api/%s/graphql.json', $this->storeDomain, $this->apiVersion );
 
         $response = Http::timeout(60)
             ->retry(
@@ -56,17 +36,8 @@ class ShopifyGraphQLService
                 1000,
                 throw: false
             )
-            ->withHeaders([
-                'Content-Type' =>
-                    'application/json',
-
-                'X-Shopify-Access-Token' =>
-                    $this->accessToken,
-            ])
-            ->post($url, [
-                'query' => $query,
-                'variables' => $variables,
-            ]);
+            ->withHeaders([ 'Content-Type' => 'application/json', 'X-Shopify-Access-Token' => $this->accessToken, ])
+            ->post($url, [ 'query' => $query, 'variables' => $variables, ]);
 
         if (!$response->successful()) {
             throw new RuntimeException(

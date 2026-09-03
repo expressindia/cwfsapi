@@ -25,7 +25,7 @@ class SyncFullscriptProductJob implements ShouldQueue
         300,
     ];
 
-    public function __construct( public string $productId ) {
+    public function __construct( public string $productId, public ?string $imageUrl = null ) {
     }
 
     public function handle( FullscriptProductService $fullscript, ProductSyncService $syncService ): void 
@@ -45,6 +45,10 @@ class SyncFullscriptProductJob implements ShouldQueue
                 "Fullscript product {$this->productId} not found."
             );
         }
+        if ($this->imageUrl) {
+            $product['image_url_large'] = $this->imageUrl;
+        }
+        
         // Now send complete product to sync service
         $syncService->sync($product);
     }

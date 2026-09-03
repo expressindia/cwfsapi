@@ -19,7 +19,6 @@ class ProductSyncService
     {
 
         $product = $this->transformer->transform( $fullscriptProduct );
-        
 
         $fullscriptProductId = $product[ 'fullscript_product_id' ];
 
@@ -37,9 +36,9 @@ class ProductSyncService
             | Look for existing Shopify product using SKU.
             |--------------------------------------------------------------------------
             */
-
+            
             $existingShopifyProduct = $this->findExistingProduct( $product );
-
+            
             /*
             |--------------------------------------------------------------------------
             | STEP 2
@@ -185,6 +184,7 @@ class ProductSyncService
     }
 
     protected function findExistingProduct( array $product ): ?array {
+        
 
         foreach ( $product['variants'] as $variant ) {
 

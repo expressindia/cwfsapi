@@ -6,17 +6,13 @@ use RuntimeException;
 
 class ShopifyProductService
 {
-    public function __construct(
-        protected ShopifyGraphQLService $graphql
-    ) {
+    public function __construct( protected ShopifyGraphQLService $graphql ) {
     }
 
     /**
      * Get a Shopify product by ID.
      */
-    public function getProduct(
-        string $productId
-    ): ?array {
+    public function getProduct( string $productId ): ?array {
 
         $query = <<<'GRAPHQL'
 query GetProduct($id: ID!) {
@@ -61,45 +57,38 @@ GRAPHQL;
     /**
      * Find Shopify product variant by SKU.
      */
-    public function findProductBySku(
-        string $sku
-    ): ?array {
+    public function findProductBySku( string $sku ): ?array 
+    {
 
         $query = <<<'GRAPHQL'
-query SearchVariants($query: String!) {
-    productVariants(
-        first: 10,
-        query: $query
-    ) {
-        nodes {
-            id
-            sku
+        query SearchVariants($query: String!) {
+            productVariants(
+                first: 10,
+                query: $query
+            ) {
+                nodes {
+                    id
+                    sku
 
-            product {
-                id
-                title
-                handle
-                status
-            }
+                    product {
+                        id
+                        title
+                        handle
+                        status
+                    }
 
-            inventoryItem {
-                id
-                sku
+                    inventoryItem {
+                        id
+                        sku
+                    }
+                }
             }
         }
-    }
-}
-GRAPHQL;
+        GRAPHQL;
 
-        $data = $this->graphql->execute(
-            $query,
-            [
-                'query' => 'sku:"' . addslashes($sku) . '"',
-            ]
-        );
+        $data = $this->graphql->execute( $query, [ 'query' => 'sku:"' . addslashes($sku) . '"', ] );
 
-        $variants =
-            $data['productVariants']['nodes'] ?? [];
+        $variants = $data['productVariants']['nodes'] ?? [];
 
         /*
         |--------------------------------------------------------------------------
@@ -109,11 +98,7 @@ GRAPHQL;
 
         foreach ($variants as $variant) {
 
-            if (
-                trim(
-                    (string) ($variant['sku'] ?? '')
-                ) === $sku
-            ) {
+            if ( trim( (string) ($variant['sku'] ?? '') ) === $sku ) {
                 return $variant;
             }
         }
@@ -124,26 +109,15 @@ GRAPHQL;
     /**
      * Create or update Shopify product.
      */
-    public function createOrUpdate(
-        array $product,
-        ?string $shopifyProductId = null
-    ): array {
+    public function createOrUpdate( array $product, ?string $shopifyProductId = null ): array {
 
         $input = [
-            'title' =>
-                $product['title'],
-
-            'descriptionHtml' =>
-                $product['description_html'] ?? '',
-
-            'vendor' =>
-                $product['vendor'] ?? 'Fullscript',
-
-            'productType' =>
-                $product['product_type'] ?? 'Supplement',
-
-            'status' =>
-                $product['status'] ?? 'ACTIVE',
+            'title' => $product['title'],
+            'descriptionHtml' => $product['description_html'] ?? '',
+            'vendor' => $product['vendor'] ?? 'Fullscript',
+            'productType' => $product['product_type'] ?? 'Supplement',
+            'status' => $product['status'] ?? 'ACTIVE',
+            'productOptions' => $product['product_options'] ?? [],
         ];
 
         /*
@@ -152,22 +126,49 @@ GRAPHQL;
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($product['handle'])) {
-            $input['handle'] =
-                $product['handle'];
+        if (!empty($product['handle'])) { 
+            $input['handle'] = $product['handle'];
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Product Images
+        |--------------------------------------------------------------------------
+        */
+        
+        // $files = $this->buildProductFiles($product);
+
+        // if (!empty($files)) {
+        //     $input['files'] = $files;
+        // }
+
+        
+        if (!empty($product['images'])) {
+            $input['files'] = [];
+
+            foreach ($product['images'] as $image) {
+                if (empty($image['url'])) {
+                    continue;
+                }
+
+                $input['files'][] = [
+                    'originalSource' => $image['url'],
+                    'alt' => $image['alt'] ?? $product['title'],
+                    'contentType' => 'IMAGE',
+                ];
+            }
+        }
         /*
         |--------------------------------------------------------------------------
         | Existing Shopify product
         |--------------------------------------------------------------------------
         */
 
-        if ($shopifyProductId) {
-            $input['id'] =
-                $shopifyProductId;
+        if ($shopifyProductId) { 
+            $input['id'] = $shopifyProductId;
         }
 
+        
         /*
         |--------------------------------------------------------------------------
         | Variants
@@ -178,19 +179,11 @@ GRAPHQL;
 
             $input['variants'] = [];
 
-            foreach (
-                $product['variants'] as $variant
-            ) {
+            foreach ( $product['variants'] as $variant ) {
 
-                $variantInput = [
-                    'sku' =>
-                        $variant['sku'],
+                $variantInput = [ 'sku' => $variant['sku'],
 
-                    'price' =>
-                        (string) (
-                            $variant['price']
-                            ?? '0.00'
-                        ),
+                    'price' => (string) (  $variant['price'] ?? '0.00' ),
 
                     /*
                     |--------------------------------------------------------------------------
@@ -200,8 +193,8 @@ GRAPHQL;
 
                     'optionValues' => [
                         [
-                            'optionName' => 'Title',
-                            'name' => 'Default Title',
+                            'optionName' => $variant['option_name'],
+                            'name' => $variant['option_value'],
                         ],
                     ],
                 ];
@@ -212,13 +205,8 @@ GRAPHQL;
                 |--------------------------------------------------------------------------
                 */
 
-                if (
-                    !empty(
-                        $variant['barcode']
-                    )
-                ) {
-                    $variantInput['barcode'] =
-                        $variant['barcode'];
+                if ( !empty( $variant['barcode'] ) ) {
+                    $variantInput['barcode'] = $variant['barcode'];
                 }
 
                 /*
@@ -232,22 +220,16 @@ GRAPHQL;
                 |
                 */
 
-                if (
-                    isset(
-                        $variant['compare_at_price']
-                    )
-                    &&
-                    $variant['compare_at_price'] !== null
-                ) {
-                    $variantInput['compareAtPrice'] =
-                        $variant['compare_at_price'];
+                if ( isset( $variant['compare_at_price'] ) && $variant['compare_at_price'] !== null ) {
+                    $variantInput['compareAtPrice'] =  $variant['compare_at_price'];
                 }
 
-                $input['variants'][] =
-                    $variantInput;
+                $input['variants'][] = $variantInput;
             }
         }
 
+
+        
         /*
         |--------------------------------------------------------------------------
         | Shopify GraphQL mutation
@@ -273,6 +255,14 @@ mutation ProductSet(
             productType
             descriptionHtml
 
+            media(first: 10) {
+                nodes {
+                    id
+                    alt
+                    mediaContentType
+                    status
+                }
+            }
             variants(first: 250) {
                 nodes {
                     id
@@ -298,6 +288,7 @@ mutation ProductSet(
     }
 }
 GRAPHQL;
+
 
         /*
         |--------------------------------------------------------------------------
@@ -327,8 +318,7 @@ GRAPHQL;
             ]
         );
 
-        $result =
-            $data['productSet'] ?? null;
+        $result = $data['productSet'] ?? null;
 
         if (!$result) {
             throw new RuntimeException(
@@ -342,17 +332,8 @@ GRAPHQL;
         |--------------------------------------------------------------------------
         */
 
-        if (
-            !empty(
-                $result['userErrors']
-            )
-        ) {
-            throw new RuntimeException(
-                json_encode(
-                    $result['userErrors'],
-                    JSON_PRETTY_PRINT
-                )
-            );
+        if ( !empty( $result['userErrors'] ) ) {
+            throw new RuntimeException( json_encode( $result['userErrors'], JSON_PRETTY_PRINT  ) );
         }
 
         /*
@@ -361,11 +342,7 @@ GRAPHQL;
         |--------------------------------------------------------------------------
         */
 
-        if (
-            empty(
-                $result['product']
-            )
-        ) {
+        if ( empty( $result['product'] ) ) {
             throw new RuntimeException(
                 'Shopify productSet did not return product.'
             );

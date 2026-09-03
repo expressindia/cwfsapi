@@ -45,7 +45,7 @@ class SyncFullscriptProducts extends Command
 
         foreach ( $products as $product ) {
 
-            SyncFullscriptProductJob::dispatch( $product['id'] );
+            SyncFullscriptProductJob::dispatch( $product['id'],$product['primary_variant']['image_url_large'] ?? null );
         }
 
         $this->info( count($products) . ' products queued.' );
