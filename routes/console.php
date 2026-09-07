@@ -13,3 +13,10 @@ app(Schedule::class)
     ->command('fullscript:refresh --if-expiring')
     ->everyFiveMinutes()
     ->withoutOverlapping();
+/*
+Need to add 
+app(Schedule::class)
+    ->command('fullscript:products-sync')
+    ->daily()
+    ->withoutOverlapping();
+*/

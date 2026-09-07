@@ -164,9 +164,9 @@ GRAPHQL;
         |--------------------------------------------------------------------------
         */
 
-        if ($shopifyProductId) { 
-            $input['id'] = $shopifyProductId;
-        }
+        // if ($shopifyProductId) { 
+        //     $input['id'] = $shopifyProductId;
+        // }
 
         
         /*
