@@ -25,4 +25,16 @@ return [
 
     'api_base_url' => env( 'FULLSCRIPT_API_BASE_URL', 'https://api-us-snd.fullscript.io/api' ),
 
+    'webhook' => [
+
+        'challenge_token' => env(
+            'FULLSCRIPT_WEBHOOK_CHALLENGE_TOKEN'
+        ),
+
+        'secret' => env(
+            'FULLSCRIPT_WEBHOOK_SECRET'
+        ),
+
+    ],
+    
 ];

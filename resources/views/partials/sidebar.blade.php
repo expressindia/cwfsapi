@@ -112,6 +112,7 @@
             Sync Logs
 
         </a>
+        <a href="{{ route('logs') }}" class="nav-link"> <i class="bi bi-clock-history"></i> App Logs  </a>
 
         <a href="#"
            class="nav-link">

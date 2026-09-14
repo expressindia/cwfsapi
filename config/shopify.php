@@ -10,14 +10,49 @@
 */
 
 return [
+    'shop' => env('SHOPIFY_SHOP'),
     'store_domain' => env('SHOPIFY_STORE_DOMAIN'),
     'access_token' => env('SHOPIFY_ACCESS_TOKEN'),
-    'store_domain' => env('SHOPIFY_STORE_DOMAIN'),
+    'api_version' => env( 'SHOPIFY_API_VERSION', '2026-07' ),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Shopify Webhook
+    |--------------------------------------------------------------------------
+    */
+
+    'webhook_secret' => env('SHOPIFY_WEBHOOK_SECRET'),
     /*
     |--------------------------------------------------------------------------
     | Inventory location
     |--------------------------------------------------------------------------
     */
-    'inventory_location_id' => env( 'SHOPIFY_INVENTORY_LOCATION_ID' )
+    'inventory_location_id' => env( 'SHOPIFY_INVENTORY_LOCATION_ID' ),
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Shopify Fulfillment Service
+    |--------------------------------------------------------------------------
+    */
+    
+
+
+    'fulfillment' => [
+
+        'service_name' => env(
+            'SHOPIFY_FULFILLMENT_SERVICE_NAME',
+            'FS-Warehouse'
+        ),
+        'callback_url' => env(
+            'SHOPIFY_FULFILLMENT_CALLBACK_URL'
+        ),
+
+        'location_id' => env(
+            'SHOPIFY_FULFILLMENT_LOCATION_ID'
+        ),
+
+    ],
+
 
 ];
