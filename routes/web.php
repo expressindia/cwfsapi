@@ -5,6 +5,7 @@ use App\Http\Controllers\FullscriptStatusController;
 use App\Http\Controllers\ShopifyWebhookController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LogController;
+use App\Http\Controllers\FullscriptWebhookController;
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/', function () {
@@ -43,8 +44,23 @@ Route::post('logs/clear', [LogController::class, 'clear'])
 /*
 |--------------------------------------------------------------------------
 |  Add webhook route 
+| Shopify webhook url
 |--------------------------------------------------------------------------
 */
-  
-Route::post( '/webhooks/shopify/fulfillment-request', [ ShopifyWebhookController::class, 'fulfillmentRequest' ]
-);
+Route::post( '/webhooks/shopify', [ ShopifyWebhookController::class, 'fulfillmentRequest' ]);
+
+/*
+|--------------------------------------------------------------------------
+|  Add webhook route 
+| Fullscrip webhook url
+|--------------------------------------------------------------------------
+*/
+Route::post( '/webhooks/fullscript', [ FullscriptWebhookController::class,  'handle' ]);
+// Route::match(
+//     ['get', 'post'],
+//     '/webhooks/fullscript',
+//     [
+//         FullscriptWebhookController::class,
+//         'handle'
+//     ]
+// );

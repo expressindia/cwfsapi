@@ -187,7 +187,7 @@
 
                                     <i class="bi bi-clock me-1"></i>
 
-                                    {{ $log['datetime'] }}
+                                    {{ \Carbon\Carbon::parse($log['datetime'])->format('M d, Y - h:i A') }}
 
                                 </small>
 
