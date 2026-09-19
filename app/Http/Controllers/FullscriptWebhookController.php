@@ -7,437 +7,347 @@ use App\Models\FulfillmentOrder;
 use App\Support\Webhook\FullscriptWebhookVerifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class FullscriptWebhookController extends Controller
 {
-    public function __construct(
-        protected FullscriptWebhookVerifier $webhookVerifier
-    ) {
-    }
-
+    /**
+     * Handle Fullscript webhook events.
+     */
     public function handle(Request $request)
     {
         $rawBody = $request->getContent();
-
         $signature = $request->header('Fullscript-Signature');
 
-        Log::info(
-            'Fullscript webhook received.',
-            [
-                'method' => $request->method(),
-                'path' => $request->path(),
-                'headers' => $request->headers->all(),
-                'query' => $request->query(),
-                'body' => $rawBody,
-            ]
-        );
+        Log::info('Fullscript webhook received.', [
+            'method' => $request->method(),
+            'url' => $request->fullUrl(),
+            'signature_present' => !empty($signature),
+            'body_length' => strlen($rawBody),
+        ]);
 
         /*
         |--------------------------------------------------------------------------
-        | Fullscript webhook registration verification
+        | Challenge / verification request
         |--------------------------------------------------------------------------
+        |
+        | Fullscript may send an empty-body request while registering/verifying
+        | the webhook endpoint.
+        |
         */
+        if (empty($rawBody)) {
+            $challengeToken = config('fullscript.webhook.challenge_token');
 
-        $challengeToken = config(
-            'fullscript.webhook.challenge_token'
-        );
-
-        if (blank($challengeToken)) {
-            Log::error(
-                'Fullscript webhook challenge token is not configured.'
-            );
-
-            return response()->json([
-                'error' => 'Webhook challenge token is not configured.',
-            ], 500);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fullscript sends an empty request during verification
-        |--------------------------------------------------------------------------
-        */
-
-        if (blank($rawBody)) {
-            Log::info(
-                'Fullscript webhook verification request received.'
-            );
+            Log::info('Fullscript webhook challenge request received.');
 
             return response()->json([
                 'challenge' => $challengeToken,
-            ], 200);
+            ]);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Verify Fullscript webhook signature
+        | Verify webhook signature
         |--------------------------------------------------------------------------
         */
-
-        if (! $this->webhookVerifier->verify(
-            $rawBody,
-            $signature
-        )) {
-            Log::warning(
-                'Invalid Fullscript webhook signature.',
-                [
-                    'signature_present' => filled($signature),
-                ]
+        try {
+            $verifier = new FullscriptWebhookVerifier();
+            $isValid = $verifier->verify(
+                $rawBody,
+                $signature
             );
+        } catch (Throwable $e) {
+            Log::error('Fullscript webhook signature verification exception.', [
+                'message' => $e->getMessage(),
+            ]);
 
             return response()->json([
-                'error' => 'Invalid webhook signature.',
+                'message' => 'Webhook verification failed.',
+            ], 401);
+        }
+
+        if (!$isValid) {
+            Log::warning('Invalid Fullscript webhook signature.');
+
+            return response()->json([
+                'message' => 'Invalid signature.',
             ], 401);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Decode webhook
+        | Decode webhook payload
         |--------------------------------------------------------------------------
         */
+        $payload = json_decode($rawBody, true);
 
-        $payload = json_decode(
-            $rawBody,
-            true
-        );
-
-        if (! is_array($payload)) {
-            Log::error(
-                'Fullscript webhook contains invalid JSON.'
-            );
+        if (!is_array($payload)) {
+            Log::error('Invalid Fullscript webhook JSON payload.', [
+                'body' => $rawBody,
+            ]);
 
             return response()->json([
-                'error' => 'Invalid JSON payload.',
+                'message' => 'Invalid JSON payload.',
             ], 400);
         }
 
+        Log::debug('Fullscript webhook payload decoded.', [
+            'payload' => $payload,
+        ]);
+
         /*
         |--------------------------------------------------------------------------
-        | Event
+        | Get event
         |--------------------------------------------------------------------------
         */
-
         $event = $payload['event'] ?? null;
 
-        if (! is_array($event)) {
-            Log::warning(
-                'Fullscript webhook event is missing.'
-            );
+        if (!is_array($event)) {
+            Log::warning('Fullscript webhook event is missing.', [
+                'payload' => $payload,
+            ]);
 
             return response()->json([
-                'success' => true,
+                'message' => 'Event not found.',
             ], 200);
         }
-
-        $eventId = $event['id'] ?? null;
 
         $eventType = $event['type'] ?? null;
+        $eventId = $event['id'] ?? null;
 
-        Log::info(
-            'Fullscript webhook event received.',
-            [
+        Log::info('Fullscript webhook event identified.', [
+            'event_id' => $eventId,
+            'event_type' => $eventType,
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | We only process shipment shipped events
+        |--------------------------------------------------------------------------
+        */
+        if ($eventType !== 'fulfillment.shipment.shipped') {
+            Log::info('Fullscript webhook event ignored.', [
                 'event_id' => $eventId,
                 'event_type' => $eventType,
-                'payload' => $payload,
-            ]
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | We only need shipment shipped events here
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $eventType !==
-            'fulfillment.shipment.shipped'
-        ) {
-            Log::info(
-                'Fullscript webhook event ignored.',
-                [
-                    'event_type' => $eventType,
-                ]
-            );
+            ]);
 
             return response()->json([
-                'success' => true,
+                'message' => 'Event ignored.',
             ], 200);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Shipment
+        | Get fulfillment shipment
         |--------------------------------------------------------------------------
+        |
+        | Actual Fullscript payload structure:
+        |
+        | event
+        |   └── data
+        |       └── fulfillment_shipment
+        |
         */
+        $shipment = $event['data']['fulfillment_shipment'] ?? null;
 
-        $shipment = $event['data']['fulfillment_shipment']
-            ?? null;
-
-        if (! is_array($shipment)) {
-            Log::error(
-                'Fullscript fulfillment shipment data is missing.',
-                [
-                    'event_id' => $eventId,
-                ]
-            );
+        if (!is_array($shipment)) {
+            Log::warning('Fullscript shipment data is missing.', [
+                'event_id' => $eventId,
+                'event_type' => $eventType,
+            ]);
 
             return response()->json([
-                'error' => 'Shipment data is missing.',
-            ], 400);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fullscript Order ID
-        |--------------------------------------------------------------------------
-        */
-
-        $fullscriptOrderId =
-            $shipment['order_id'] ?? null;
-
-        if (blank($fullscriptOrderId)) {
-            Log::error(
-                'Fullscript shipment does not contain order_id.',
-                [
-                    'event_id' => $eventId,
-                ]
-            );
-
-            return response()->json([
-                'error' => 'Fullscript order ID is missing.',
-            ], 400);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Find Shopify ↔ Fullscript mapping
-        |--------------------------------------------------------------------------
-        */
-
-        $fulfillmentOrder =
-            FulfillmentOrder::where(
-                'fullscript_order_id',
-                $fullscriptOrderId
-            )->first();
-
-        if (! $fulfillmentOrder) {
-            Log::warning(
-                'No Shopify fulfillment order found for Fullscript order.',
-                [
-                    'fullscript_order_id' =>
-                        $fullscriptOrderId,
-
-                    'event_id' =>
-                        $eventId,
-                ]
-            );
-
-            /*
-             * Return 200 so Fullscript doesn't continuously
-             * retry an order we don't know about.
-             */
-
-            return response()->json([
-                'success' => true,
+                'message' => 'Shipment data not found.',
             ], 200);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Prepare shipment data
+        | Get Fullscript order ID
+        |--------------------------------------------------------------------------
+        */
+        $fullscriptOrderId = $shipment['order_id'] ?? null;
+
+        if (empty($fullscriptOrderId)) {
+            Log::warning('Fullscript shipment does not contain order_id.', [
+                'event_id' => $eventId,
+                'shipment' => $shipment,
+            ]);
+
+            return response()->json([
+                'message' => 'Fullscript order ID not found.',
+            ], 200);
+        }
+
+        Log::info('Fullscript shipment identified.', [
+            'event_id' => $eventId,
+            'fullscript_order_id' => $fullscriptOrderId,
+            'shipment_number' => $shipment['number'] ?? null,
+            'state' => $shipment['state'] ?? null,
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find local fulfillment order
+        |--------------------------------------------------------------------------
+        */
+        $fulfillmentOrder = FulfillmentOrder::where(
+            'fullscript_order_id',
+            $fullscriptOrderId
+        )->first();
+
+        if (!$fulfillmentOrder) {
+            Log::warning('No local fulfillment order found for Fullscript order.', [
+                'event_id' => $eventId,
+                'fullscript_order_id' => $fullscriptOrderId,
+            ]);
+
+            return response()->json([
+                'message' => 'Fulfillment order not found.',
+            ], 200);
+        }
+
+        Log::info('Local fulfillment order found.', [
+            'event_id' => $eventId,
+            'fullscript_order_id' => $fullscriptOrderId,
+            'fulfillment_order_id' => $fulfillmentOrder->id,
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Extract shipment tracking information
         |--------------------------------------------------------------------------
         |
         | IMPORTANT:
-        | The actual Fullscript payload contains:
         |
-        | shipments[]
-        |     shipmentTracking[]
-        |         carrier
-        |         trackingNumber
+        | Fullscript sends the tracking information directly inside:
+        |
+        | event.data.fulfillment_shipment
+        |
+        | Example:
+        |
+        | "carrier": "UPS",
+        | "tracking_number": "TR6419441179e9ca1",
+        | "tracking_url": "https://www.ups.com/track..."
+        |
+        | Previously the code was looking for:
+        |
+        | payload.shipments[].shipmentTracking[]
+        |
+        | which does not exist in this webhook payload.
         |
         */
-
-        $shipments = $payload['shipments'] ?? [];
-
         $trackingData = [
             'event_id' => $eventId,
 
-            'shipment_number' =>
-                $shipment['number'] ?? null,
+            'shipment_number' => $shipment['number'] ?? null,
 
-            'state' =>
-                $shipment['state'] ?? null,
+            'state' => $shipment['state'] ?? null,
 
-            'shipped_at' =>
-                $shipment['shipped_at'] ?? null,
+            'shipped_at' => $shipment['shipped_at'] ?? null,
 
-            'delivered_at' =>
-                $shipment['delivered_at'] ?? null,
+            'delivered_at' => $shipment['delivered_at'] ?? null,
 
-            'tracking_url' =>
-                $shipment['tracking_url'] ?? null,
+            'tracking_url' => $shipment['tracking_url'] ?? null,
 
-            'carrier' => null,
+            'carrier' => $shipment['carrier'] ?? null,
 
-            'tracking_number' => null,
+            'tracking_number' => $shipment['tracking_number'] ?? null,
 
-            'order_shipment_state' =>
-                $shipment['order_shipment_state'] ?? null,
+            'order_shipment_state' => $shipment['order_shipment_state'] ?? null,
 
-            'shipped_skus' =>
-                $shipment['shipped_skus'] ?? [],
+            'shipped_skus' => $shipment['shipped_skus'] ?? [],
 
-            'shipments' => $shipments,
+            /*
+             * Keep this field for compatibility with the existing
+             * tracking_data structure.
+             */
+            'shipments' => [],
         ];
 
-        /*
-        |--------------------------------------------------------------------------
-        | Extract tracking information from actual Fullscript payload
-        |--------------------------------------------------------------------------
-        */
-
-        foreach ($shipments as $fullscriptShipment) {
-            $shipmentTrackings =
-                $fullscriptShipment['shipmentTracking'] ?? [];
-
-            foreach ($shipmentTrackings as $tracking) {
-                $carrier =
-                    $tracking['carrier'] ?? null;
-
-                $trackingNumber =
-                    $tracking['trackingNumber'] ?? null;
-
-                if (
-                    blank($carrier) &&
-                    blank($trackingNumber)
-                ) {
-                    continue;
-                }
-
-                /*
-                 * Store the first tracking number in the
-                 * main tracking fields.
-                 */
-                if (blank($trackingData['carrier'])) {
-                    $trackingData['carrier'] = $carrier;
-                }
-
-                if (blank($trackingData['tracking_number'])) {
-                    $trackingData['tracking_number'] =
-                        $trackingNumber;
-                }
-
-                Log::info(
-                    'Fullscript shipment tracking found.',
-                    [
-                        'fullscript_order_id' =>
-                            $fullscriptOrderId,
-
-                        'shipment_number' =>
-                            $fullscriptShipment['shipmentNumber']
-                            ?? null,
-
-                        'carrier' => $carrier,
-
-                        'tracking_number' =>
-                            $trackingNumber,
-
-                        'tracking_id' =>
-                            $tracking['id'] ?? null,
-                    ]
-                );
-            }
-        }
+        Log::info('Fullscript shipment tracking information extracted.', [
+            'event_id' => $eventId,
+            'fullscript_order_id' => $fullscriptOrderId,
+            'carrier' => $trackingData['carrier'],
+            'tracking_number' => $trackingData['tracking_number'],
+            'tracking_url' => $trackingData['tracking_url'],
+            'shipment_number' => $trackingData['shipment_number'],
+            'state' => $trackingData['state'],
+        ]);
 
         /*
         |--------------------------------------------------------------------------
-        | Save Fullscript shipment
+        | Save tracking data locally
         |--------------------------------------------------------------------------
         */
-
         $fulfillmentOrder->update([
             'tracking_data' => $trackingData,
             'status' => 'shipped',
         ]);
 
-        Log::info(
-            'Fullscript shipment saved.',
-            [
-                'fulfillment_order_id' =>
-                    $fulfillmentOrder->id,
-
-                'fullscript_order_id' =>
-                    $fullscriptOrderId,
-
-                'tracking_data' =>
-                    $trackingData,
-            ]
-        );
+        Log::info('Fullscript shipment saved.', [
+            'fulfillment_order_id' => $fulfillmentOrder->id,
+            'fullscript_order_id' => $fullscriptOrderId,
+            'tracking_data' => $trackingData,
+        ]);
 
         /*
         |--------------------------------------------------------------------------
         | Check tracking information
         |--------------------------------------------------------------------------
         */
-
-        $trackingNumber =
-            $trackingData['tracking_number'] ?? null;
-
-        $carrier =
-            $trackingData['carrier'] ?? null;
-
         if (
-            blank($trackingNumber) ||
-            blank($carrier)
+            empty($trackingData['tracking_number']) ||
+            empty($trackingData['carrier'])
         ) {
-            Log::info(
+            Log::warning(
                 'Fullscript shipment has no complete tracking information yet.',
                 [
-                    'fullscript_order_id' =>
-                        $fullscriptOrderId,
-
-                    'carrier' =>
-                        $carrier,
-
-                    'tracking_number' =>
-                        $trackingNumber,
+                    'event_id' => $eventId,
+                    'fullscript_order_id' => $fullscriptOrderId,
+                    'carrier' => $trackingData['carrier'],
+                    'tracking_number' => $trackingData['tracking_number'],
+                    'tracking_url' => $trackingData['tracking_url'],
                 ]
             );
 
             return response()->json([
-                'success' => true,
+                'message' => 'Shipment received but tracking information is incomplete.',
             ], 200);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Dispatch Shopify tracking update
+        | Dispatch job to update Shopify
         |--------------------------------------------------------------------------
+        |
+        | The ProcessFullscriptShipment job is responsible for taking the
+        | saved tracking information and updating the Shopify fulfillment.
+        |
         */
+        Log::info('Dispatching ProcessFullscriptShipment job.', [
+            'fulfillment_order_id' => $fulfillmentOrder->id,
+            'fullscript_order_id' => $fullscriptOrderId,
+            'carrier' => $trackingData['carrier'],
+            'tracking_number' => $trackingData['tracking_number'],
+        ]);
 
         ProcessFullscriptShipment::dispatch(
             $fulfillmentOrder->id
         );
 
-        Log::info(
-            'Fullscript shipment processing job dispatched.',
-            [
-                'fulfillment_order_id' =>
-                    $fulfillmentOrder->id,
+        Log::info('ProcessFullscriptShipment job dispatched.', [
+            'fulfillment_order_id' => $fulfillmentOrder->id,
+            'fullscript_order_id' => $fullscriptOrderId,
+        ]);
 
-                'fullscript_order_id' =>
-                    $fullscriptOrderId,
-
-                'carrier' =>
-                    $carrier,
-
-                'tracking_number' =>
-                    $trackingNumber,
-            ]
-        );
-
+        /*
+        |--------------------------------------------------------------------------
+        | Return success
+        |--------------------------------------------------------------------------
+        */
         return response()->json([
-            'success' => true,
+            'message' => 'Fullscript shipment processed successfully.',
         ], 200);
     }
 }

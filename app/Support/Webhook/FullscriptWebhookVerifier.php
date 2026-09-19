@@ -75,7 +75,13 @@ class FullscriptWebhookVerifier
             $signedPayload,
             $secret
         );
-
+        \Log::info('Fullscript signature debug', [
+    'raw_body_length' => strlen($rawBody),
+    'timestamp' => $timestamp,
+    'provided_signature' => $providedSignature,
+    'calculated_signature' => $calculatedSignature,
+    'secret_length' => strlen($secret),
+]);
         return hash_equals(
             $calculatedSignature,
             $providedSignature
