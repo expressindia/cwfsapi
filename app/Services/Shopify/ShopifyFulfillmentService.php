@@ -439,7 +439,16 @@ class ShopifyFulfillmentService
                 $orderData,
                 $fulfillmentOrderId
             );
+        /*
+        |--------------------------------------------------------------------------
+        | Accept Shopify Fulfillment Request
+        |--------------------------------------------------------------------------
+        */
 
+        $this->acceptFulfillmentRequest(
+            $fulfillmentOrderId,
+            'Fullscript fulfillment request accepted.'
+        );
         /*
         |--------------------------------------------------------------------------
         | Extract Fullscript Order ID
@@ -512,6 +521,369 @@ class ShopifyFulfillmentService
         return $fullscriptResult;
     }
 
+
+    /**
+ * Accept a Shopify fulfillment request.
+ */
+    public function acceptFulfillmentRequest(
+        string $fulfillmentOrderId,
+        ?string $message = null
+    ): array {
+        if (blank($fulfillmentOrderId)) {
+            throw new RuntimeException(
+                'Shopify fulfillment order ID is required.'
+            );
+        }
+
+        $mutation = <<<'GRAPHQL'
+        mutation FulfillmentOrderAcceptFulfillmentRequest(
+            $id: ID!
+            $message: String
+        ) {
+            fulfillmentOrderAcceptFulfillmentRequest(
+                id: $id
+                message: $message
+            ) {
+                fulfillmentOrder {
+                    id
+                    status
+                    requestStatus
+                }
+
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        GRAPHQL;
+
+        $variables = [
+            'id' => $fulfillmentOrderId,
+            'message' => $message,
+        ];
+
+        Log::info(
+            'Accepting Shopify fulfillment request.',
+            [
+                'shopify_fulfillment_order_id' => $fulfillmentOrderId,
+                'message' => $message,
+            ]
+        );
+
+        $data = $this->shopify->execute(
+            $mutation,
+            $variables
+        );
+
+        Log::info(
+            'Shopify fulfillment request acceptance response.',
+            [
+                'shopify_fulfillment_order_id' => $fulfillmentOrderId,
+                'response' => $data,
+            ]
+        );
+
+        $result =
+            $data['fulfillmentOrderAcceptFulfillmentRequest']
+            ?? null;
+
+        if (! $result) {
+            throw new RuntimeException(
+                'Shopify fulfillment request acceptance returned no result.'
+            );
+        }
+
+        if (! empty($result['userErrors'])) {
+            Log::error(
+                'Shopify fulfillment request acceptance returned user errors.',
+                [
+                    'shopify_fulfillment_order_id' => $fulfillmentOrderId,
+                    'user_errors' => $result['userErrors'],
+                ]
+            );
+
+            throw new RuntimeException(
+                'Shopify fulfillment request acceptance failed: ' .
+                json_encode(
+                    $result['userErrors'],
+                    JSON_PRETTY_PRINT
+                )
+            );
+        }
+
+        if (empty($result['fulfillmentOrder'])) {
+            throw new RuntimeException(
+                'Shopify fulfillment request acceptance did not return a fulfillment order.'
+            );
+        }
+
+        Log::info(
+            'Shopify fulfillment request successfully accepted.',
+            [
+                'shopify_fulfillment_order_id' => $fulfillmentOrderId,
+                'fulfillment_order' => $result['fulfillmentOrder'],
+            ]
+        );
+
+        return $result['fulfillmentOrder'];
+    }
+
+
+    /**
+     * Get line items for a Shopify fulfillment order.
+     */
+    public function getFulfillmentOrderLineItems(
+        string $fulfillmentOrderId
+    ): array {
+        if (blank($fulfillmentOrderId)) {
+            throw new RuntimeException(
+                'Shopify fulfillment order ID is required.'
+            );
+        }
+
+        $query = <<<'GRAPHQL'
+        query GetFulfillmentOrderLineItems($id: ID!) {
+            fulfillmentOrder(id: $id) {
+                id
+                lineItems(first: 100) {
+                    edges {
+                        node {
+                            id
+                            sku
+                            remainingQuantity
+                            totalQuantity
+                        }
+                    }
+                }
+            }
+        }
+        GRAPHQL;
+
+        $data = $this->shopify->execute(
+            $query,
+            [
+                'id' => $fulfillmentOrderId,
+            ]
+        );
+
+        $fulfillmentOrder =
+            $data['fulfillmentOrder'] ?? null;
+
+        if (! $fulfillmentOrder) {
+            throw new RuntimeException(
+                'Shopify fulfillment order not found: ' .
+                $fulfillmentOrderId
+            );
+        }
+
+        $lineItems = [];
+
+        foreach (
+            $fulfillmentOrder['lineItems']['edges'] ?? []
+            as $edge
+        ) {
+            $node = $edge['node'] ?? [];
+
+            if (blank($node['id'] ?? null)) {
+                continue;
+            }
+
+            $lineItems[] = [
+                'id' =>
+                    $node['id'],
+
+                'sku' =>
+                    $node['sku'] ?? null,
+
+                'remaining_quantity' =>
+                    (int) ($node['remainingQuantity'] ?? 0),
+
+                'total_quantity' =>
+                    (int) ($node['totalQuantity'] ?? 0),
+            ];
+        }
+
+        Log::info(
+            'Shopify fulfillment order line items retrieved.',
+            [
+                'shopify_fulfillment_order_id' =>
+                    $fulfillmentOrderId,
+
+                'line_items' =>
+                    $lineItems,
+            ]
+        );
+
+        return $lineItems;
+    }
+    /**
+     * Create a Shopify fulfillment for a fulfillment order.
+     *
+     * @param string $fulfillmentOrderId
+     * @param array $lineItems
+     * @param bool $notifyCustomer
+     * @return array
+     */
+    public function createFulfillment(
+        string $fulfillmentOrderId,
+        array $lineItems,
+        bool $notifyCustomer = true
+    ): array {
+        if (blank($fulfillmentOrderId)) {
+            throw new RuntimeException(
+                'Shopify fulfillment order ID is required.'
+            );
+        }
+
+        if (empty($lineItems)) {
+            throw new RuntimeException(
+                'Shopify fulfillment line items are required.'
+            );
+        }
+
+        $fulfillmentLineItems = [];
+
+        foreach ($lineItems as $lineItem) {
+            if (
+                blank($lineItem['id'] ?? null) ||
+                (int) ($lineItem['quantity'] ?? 0) <= 0
+            ) {
+                continue;
+            }
+
+            $fulfillmentLineItems[] = [
+                'id' => $lineItem['id'],
+                'quantity' => (int) $lineItem['quantity'],
+            ];
+        }
+
+        if (empty($fulfillmentLineItems)) {
+            throw new RuntimeException(
+                'No valid Shopify fulfillment line items were provided.'
+            );
+        }
+
+        $mutation = <<<'GRAPHQL'
+        mutation FulfillmentCreate($fulfillment: FulfillmentInput!) {
+            fulfillmentCreate(
+                fulfillment: $fulfillment
+            ) {
+                fulfillment {
+                    id
+                    status
+                    trackingInfo {
+                        company
+                        number
+                        url
+                    }
+                }
+
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        GRAPHQL;
+
+        $variables = [
+            'fulfillment' => [
+                'lineItemsByFulfillmentOrder' => [
+                    [
+                        'fulfillmentOrderId' => $fulfillmentOrderId,
+                        'fulfillmentOrderLineItems' =>
+                            $fulfillmentLineItems,
+                    ],
+                ],
+
+                'notifyCustomer' => $notifyCustomer,
+            ],
+        ];
+
+        Log::info(
+            'Creating Shopify fulfillment.',
+            [
+                'shopify_fulfillment_order_id' =>
+                    $fulfillmentOrderId,
+
+                'line_items' =>
+                    $fulfillmentLineItems,
+
+                'notify_customer' =>
+                    $notifyCustomer,
+            ]
+        );
+
+        $data = $this->shopify->execute(
+            $mutation,
+            $variables
+        );
+
+        Log::info(
+            'Shopify fulfillment creation GraphQL response.',
+            [
+                'shopify_fulfillment_order_id' =>
+                    $fulfillmentOrderId,
+
+                'response' =>
+                    $data,
+            ]
+        );
+
+        $result =
+            $data['fulfillmentCreate']
+            ?? null;
+
+        if (! $result) {
+            throw new RuntimeException(
+                'Shopify fulfillmentCreate returned no result.'
+            );
+        }
+
+        if (! empty($result['userErrors'])) {
+            Log::error(
+                'Shopify fulfillment creation returned user errors.',
+                [
+                    'shopify_fulfillment_order_id' =>
+                        $fulfillmentOrderId,
+
+                    'user_errors' =>
+                        $result['userErrors'],
+                ]
+            );
+
+            throw new RuntimeException(
+                'Shopify fulfillment creation failed: ' .
+                json_encode(
+                    $result['userErrors'],
+                    JSON_PRETTY_PRINT
+                )
+            );
+        }
+
+        if (empty($result['fulfillment'])) {
+            throw new RuntimeException(
+                'Shopify fulfillmentCreate did not return a fulfillment.'
+            );
+        }
+
+        Log::info(
+            'Shopify fulfillment successfully created.',
+            [
+                'shopify_fulfillment_order_id' =>
+                    $fulfillmentOrderId,
+
+                'shopify_fulfillment_id' =>
+                    $result['fulfillment']['id'] ?? null,
+
+                'fulfillment' =>
+                    $result['fulfillment'],
+            ]
+        );
+
+        return $result['fulfillment'];
+    }
     /*
     |--------------------------------------------------------------------------
     | Update Shopify Fulfillment Tracking
