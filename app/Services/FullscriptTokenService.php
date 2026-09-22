@@ -4,27 +4,30 @@ namespace App\Services;
 
 use App\Exceptions\FullscriptOAuthException;
 use App\Models\FullscriptToken;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class FullscriptTokenService
 {
     public function exchangeAuthorizationCode(string $code): FullscriptToken
-    {   
-        return $this->persistTokenResponse($this->tokenRequest([
-            'grant_type' => 'authorization_code',
-            'code' => $code,
-            'redirect_uri' => config('fullscript.redirect_uri'),
-        ]));
+    {
+        return $this->persistTokenResponse(
+            $this->tokenRequest([
+                'grant_type' => 'authorization_code',
+                'code' => $code,
+                'redirect_uri' => config('fullscript.redirect_uri'),
+            ])
+        );
     }
 
     public function refreshIfNeeded(bool $force = false): ?FullscriptToken
     {
         $token = FullscriptToken::find(1);
-        //dd($token);
 
-        if ($token === null || (! $force && ! $token->expiresSoon(config('fullscript.refresh_leeway_seconds')))) {
+        if ( $token === null || ( ! $force && ! $token->expiresSoon( config('fullscript.refresh_leeway_seconds') ) ) ) {
             return $token;
         }
 
@@ -36,7 +39,9 @@ class FullscriptTokenService
         $token = $this->refreshIfNeeded();
 
         if ($token === null || blank($token->access_token)) {
-            throw new FullscriptOAuthException('Fullscript is not connected. Visit /fullscript/connect first.');
+            throw new FullscriptOAuthException(
+                'Fullscript is not connected. Visit /fullscript/connect first.'
+            );
         }
 
         return $token->access_token;
@@ -44,33 +49,64 @@ class FullscriptTokenService
 
     private function refresh(FullscriptToken $token): FullscriptToken
     {
-        
         if (blank($token->refresh_token)) {
-            throw new FullscriptOAuthException('The stored Fullscript token has no refresh token. Reconnect Fullscript.');
+            throw new FullscriptOAuthException(
+                'The stored Fullscript token has no refresh token. Reconnect Fullscript.'
+            );
         }
 
-        return $this->persistTokenResponse($this->tokenRequest([
-            'grant_type' => 'refresh_token',
-            'refresh_token' => $token->refresh_token,
-        ]), $token);
+        return $this->persistTokenResponse(
+            $this->tokenRequest([
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $token->refresh_token,
+            ]),
+            $token
+        );
     }
 
     private function tokenRequest(array $payload): array
     {
         $this->ensureConfigured();
 
-        $response = Http::asForm()
-            ->acceptJson()
-            ->timeout(15)
-            ->post(
-                config('fullscript.token_url'),
-                array_merge($payload, [
-                    'client_id' => config('fullscript.client_id'),
-                    'client_secret' => config('fullscript.client_secret'),
-                ])
+        $tokenUrl = config('fullscript.token_url');
+
+        try {
+            $response = Http::asForm()
+                ->acceptJson()
+                ->timeout(30)
+                ->retry(
+                    3,
+                    1000,
+                    function (\Throwable $exception) {
+                        return $exception instanceof ConnectionException;
+                    }
+                )
+                ->post(
+                    $tokenUrl,
+                    array_merge($payload, [
+                        'client_id' => config('fullscript.client_id'),
+                        'client_secret' => config('fullscript.client_secret'),
+                    ])
+                );
+        } catch (ConnectionException $e) {
+            Log::error('Fullscript OAuth connection failed after retries.', [
+                'url' => $tokenUrl,
+                'message' => $e->getMessage(),
+            ]);
+
+            throw new FullscriptOAuthException(
+                'Unable to connect to Fullscript OAuth server. '
+                . 'Please try again later.'
             );
+        }
 
         if ($response->failed()) {
+            Log::error('Fullscript OAuth request returned an error.', [
+                'status' => $response->status(),
+                'url' => $tokenUrl,
+                'response' => $response->json(),
+            ]);
+
             throw new FullscriptOAuthException(
                 $this->responseMessage($response)
             );
@@ -78,10 +114,17 @@ class FullscriptTokenService
 
         $data = $response->json();
 
-        // Fullscript wraps the OAuth response inside "oauth"
+        // Fullscript wraps the OAuth response inside "oauth".
         $oauth = $data['oauth'] ?? null;
 
-        if (! is_array($oauth) || blank($oauth['access_token'] ?? null)) {
+        if (
+            ! is_array($oauth) ||
+            blank($oauth['access_token'] ?? null)
+        ) {
+            Log::error('Fullscript returned an invalid OAuth response.', [
+                'response' => $data,
+            ]);
+
             throw new FullscriptOAuthException(
                 'Fullscript returned a token response without an access token.'
             );
@@ -90,19 +133,27 @@ class FullscriptTokenService
         return $oauth;
     }
 
-    private function persistTokenResponse(array $data, ?FullscriptToken $token = null): FullscriptToken
-    {
-
+    private function persistTokenResponse(
+        array $data,
+        ?FullscriptToken $token = null
+    ): FullscriptToken {
         $token ??= FullscriptToken::firstOrNew(['id' => 1]);
-        $expiresIn = max(1, (int) ($data['expires_in'] ?? 7200));
+
+        $expiresIn = max(
+            1,
+            (int) ($data['expires_in'] ?? 7200)
+        );
 
         $token->fill([
             'access_token' => $data['access_token'],
-            'refresh_token' => $data['refresh_token'] ?? $token->refresh_token,
+            'refresh_token' => $data['refresh_token']
+                ?? $token->refresh_token,
             'token_type' => $data['token_type'] ?? 'Bearer',
-            'scope' => $data['scope'] ?? config('fullscript.scope'),
+            'scope' => $data['scope']
+                ?? config('fullscript.scope'),
             'expires_at' => Carbon::now()->addSeconds($expiresIn),
         ]);
+
         $token->save();
 
         return $token;
@@ -110,14 +161,25 @@ class FullscriptTokenService
 
     private function ensureConfigured(): void
     {
-        if (blank(config('fullscript.client_id')) || blank(config('fullscript.client_secret'))) {
-            throw new FullscriptOAuthException('Set FULLSCRIPT_CLIENT_ID and FULLSCRIPT_CLIENT_SECRET before connecting.');
+        if (
+            blank(config('fullscript.client_id')) ||
+            blank(config('fullscript.client_secret'))
+        ) {
+            throw new FullscriptOAuthException(
+                'Set FULLSCRIPT_CLIENT_ID and FULLSCRIPT_CLIENT_SECRET before connecting.'
+            );
         }
     }
 
     private function responseMessage(Response $response): string
     {
-        return 'Fullscript token request failed (HTTP '.$response->status().'): '
-            .($response->json('error_description') ?: $response->json('error') ?: 'unknown error');
+        return 'Fullscript token request failed (HTTP '
+            . $response->status()
+            . '): '
+            . (
+                $response->json('error_description')
+                ?: $response->json('error')
+                ?: 'unknown error'
+            );
     }
 }
