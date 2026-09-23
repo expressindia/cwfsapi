@@ -120,9 +120,6 @@ class ProcessFullscriptShipment implements ShouldQueue
         | Example:
         | gid://shopify/FulfillmentOrder/8321819967559
         |
-        | We use this ID to retrieve the line items and create
-        | the Shopify Fulfillment.
-        |
         */
 
         $shopifyFulfillmentOrderId =
@@ -146,249 +143,24 @@ class ProcessFullscriptShipment implements ShouldQueue
 
         /*
         |--------------------------------------------------------------------------
-        | Validate shipped SKUs
-        |--------------------------------------------------------------------------
-        */
-
-        if (empty($shippedSkus)) {
-            Log::warning(
-                'Fullscript shipment contains no shipped SKUs. Shopify fulfillment skipped.',
-                [
-                    'fulfillment_order_id' =>
-                        $fulfillmentOrder->id,
-
-                    'fullscript_order_id' =>
-                        $fulfillmentOrder->fullscript_order_id,
-
-                    'shipment_number' =>
-                        $trackingData['shipment_number'] ?? null,
-                ]
-            );
-
-            return;
-        }
-
-        Log::info(
-            'Processing Fullscript shipment.',
-            [
-                'fulfillment_order_id' =>
-                    $fulfillmentOrder->id,
-
-                'shopify_fulfillment_order_id' =>
-                    $shopifyFulfillmentOrderId,
-
-                'fullscript_order_id' =>
-                    $fulfillmentOrder->fullscript_order_id,
-
-                'carrier' =>
-                    $carrier,
-
-                'tracking_number' =>
-                    $trackingNumber,
-
-                'tracking_url' =>
-                    $trackingUrl,
-
-                'shipped_skus' =>
-                    $shippedSkus,
-            ]
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Get Shopify FulfillmentOrder line items
-        |--------------------------------------------------------------------------
-        */
-
-        $shopifyLineItems =
-            $shopifyFulfillmentService->getFulfillmentOrderLineItems(
-                $shopifyFulfillmentOrderId
-            );
-
-        if (empty($shopifyLineItems)) {
-            Log::warning(
-                'No Shopify fulfillment order line items found.',
-                [
-                    'fulfillment_order_id' =>
-                        $fulfillmentOrder->id,
-
-                    'shopify_fulfillment_order_id' =>
-                        $shopifyFulfillmentOrderId,
-                ]
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Match Fullscript shipped SKUs with Shopify line items
-        |--------------------------------------------------------------------------
-        */
-
-        $fulfillmentLineItems = [];
-
-        foreach ($shippedSkus as $shippedSku) {
-            $sku =
-                $shippedSku['sku']
-                ?? null;
-
-            $shippedQuantity =
-                (int) (
-                    $shippedSku['quantity']
-                    ?? 0
-                );
-
-            if (
-                blank($sku) ||
-                $shippedQuantity <= 0
-            ) {
-                continue;
-            }
-
-            foreach ($shopifyLineItems as $shopifyLineItem) {
-                $shopifySku =
-                    $shopifyLineItem['sku']
-                    ?? null;
-
-                if (
-                    blank($shopifySku) ||
-                    $shopifySku !== $sku
-                ) {
-                    continue;
-                }
-
-                $remainingQuantity =
-                    (int) (
-                        $shopifyLineItem['remaining_quantity']
-                        ?? 0
-                    );
-
-                if ($remainingQuantity <= 0) {
-                    continue;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | Never fulfill more than Shopify allows
-                |--------------------------------------------------------------------------
-                */
-
-                $quantity =
-                    min(
-                        $shippedQuantity,
-                        $remainingQuantity
-                    );
-
-                if ($quantity <= 0) {
-                    continue;
-                }
-
-                $fulfillmentLineItems[] = [
-                    'id' =>
-                        $shopifyLineItem['id'],
-
-                    'quantity' =>
-                        $quantity,
-                ];
-
-                Log::info(
-                    'Matched Fullscript SKU with Shopify fulfillment line item.',
-                    [
-                        'sku' =>
-                            $sku,
-
-                        'fullscript_quantity' =>
-                            $shippedQuantity,
-
-                        'shopify_remaining_quantity' =>
-                            $remainingQuantity,
-
-                        'fulfillment_quantity' =>
-                            $quantity,
-
-                        'shopify_line_item_id' =>
-                            $shopifyLineItem['id'],
-                    ]
-                );
-
-                break;
-            }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Validate matched line items
-        |--------------------------------------------------------------------------
-        */
-
-        if (empty($fulfillmentLineItems)) {
-            Log::warning(
-                'No valid Shopify line items matched Fullscript shipped SKUs.',
-                [
-                    'fulfillment_order_id' =>
-                        $fulfillmentOrder->id,
-
-                    'shopify_fulfillment_order_id' =>
-                        $shopifyFulfillmentOrderId,
-
-                    'shipped_skus' =>
-                        $shippedSkus,
-
-                    'shopify_line_items' =>
-                        $shopifyLineItems,
-                ]
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Create Shopify Fulfillment
-        |--------------------------------------------------------------------------
-        */
-
-        Log::info(
-            'Creating Shopify fulfillment.',
-            [
-                'fulfillment_order_id' =>
-                    $fulfillmentOrder->id,
-
-                'shopify_fulfillment_order_id' =>
-                    $shopifyFulfillmentOrderId,
-
-                'line_items' =>
-                    $fulfillmentLineItems,
-            ]
-        );
-
-        $shopifyFulfillment =
-            $shopifyFulfillmentService->createFulfillment(
-                $shopifyFulfillmentOrderId,
-                $fulfillmentLineItems,
-                true
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Get Shopify Fulfillment ID
+        | Existing Shopify Fulfillment
         |--------------------------------------------------------------------------
         |
-        | This is different from the FulfillmentOrder ID.
+        | If the Shopify Fulfillment was already created by a previous
+        | attempt, do NOT create another one.
         |
-        | Example:
-        | gid://shopify/Fulfillment/6564809244743
+        | We continue processing because the previous attempt may have
+        | created the fulfillment but failed while updating tracking.
         |
         */
 
         $shopifyFulfillmentId =
-            $shopifyFulfillment['id']
+            $fulfillmentOrder->shopify_fulfillment_id
             ?? null;
 
-        if (blank($shopifyFulfillmentId)) {
-            Log::error(
-                'Shopify fulfillment was created but no fulfillment ID was returned.',
+        if (filled($shopifyFulfillmentId)) {
+            Log::info(
+                'Shopify fulfillment already exists. Skipping fulfillment creation.',
                 [
                     'fulfillment_order_id' =>
                         $fulfillmentOrder->id,
@@ -396,41 +168,308 @@ class ProcessFullscriptShipment implements ShouldQueue
                     'shopify_fulfillment_order_id' =>
                         $shopifyFulfillmentOrderId,
 
-                    'shopify_response' =>
-                        $shopifyFulfillment,
+                    'shopify_fulfillment_id' =>
+                        $shopifyFulfillmentId,
+
+                    'fullscript_order_id' =>
+                        $fulfillmentOrder->fullscript_order_id,
                 ]
             );
-
-            return;
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Save Shopify Fulfillment ID
+        | Create Shopify Fulfillment if it does not already exist
         |--------------------------------------------------------------------------
         */
 
-        $fulfillmentOrder->update([
-            'shopify_fulfillment_id' =>
-                $shopifyFulfillmentId,
-        ]);
+        if (blank($shopifyFulfillmentId)) {
+            /*
+            |--------------------------------------------------------------------------
+            | Validate shipped SKUs
+            |--------------------------------------------------------------------------
+            */
 
-        Log::info(
-            'Shopify fulfillment created successfully.',
-            [
-                'fulfillment_order_id' =>
-                    $fulfillmentOrder->id,
+            if (empty($shippedSkus)) {
+                Log::warning(
+                    'Fullscript shipment contains no shipped SKUs. Shopify fulfillment skipped.',
+                    [
+                        'fulfillment_order_id' =>
+                            $fulfillmentOrder->id,
 
-                'shopify_fulfillment_order_id' =>
+                        'fullscript_order_id' =>
+                            $fulfillmentOrder->fullscript_order_id,
+
+                        'shipment_number' =>
+                            $trackingData['shipment_number'] ?? null,
+                    ]
+                );
+
+                return;
+            }
+
+            Log::info(
+                'Processing Fullscript shipment.',
+                [
+                    'fulfillment_order_id' =>
+                        $fulfillmentOrder->id,
+
+                    'shopify_fulfillment_order_id' =>
+                        $shopifyFulfillmentOrderId,
+
+                    'fullscript_order_id' =>
+                        $fulfillmentOrder->fullscript_order_id,
+
+                    'carrier' =>
+                        $carrier,
+
+                    'tracking_number' =>
+                        $trackingNumber,
+
+                    'tracking_url' =>
+                        $trackingUrl,
+
+                    'shipped_skus' =>
+                        $shippedSkus,
+                ]
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Get Shopify FulfillmentOrder line items
+            |--------------------------------------------------------------------------
+            */
+
+            $shopifyLineItems =
+                $shopifyFulfillmentService->getFulfillmentOrderLineItems(
+                    $shopifyFulfillmentOrderId
+                );
+
+            if (empty($shopifyLineItems)) {
+                Log::warning(
+                    'No Shopify fulfillment order line items found.',
+                    [
+                        'fulfillment_order_id' =>
+                            $fulfillmentOrder->id,
+
+                        'shopify_fulfillment_order_id' =>
+                            $shopifyFulfillmentOrderId,
+                    ]
+                );
+
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Match Fullscript shipped SKUs with Shopify line items
+            |--------------------------------------------------------------------------
+            */
+
+            $fulfillmentLineItems = [];
+
+            foreach ($shippedSkus as $shippedSku) {
+                $sku =
+                    $shippedSku['sku']
+                    ?? null;
+
+                $shippedQuantity =
+                    (int) (
+                        $shippedSku['quantity']
+                        ?? 0
+                    );
+
+                if (
+                    blank($sku) ||
+                    $shippedQuantity <= 0
+                ) {
+                    continue;
+                }
+
+                foreach ($shopifyLineItems as $shopifyLineItem) {
+                    $shopifySku =
+                        $shopifyLineItem['sku']
+                        ?? null;
+
+                    if (
+                        blank($shopifySku) ||
+                        $shopifySku !== $sku
+                    ) {
+                        continue;
+                    }
+
+                    $remainingQuantity =
+                        (int) (
+                            $shopifyLineItem['remaining_quantity']
+                            ?? 0
+                        );
+
+                    if ($remainingQuantity <= 0) {
+                        continue;
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Never fulfill more than Shopify allows
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $quantity =
+                        min(
+                            $shippedQuantity,
+                            $remainingQuantity
+                        );
+
+                    if ($quantity <= 0) {
+                        continue;
+                    }
+
+                    $fulfillmentLineItems[] = [
+                        'id' =>
+                            $shopifyLineItem['id'],
+
+                        'quantity' =>
+                            $quantity,
+                    ];
+
+                    Log::info(
+                        'Matched Fullscript SKU with Shopify fulfillment line item.',
+                        [
+                            'sku' =>
+                                $sku,
+
+                            'fullscript_quantity' =>
+                                $shippedQuantity,
+
+                            'shopify_remaining_quantity' =>
+                                $remainingQuantity,
+
+                            'fulfillment_quantity' =>
+                                $quantity,
+
+                            'shopify_line_item_id' =>
+                                $shopifyLineItem['id'],
+                        ]
+                    );
+
+                    break;
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Validate matched line items
+            |--------------------------------------------------------------------------
+            */
+
+            if (empty($fulfillmentLineItems)) {
+                Log::warning(
+                    'No valid Shopify line items matched Fullscript shipped SKUs.',
+                    [
+                        'fulfillment_order_id' =>
+                            $fulfillmentOrder->id,
+
+                        'shopify_fulfillment_order_id' =>
+                            $shopifyFulfillmentOrderId,
+
+                        'shipped_skus' =>
+                            $shippedSkus,
+
+                        'shopify_line_items' =>
+                            $shopifyLineItems,
+                    ]
+                );
+
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Create Shopify Fulfillment
+            |--------------------------------------------------------------------------
+            */
+
+            Log::info(
+                'Creating Shopify fulfillment.',
+                [
+                    'fulfillment_order_id' =>
+                        $fulfillmentOrder->id,
+
+                    'shopify_fulfillment_order_id' =>
+                        $shopifyFulfillmentOrderId,
+
+                    'line_items' =>
+                        $fulfillmentLineItems,
+                ]
+            );
+
+            $shopifyFulfillment =
+                $shopifyFulfillmentService->createFulfillment(
                     $shopifyFulfillmentOrderId,
+                    $fulfillmentLineItems,
+                    true
+                );
 
+            /*
+            |--------------------------------------------------------------------------
+            | Get Shopify Fulfillment ID
+            |--------------------------------------------------------------------------
+            |
+            | Example:
+            | gid://shopify/Fulfillment/6564809244743
+            |
+            */
+
+            $shopifyFulfillmentId =
+                $shopifyFulfillment['id']
+                ?? null;
+
+            if (blank($shopifyFulfillmentId)) {
+                Log::error(
+                    'Shopify fulfillment was created but no fulfillment ID was returned.',
+                    [
+                        'fulfillment_order_id' =>
+                            $fulfillmentOrder->id,
+
+                        'shopify_fulfillment_order_id' =>
+                            $shopifyFulfillmentOrderId,
+
+                        'shopify_response' =>
+                            $shopifyFulfillment,
+                    ]
+                );
+
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Save Shopify Fulfillment ID
+            |--------------------------------------------------------------------------
+            */
+
+            $fulfillmentOrder->update([
                 'shopify_fulfillment_id' =>
                     $shopifyFulfillmentId,
+            ]);
 
-                'fullscript_order_id' =>
-                    $fulfillmentOrder->fullscript_order_id,
-            ]
-        );
+            Log::info(
+                'Shopify fulfillment created successfully.',
+                [
+                    'fulfillment_order_id' =>
+                        $fulfillmentOrder->id,
+
+                    'shopify_fulfillment_order_id' =>
+                        $shopifyFulfillmentOrderId,
+
+                    'shopify_fulfillment_id' =>
+                        $shopifyFulfillmentId,
+
+                    'fullscript_order_id' =>
+                        $fulfillmentOrder->fullscript_order_id,
+                ]
+            );
+        }
 
         /*
         |--------------------------------------------------------------------------
