@@ -37,6 +37,12 @@ class ShopifyAuth
 
         if (!$result['ok']) {
 
+            \Log::error('Shopify App Home authentication failed', [
+                'result' => $result,
+                'request_url' => $request->fullUrl(),
+                'request_headers' => $request->headers->all(),
+            ]);
+
             $shopifyResponse = $result['response'];
 
             return response(
