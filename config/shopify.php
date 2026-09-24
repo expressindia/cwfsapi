@@ -12,6 +12,8 @@
 return [
     'shop' => env('SHOPIFY_SHOP'),
     'store_domain' => env('SHOPIFY_STORE_DOMAIN'),
+    'client_id' => env('SHOPIFY_API_KEY'),
+    'client_secret' => env('SHOPIFY_API_SECRET'),
     'access_token' => env('SHOPIFY_ACCESS_TOKEN'),
     'api_version' => env( 'SHOPIFY_API_VERSION', '2026-07' ),
 
@@ -40,17 +42,9 @@ return [
 
     'fulfillment' => [
 
-        'service_name' => env(
-            'SHOPIFY_FULFILLMENT_SERVICE_NAME',
-            'FS-Warehouse'
-        ),
-        'callback_url' => env(
-            'SHOPIFY_FULFILLMENT_CALLBACK_URL'
-        ),
-
-        'location_id' => env(
-            'SHOPIFY_FULFILLMENT_LOCATION_ID'
-        ),
+        'service_name' => env( 'SHOPIFY_FULFILLMENT_SERVICE_NAME', 'FS-Warehouse' ),
+        'callback_url' => env( 'SHOPIFY_FULFILLMENT_CALLBACK_URL' ),
+        'location_id' => env( 'SHOPIFY_FULFILLMENT_LOCATION_ID' ),
 
     ],
 

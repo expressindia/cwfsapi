@@ -115,6 +115,39 @@ class FullscriptWebhookController extends Controller
         $eventType = $event['type'] ?? null;
         $eventId = $event['id'] ?? null;
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent duplicate webhook processing
+        |--------------------------------------------------------------------------
+        */
+
+        if (blank($eventId)) {
+            Log::warning('Fullscript webhook event ID is missing.', [
+                'event_type' => $eventType,
+            ]);
+
+            return response()->json([
+                'message' => 'Event ID is required.',
+            ], 200);
+        }
+
+        $alreadyProcessed = FulfillmentOrder::where(
+            'fullscript_event_id',
+            $eventId
+        )->exists();
+
+        if ($alreadyProcessed) {
+            Log::info('Fullscript webhook event already processed. Ignoring duplicate.', [
+                'event_id' => $eventId,
+                'event_type' => $eventType,
+            ]);
+
+            return response()->json([
+                'message' => 'Event already processed.',
+            ], 200);
+        }
+
         Log::info('Fullscript webhook event identified.', [
             'event_id' => $eventId,
             'event_type' => $eventType,
@@ -281,6 +314,7 @@ class FullscriptWebhookController extends Controller
         |--------------------------------------------------------------------------
         */
         $fulfillmentOrder->update([
+            'fullscript_event_id' => $eventId,
             'tracking_data' => $trackingData,
             'status' => 'shipped',
         ]);
