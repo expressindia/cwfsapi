@@ -35,63 +35,53 @@ class ShopifyAuth
         |--------------------------------------------------------------------------
         */
 
-        if (!$result['ok']) {
+        if (!$result->ok) {
 
-            \Log::error('Shopify App Home authentication failed', [
-                'result' => $result,
-                'request_url' => $request->fullUrl(),
-                'request_headers' => $request->headers->all(),
+            \Log::warning('Shopify App Home authentication failed', [
+                'code' => $result->log->code ?? null,
+                'detail' => $result->log->detail ?? null,
             ]);
 
-            $shopifyResponse = $result['response'];
+            $shopifyResponse = $result->response;
 
             return response(
-                $shopifyResponse['body'],
-                $shopifyResponse['status']
+                $shopifyResponse->body,
+                $shopifyResponse->status
             )->withHeaders(
-                $shopifyResponse['headers'] ?? []
+                (array) $shopifyResponse->headers
             );
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Store authenticated Shopify information
+        | Authentication successful
         |--------------------------------------------------------------------------
         */
 
         $request->attributes->set(
             'shopify_shop',
-            $result['shop']
+            $result->shop
         );
 
         $request->attributes->set(
             'shopify_user_id',
-            $result['userId']
+            $result->userId
         );
 
         $request->attributes->set(
             'shopify_id_token',
-            $result['idToken']
+            $result->idToken
         );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Continue to Laravel controller
-        |--------------------------------------------------------------------------
-        */
 
         $response = $next($request);
 
         /*
         |--------------------------------------------------------------------------
-        | Preserve Shopify response headers
+        | Add Shopify App Home security headers
         |--------------------------------------------------------------------------
         */
 
-        foreach (
-            $result['response']['headers'] ?? []
-            as $header => $value
-        ) {
+        foreach ((array) ($result->response->headers ?? []) as $header => $value) {
             $response->headers->set($header, $value);
         }
 

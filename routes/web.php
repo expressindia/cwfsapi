@@ -20,29 +20,6 @@ use Illuminate\Support\Facades\Route;
 // Route::get('/', DashboardController::class)
 //     ->name('dashboard');
 
-Route::match(['GET', 'POST'], '/auth/patch-id-token', function (
-    \Illuminate\Http\Request $request
-) {
-    $shopify = app(\App\Services\Shopify\ShopifyAppService::class)->getApp();
-
-    $shopifyRequest = [
-        'method' => $request->method(),
-        'headers' => $request->headers->all(),
-        'url' => $request->fullUrl(),
-        'body' => $request->getContent(),
-    ];
-
-    $result = $shopify->appHomePatchIdToken($shopifyRequest);
-
-    return response(
-        $result['response']['body'] ?? '',
-        $result['response']['status'] ?? 200
-    )->withHeaders(
-        $result['response']['headers'] ?? []
-    );
-}); 
-
-
 
 Route::middleware('shopify.auth')->group(function () {  
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
