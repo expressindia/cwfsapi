@@ -7,10 +7,10 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title> @yield('title', 'CWFSAPI') </title>
     
-    <script
+    {{-- <script
         src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
         data-api-key="{{ config('shopify.client_id') }}">
-    </script>
+    </script> --}}
 
     @vite([
         'resources/css/app.css',
