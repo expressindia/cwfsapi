@@ -53,7 +53,7 @@ return [
     */
 
     'fulfillment' => [
-        'service_name' => env( 'SHOPIFY_FULFILLMENT_SERVICE_NAME', 'FS-Warehouse' ),
+        'service_name' => env( 'SHOPIFY_FULFILLMENT_SERVICE_NAME', 'FSWarehouse' ),
         'callback_url' => env('SHOPIFY_FULFILLMENT_CALLBACK_URL'),
         'location_id' => env('SHOPIFY_FULFILLMENT_LOCATION_ID'),
 

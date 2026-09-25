@@ -9,6 +9,8 @@ class ShopifyToken extends Model
     protected $fillable = [
         'shop_domain',
         'access_token',
+        'fulfillment_service_id',
+        'fulfillment_location_id',
         'scope',
         'associated_user_id',
         'associated_user_email',

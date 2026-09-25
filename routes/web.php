@@ -7,11 +7,16 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LogController;
 use App\Http\Controllers\FullscriptWebhookController;
 use App\Http\Controllers\ShopifyOAuthController;
+use App\Http\Controllers\ShopifyController;
 use Illuminate\Support\Facades\Route;
 
 
 
 Route::get('/', [DashboardController::class, 'index']) ->middleware('shopify.standalone') ->name('dashboard');
+
+Route::get('/shopify', [ ShopifyController::class, 'index',]) ->middleware('shopify.standalone') ->name('shopify.index');
+
+Route::post('/shopify/fulfillment/register', [ ShopifyController::class, 'registerFulfillmentService',]) ->middleware('shopify.standalone') ->name('shopify.fulfillment.register');
 
 //Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 

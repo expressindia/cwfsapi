@@ -41,7 +41,7 @@
 
         </a>
 
-        <a href="#"
+        <a href="{{ route('shopify.index') }}"
            class="nav-link">
 
             <i class="bi bi-shop"></i>
