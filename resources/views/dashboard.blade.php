@@ -149,7 +149,8 @@
                         </p>
 
                         <a href="{{ route('fullscript.connect') }}"
-                           class="btn btn-primary">
+                        target="_top"
+                        class="btn btn-primary">
 
                             <i class="bi bi-plug me-1"></i>
 
