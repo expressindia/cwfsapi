@@ -21,22 +21,15 @@ use Illuminate\Support\Facades\Route;
 //     ->name('dashboard');
 
 
-// Route::middleware('shopify.auth')->group(function () {  
-//     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-//     Route::get('/logs', [LogController::class, 'index']) ->name('logs');
-//     Route::post('logs/clear', [LogController::class, 'clear']) ->name('logs.clear');
-//     Route::get('/fullscript/status', [FullscriptStatusController::class,'status']) ->name('fullscript.status');
-//     Route::get('/fullscript/connect', [FullscriptOAuthController::class, 'redirect'])->name('fullscript.connect');
-// });
-
-Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+Route::middleware('shopify.auth')->group(function () {  
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/logs', [LogController::class, 'index']) ->name('logs');
     Route::post('logs/clear', [LogController::class, 'clear']) ->name('logs.clear');
     Route::get('/fullscript/status', [FullscriptStatusController::class,'status']) ->name('fullscript.status');
     Route::get('/fullscript/connect', [FullscriptOAuthController::class, 'redirect'])->name('fullscript.connect');
+});
 
-
-//Route::post( '/auth/patch-id-token', [ShopifyAuthController::class, 'patchIdToken'] )->name('shopify.patch-id-token');
+Route::post( '/auth/patch-id-token', [ShopifyAuthController::class, 'patchIdToken'] )->name('shopify.patch-id-token');
 
 /*
 |--------------------------------------------------------------------------
