@@ -13,33 +13,54 @@ class ShopifyGraphQLService
 
     public function __construct()
     {
-        $this->storeDomain = (string) config( 'shopify.store_domain' );
+        $this->storeDomain = (string) config('shopify.store_domain');
+        $this->apiVersion = (string) config(
+            'shopify.api_version',
+            '2026-07'
+        );
+        $this->accessToken = (string) config('shopify.access_token');
 
-        $this->apiVersion = (string) config( 'shopify.api_version', '2026-07' );
-
-        $this->accessToken = (string) config( 'shopify.access_token' );
-
-        if ( empty($this->storeDomain) || empty($this->accessToken) ) {
+        if (
+            empty($this->storeDomain) ||
+            empty($this->accessToken)
+        ) {
             throw new RuntimeException(
                 'Shopify credentials are not configured.'
             );
         }
     }
 
-    public function execute( string $query, array $variables = [] ): array {
+    /**
+     * Execute a GraphQL request using the default
+     * Shopify credentials from .env.
+     */
+    public function execute(
+        string $query,
+        array $variables = []
+    ): array {
+        $url = sprintf(
+            'https://%s/admin/api/%s/graphql.json',
+            $this->storeDomain,
+            $this->apiVersion
+        );
 
-        $url = sprintf( 'https://%s/admin/api/%s/graphql.json', $this->storeDomain, $this->apiVersion );
+        $payload = [
+            'query' => $query,
+        ];
+
+        if (! empty($variables)) {
+            $payload['variables'] = $variables;
+        }
 
         $response = Http::timeout(60)
-            ->retry(
-                3,
-                1000,
-                throw: false
-            )
-            ->withHeaders([ 'Content-Type' => 'application/json', 'X-Shopify-Access-Token' => $this->accessToken, ])
-            ->post($url, [ 'query' => $query, 'variables' => $variables, ]);
+            ->retry(3, 1000, throw: false)
+            ->withHeaders([
+                'Content-Type' => 'application/json',
+                'X-Shopify-Access-Token' => $this->accessToken,
+            ])
+            ->post($url, $payload);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             throw new RuntimeException(
                 'Shopify HTTP error: ' .
                 $response->status() .
@@ -50,7 +71,7 @@ class ShopifyGraphQLService
 
         $body = $response->json();
 
-        if (!empty($body['errors'])) {
+        if (! empty($body['errors'])) {
             throw new RuntimeException(
                 'Shopify GraphQL error: ' .
                 json_encode(
@@ -63,12 +84,11 @@ class ShopifyGraphQLService
         return $body['data'] ?? [];
     }
 
-
     /**
-     * Execute a Shopify GraphQL query using store-specific credentials.
+     * Execute a GraphQL request using credentials
+     * belonging to the currently authenticated Shopify store.
      *
-     * This is used for multi-store authenticated operations where the
-     * Shopify store and access token come from the authenticated session.
+     * This is used for the multi-store OAuth flow.
      */
     public function executeWithCredentials(
         string $storeDomain,
@@ -76,7 +96,10 @@ class ShopifyGraphQLService
         string $query,
         array $variables = []
     ): array {
-        if (blank($storeDomain) || blank($accessToken)) {
+        if (
+            blank($storeDomain) ||
+            blank($accessToken)
+        ) {
             throw new RuntimeException(
                 'Shopify store domain and access token are required.'
             );
@@ -88,20 +111,25 @@ class ShopifyGraphQLService
             $this->apiVersion
         );
 
+        $payload = [
+            'query' => $query,
+        ];
+
+        /*
+         * Shopify GraphQL should only receive the variables
+         * property when variables are actually being used.
+         */
+        if (! empty($variables)) {
+            $payload['variables'] = $variables;
+        }
+
         $response = Http::timeout(60)
-            ->retry(
-                3,
-                1000,
-                throw: false
-            )
+            ->retry(3, 1000, throw: false)
             ->withHeaders([
                 'Content-Type' => 'application/json',
                 'X-Shopify-Access-Token' => $accessToken,
             ])
-            ->post($url, [
-                'query' => $query,
-                'variables' => $variables,
-            ]);
+            ->post($url, $payload);
 
         if (! $response->successful()) {
             throw new RuntimeException(

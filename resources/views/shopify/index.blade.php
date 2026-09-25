@@ -1,142 +1,204 @@
 @extends('layouts.app')
 
+@section('title', 'Shopify Status - CWFSAPI')
+
+@section('page-title', 'Shopify')
+
 @section('content')
 
-<div class="space-y-6">
+<div class="container-fluid px-0">
+
+    {{-- Flash Messages --}}
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-check-circle me-1"></i>
+            {{ session('success') }}
+
+            <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+                aria-label="Close">
+            </button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-x-circle me-1"></i>
+            {{ session('error') }}
+
+            <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+                aria-label="Close">
+            </button>
+        </div>
+    @endif
+
+    @if(isset($error))
+        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            {{ $error }}
+
+            <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+                aria-label="Close">
+            </button>
+        </div>
+    @endif
+
 
     {{-- Page Header --}}
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div class="d-flex justify-content-between align-items-center mb-4">
 
         <div>
-            <h1 class="text-2xl font-semibold text-gray-900">
-                Shopify
-            </h1>
+            <h3 class="fw-semibold mb-1">
+                Shopify Status
+            </h3>
 
-            <p class="mt-1 text-sm text-gray-500">
-                Manage your Shopify connection and fulfillment service.
+            <p class="text-muted mb-0">
+                View the current Shopify connection and fulfillment service status.
             </p>
         </div>
 
-        @if(($status['connected'] ?? false))
-            <span class="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-medium text-green-700">
-                <span class="h-2 w-2 rounded-full bg-green-500"></span>
+        @if($status['connected'] ?? false)
+
+            <span class="badge bg-success px-3 py-2">
+                <i class="bi bi-check-circle me-1"></i>
                 Connected
             </span>
+
         @else
-            <span class="inline-flex items-center gap-2 rounded-full bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700">
-                <span class="h-2 w-2 rounded-full bg-red-500"></span>
+
+            <span class="badge bg-danger px-3 py-2">
+                <i class="bi bi-x-circle me-1"></i>
                 Not Connected
             </span>
+
         @endif
 
     </div>
 
 
-    {{-- Success Message --}}
-    @if(session('success'))
-        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {{ session('success') }}
-        </div>
-    @endif
+    {{-- Shopify Connection Card --}}
+    <div class="card dashboard-card mb-4">
 
+        <div class="card-body p-4">
 
-    {{-- Error Message --}}
-    @if(session('error'))
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {{ session('error') }}
-        </div>
-    @endif
+            <div class="d-flex align-items-center mb-4">
 
+                <div class="status-icon
+                    {{ ($status['connected'] ?? false) ? 'success' : 'danger' }}
+                    me-3">
 
-    {{-- Page Load Error --}}
-    @if(isset($error))
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {{ $error }}
-        </div>
-    @endif
+                    <i class="bi bi-shop"></i>
 
-
-    {{-- Shopify Connection --}}
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
-
-        <div class="border-b border-gray-200 px-6 py-5">
-
-            <div class="flex items-center justify-between">
+                </div>
 
                 <div>
-                    <h2 class="text-lg font-semibold text-gray-900">
-                        Shopify Connection
-                    </h2>
 
-                    <p class="mt-1 text-sm text-gray-500">
-                        Current Shopify store connection details.
-                    </p>
-                </div>
+                    <h5 class="mb-1">
+                        Shopify API
+                    </h5>
 
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50">
-                    <svg
-                        class="h-5 w-5 text-green-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M5 13l4 4L19 7"
-                        />
-                    </svg>
+                    <small class="text-muted">
+                        Shopify store connection information
+                    </small>
+
                 </div>
 
             </div>
 
-        </div>
+
+            <div class="row g-4">
+
+                {{-- Connection --}}
+                <div class="col-md-6">
+
+                    <div class="border rounded p-3">
+
+                        <small class="text-muted d-block mb-2">
+                            Connection Status
+                        </small>
+
+                        @if($status['connected'] ?? false)
+
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle me-1"></i>
+                                Connected
+                            </span>
+
+                        @else
+
+                            <span class="badge bg-danger">
+                                <i class="bi bi-x-circle me-1"></i>
+                                Not Connected
+                            </span>
+
+                        @endif
+
+                    </div>
+
+                </div>
 
 
-        <div class="grid grid-cols-1 gap-6 px-6 py-6 md:grid-cols-2">
+                {{-- Store Name --}}
+                <div class="col-md-6">
 
-            <div>
-                <p class="text-sm text-gray-500">
-                    Connection Status
-                </p>
+                    <div class="border rounded p-3">
 
-                <p class="mt-1 text-sm font-medium text-green-600">
-                    Connected
-                </p>
-            </div>
+                        <small class="text-muted d-block mb-2">
+                            Store
+                        </small>
 
+                        <strong>
+                            {{ $status['shop_name'] ?? 'N/A' }}
+                        </strong>
 
-            <div>
-                <p class="text-sm text-gray-500">
-                    Store
-                </p>
+                    </div>
 
-                <p class="mt-1 text-sm font-medium text-gray-900">
-                    {{ $status['shop_name'] ?? 'N/A' }}
-                </p>
-            </div>
+                </div>
 
 
-            <div>
-                <p class="text-sm text-gray-500">
-                    Store Domain
-                </p>
+                {{-- Store Domain --}}
+                <div class="col-md-6">
 
-                <p class="mt-1 text-sm font-medium text-gray-900">
-                    {{ $status['shop_domain'] ?? 'N/A' }}
-                </p>
-            </div>
+                    <div class="border rounded p-3">
+
+                        <small class="text-muted d-block mb-2">
+                            Store Domain
+                        </small>
+
+                        <strong>
+                            {{ $status['shop_domain'] ?? 'N/A' }}
+                        </strong>
+
+                    </div>
+
+                </div>
 
 
-            <div>
-                <p class="text-sm text-gray-500">
-                    API Version
-                </p>
+                {{-- API Version --}}
+                <div class="col-md-6">
 
-                <p class="mt-1 text-sm font-medium text-gray-900">
-                    {{ config('shopify.api_version', '2026-07') }}
-                </p>
+                    <div class="border rounded p-3">
+
+                        <small class="text-muted d-block mb-2">
+                            API Version
+                        </small>
+
+                        <strong>
+                            {{ config('shopify.api_version', '2026-07') }}
+                        </strong>
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -144,35 +206,49 @@
     </div>
 
 
-    {{-- Fulfillment Service --}}
-    <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+    {{-- Fulfillment Service Card --}}
+    <div class="card dashboard-card">
 
-        <div class="border-b border-gray-200 px-6 py-5">
+        <div class="card-body p-4">
 
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="d-flex justify-content-between align-items-center mb-4">
 
-                <div>
-                    <h2 class="text-lg font-semibold text-gray-900">
-                        Fulfillment Service
-                    </h2>
+                <div class="d-flex align-items-center">
 
-                    <p class="mt-1 text-sm text-gray-500">
-                        Manage the FSWarehouse fulfillment service for this Shopify store.
-                    </p>
+                    <div class="status-icon
+                        {{ !empty($status['service']) ? 'success' : 'danger' }}
+                        me-3">
+
+                        <i class="bi bi-box-seam"></i>
+
+                    </div>
+
+                    <div>
+
+                        <h5 class="mb-1">
+                            Fulfillment Service
+                        </h5>
+
+                        <small class="text-muted">
+                            Shopify fulfillment service configuration
+                        </small>
+
+                    </div>
+
                 </div>
 
 
                 @if(!empty($status['service']))
 
-                    <span class="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-medium text-green-700">
-                        <span class="h-2 w-2 rounded-full bg-green-500"></span>
+                    <span class="badge bg-success px-3 py-2">
+                        <i class="bi bi-check-circle me-1"></i>
                         Registered
                     </span>
 
                 @else
 
-                    <span class="inline-flex items-center gap-2 rounded-full bg-yellow-100 px-3 py-1.5 text-sm font-medium text-yellow-700">
-                        <span class="h-2 w-2 rounded-full bg-yellow-500"></span>
+                    <span class="badge bg-warning text-dark px-3 py-2">
+                        <i class="bi bi-exclamation-circle me-1"></i>
                         Not Registered
                     </span>
 
@@ -180,88 +256,183 @@
 
             </div>
 
-        </div>
 
+            <div class="row g-4">
 
-        <div class="px-6 py-6">
+                {{-- Service Name --}}
+                <div class="col-md-6">
 
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div class="border rounded p-3">
 
-                <div>
-                    <p class="text-sm text-gray-500">
-                        Service Name
-                    </p>
+                        <small class="text-muted d-block mb-2">
+                            Service Name
+                        </small>
 
-                    <p class="mt-1 text-sm font-medium text-gray-900">
-                        {{ $status['service_name'] ?? 'FSWarehouse' }}
-                    </p>
+                        <strong>
+                            {{ $status['service_name'] ?? 'FSWarehouse' }}
+                        </strong>
+
+                    </div>
+
                 </div>
 
 
-                <div>
-                    <p class="text-sm text-gray-500">
-                        Service Status
-                    </p>
+                {{-- Service Status --}}
+                <div class="col-md-6">
 
-                    @if(!empty($status['service']))
+                    <div class="border rounded p-3">
 
-                        <p class="mt-1 text-sm font-medium text-green-600">
-                            Registered
-                        </p>
+                        <small class="text-muted d-block mb-2">
+                            Service Status
+                        </small>
 
-                    @else
+                        @if(!empty($status['service']))
 
-                        <p class="mt-1 text-sm font-medium text-yellow-600">
-                            Not Registered
-                        </p>
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle me-1"></i>
+                                Registered
+                            </span>
 
-                    @endif
+                        @else
+
+                            <span class="badge bg-warning text-dark">
+                                Not Registered
+                            </span>
+
+                        @endif
+
+                    </div>
+
                 </div>
 
 
                 @if(!empty($status['service']))
 
-                    <div>
-                        <p class="text-sm text-gray-500">
-                            Fulfillment Service ID
-                        </p>
+                    {{-- Fulfillment Service ID --}}
+                    <div class="col-md-6">
 
-                        <p class="mt-1 break-all text-sm font-medium text-gray-900">
-                            {{ $status['service']['id'] ?? 'N/A' }}
-                        </p>
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted d-block mb-2">
+                                Fulfillment Service ID
+                            </small>
+
+                            <code class="text-break">
+                                {{ $status['service']['id'] ?? 'N/A' }}
+                            </code>
+
+                        </div>
+
                     </div>
 
 
-                    <div>
-                        <p class="text-sm text-gray-500">
-                            Location
-                        </p>
+                    {{-- Handle --}}
+                    <div class="col-md-6">
 
-                        <p class="mt-1 text-sm font-medium text-gray-900">
-                            {{ $status['service']['location']['name'] ?? 'N/A' }}
-                        </p>
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted d-block mb-2">
+                                Handle
+                            </small>
+
+                            <strong>
+                                {{ $status['service']['handle'] ?? 'N/A' }}
+                            </strong>
+
+                        </div>
+
                     </div>
 
 
-                    <div>
-                        <p class="text-sm text-gray-500">
-                            Location ID
-                        </p>
+                    {{-- Location --}}
+                    <div class="col-md-6">
 
-                        <p class="mt-1 break-all text-sm font-medium text-gray-900">
-                            {{ $status['service']['location']['id'] ?? 'N/A' }}
-                        </p>
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted d-block mb-2">
+                                Location
+                            </small>
+
+                            <strong>
+                                {{ $status['service']['location']['name'] ?? 'N/A' }}
+                            </strong>
+
+                        </div>
+
                     </div>
 
 
-                    <div>
-                        <p class="text-sm text-gray-500">
-                            Tracking Support
-                        </p>
+                    {{-- Location ID --}}
+                    <div class="col-md-6">
 
-                        <p class="mt-1 text-sm font-medium text-green-600">
-                            {{ !empty($status['service']['trackingSupport']) ? 'Enabled' : 'Disabled' }}
-                        </p>
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted d-block mb-2">
+                                Location ID
+                            </small>
+
+                            <code class="text-break">
+                                {{ $status['service']['location']['id'] ?? 'N/A' }}
+                            </code>
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- Tracking Support --}}
+                    <div class="col-md-6">
+
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted d-block mb-2">
+                                Tracking Support
+                            </small>
+
+                            @if($status['service']['trackingSupport'] ?? false)
+
+                                <span class="badge bg-success">
+                                    Enabled
+                                </span>
+
+                            @else
+
+                                <span class="badge bg-secondary">
+                                    Disabled
+                                </span>
+
+                            @endif
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- Inventory Management --}}
+                    <div class="col-md-6">
+
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted d-block mb-2">
+                                Inventory Management
+                            </small>
+
+                            @if($status['service']['inventoryManagement'] ?? false)
+
+                                <span class="badge bg-success">
+                                    Enabled
+                                </span>
+
+                            @else
+
+                                <span class="badge bg-secondary">
+                                    Disabled
+                                </span>
+
+                            @endif
+
+                        </div>
+
                     </div>
 
                 @endif
@@ -269,56 +440,64 @@
             </div>
 
 
-            {{-- Register Button --}}
+            {{-- Register Service --}}
             @if(empty($status['service']))
 
-                <div class="mt-8 border-t border-gray-200 pt-6">
+                <div class="border-top mt-4 pt-4">
 
-                    <form
-                        method="POST"
-                        action="{{ route('shopify.fulfillment.register') }}"
-                    >
+                    <div class="d-flex justify-content-between align-items-center">
 
-                        @csrf
+                        <div>
 
-                        <button
-                            type="submit"
-                            class="inline-flex items-center rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                            <h6 class="mb-1">
+                                Register FSWarehouse
+                            </h6>
+
+                            <small class="text-muted">
+                                Register the FSWarehouse fulfillment service with Shopify.
+                                Shopify will create the associated fulfillment location.
+                            </small>
+
+                        </div>
+
+
+                        <form
+                            method="POST"
+                            action="{{ route('shopify.fulfillment.register') }}"
                         >
-                            Register FSWarehouse
-                        </button>
 
-                    </form>
+                            @csrf
 
-                    <p class="mt-2 text-xs text-gray-500">
-                        Shopify will create the FSWarehouse fulfillment service and its associated location.
-                    </p>
+                            <button
+                                type="submit"
+                                class="btn btn-success"
+                            >
+
+                                <i class="bi bi-plus-circle me-1"></i>
+
+                                Register FSWarehouse
+
+                            </button>
+
+                        </form>
+
+                    </div>
 
                 </div>
 
             @else
 
-                <div class="mt-8 border-t border-gray-200 pt-6">
+                {{-- Already Registered --}}
+                <div class="border-top mt-4 pt-4">
 
-                    <div class="flex items-center gap-2 text-sm text-green-600">
+                    <div class="alert alert-success mb-0">
 
-                        <svg
-                            class="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M5 13l4 4L19 7"
-                            />
-                        </svg>
+                        <i class="bi bi-check-circle me-2"></i>
 
-                        <span>
-                            FSWarehouse is registered for this Shopify store.
-                        </span>
+                        <strong>FSWarehouse is registered.</strong>
+
+                        The fulfillment service and location IDs have been saved
+                        for this Shopify store.
 
                     </div>
 
