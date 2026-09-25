@@ -3,7 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\ShopifyAuth;
+use App\Http\Middleware\ShopifyStandaloneAuth;
 use Illuminate\Http\Request;
 
 
@@ -17,9 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         //
         $middleware->alias([
-            'shopify.auth' => ShopifyAuth::class,
+            'shopify.standalone' => ShopifyStandaloneAuth::class,
         ]);
-        
         $middleware->validateCsrfTokens(
             except: [
                 '/webhooks/shopify',

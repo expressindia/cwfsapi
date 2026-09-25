@@ -148,7 +148,7 @@
 
                         </p>
 
-                        {{-- <a href="{{ route('fullscript.connect') }}"
+                        <a href="{{ route('fullscript.connect') }}"
                         target="_top"
                         class="btn btn-primary">
 
@@ -156,15 +156,7 @@
 
                             Connect Fullscript
 
-                        </a> --}}
-                        <button
-                            type="button"
-                            id="connect-fullscript"
-                            class="btn btn-primary"
-                        >
-                            <i class="bi bi-plug me-1"></i>
-                            Connect Fullscript
-                        </button>
+                        </a>
 
                     @endif
 
@@ -343,68 +335,3 @@
 </div>
 
 @endsection
-
-
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-
-    const button = document.getElementById('connect-fullscript');
-
-    if (!button) {
-        return;
-    }
-
-    button.addEventListener('click', async function () {
-
-        button.disabled = true;
-
-        try {
-
-            const response = await fetch(
-                '{{ route('fullscript.connect') }}',
-                {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error(
-                    `HTTP ${response.status}`
-                );
-            }
-
-            const data = await response.json();
-
-            if (!data.url) {
-                throw new Error(
-                    'Fullscript authorization URL was not returned.'
-                );
-            }
-
-            window.open(
-                data.url,
-                '_top'
-            );
-
-        } catch (error) {
-
-            console.error(
-                'Fullscript connection error:',
-                error
-            );
-
-            alert(
-                'Unable to connect to Fullscript. Please try again.'
-            );
-
-            button.disabled = false;
-        }
-    });
-
-});
-</script>
-@endpush
