@@ -14,59 +14,31 @@ class ShopifyFulfillmentRegistrationService
     }
 
     /**
-     * Get the Shopify token belonging to the
-     * currently authenticated Shopify user.
-     */
-    protected function getShopifyToken(): ShopifyToken
-    {
-        $tokenId = session('shopify.token_id');
-
-        if (blank($tokenId)) {
-            throw new RuntimeException(
-                'Shopify authentication session not found.'
-            );
-        }
-
-        $token = ShopifyToken::find($tokenId);
-
-        if (! $token) {
-            throw new RuntimeException(
-                'Shopify authentication token not found.'
-            );
-        }
-
-        if (blank($token->shop_domain)) {
-            throw new RuntimeException(
-                'Shopify store domain is missing.'
-            );
-        }
-
-        if (blank($token->access_token)) {
-            throw new RuntimeException(
-                'Shopify access token is missing.'
-            );
-        }
-
-        return $token;
-    }
-
-    /**
-     * Get credentials for the currently authenticated Shopify store.
+     * Get credentials for the currently configured Shopify store.
+     *
+     * Authentication is handled by ShopifyGraphQLService using
+     * the Client Credentials Grant.
      */
     protected function credentials(): array
     {
-        $token = $this->getShopifyToken();
+        $shopDomain = config('shopify.store_domain');
+
+        if (blank($shopDomain)) {
+            throw new RuntimeException(
+                'Shopify store domain is not configured.'
+            );
+        }
 
         return [
-            'shop_domain' => $token->shop_domain,
-            'access_token' => $token->access_token,
+            'shop_domain' => $shopDomain,
         ];
     }
 
     /**
      * Get Shopify fulfillment service status.
      *
-     * This checks the currently authenticated store.
+     * This checks the configured Shopify store using
+     * Client Credentials authentication.
      */
     public function getStatus(): array
     {
@@ -93,11 +65,11 @@ query GetFulfillmentServices {
 }
 GRAPHQL;
 
-        $data = $this->shopify->executeWithCredentials(
-            $credentials['shop_domain'],
-            $credentials['access_token'],
-            $query
-        );
+        /*
+         * ShopifyGraphQLService now automatically obtains the
+         * Client Credentials access token.
+         */
+        $data = $this->shopify->execute($query);
 
         $serviceName = config(
             'shopify.fulfillment.service_name',
@@ -120,15 +92,10 @@ GRAPHQL;
 
         return [
             'connected' => true,
-
             'shop_name' => $data['shop']['name'] ?? null,
-
             'shop_domain' => $credentials['shop_domain'],
-
             'service_name' => $serviceName,
-
             'service' => $registeredService,
-
             'services' => $services,
         ];
     }
@@ -141,7 +108,7 @@ GRAPHQL;
      * - If FSWarehouse already exists, it will not create another one.
      * - If it does not exist, Shopify will create it.
      * - The fulfillment service ID and location ID are saved
-     *   against the authenticated Shopify token.
+     *   against the Shopify store record when available.
      */
     public function register(): array
     {
@@ -173,20 +140,30 @@ GRAPHQL;
             /*
              * Save the existing fulfillment service ID
              * and location ID to our database.
+             *
+             * The database record is now used only to store
+             * fulfillment information, not authentication.
              */
-            $token = $this->getShopifyToken();
+            $token = ShopifyToken::where(
+                'shop_domain',
+                $credentials['shop_domain']
+            )->first();
 
-            $token->update([
-                'fulfillment_service_id' => $service['id'] ?? null,
+            if ($token) {
+                $token->update([
+                    'fulfillment_service_id' =>
+                        $service['id'] ?? null,
 
-                'fulfillment_location_id' =>
-                    $service['location']['id'] ?? null,
-            ]);
+                    'fulfillment_location_id' =>
+                        $service['location']['id'] ?? null,
+                ]);
+            }
 
             Log::info(
                 'Shopify fulfillment service already exists.',
                 [
-                    'shop_domain' => $credentials['shop_domain'],
+                    'shop_domain' =>
+                        $credentials['shop_domain'],
 
                     'fulfillment_service_id' =>
                         $service['id'] ?? null,
@@ -198,7 +175,6 @@ GRAPHQL;
 
             return [
                 'created' => false,
-
                 'service' => $service,
             ];
         }
@@ -242,13 +218,14 @@ mutation FulfillmentServiceCreate(
 }
 GRAPHQL;
 
-        $data = $this->shopify->executeWithCredentials(
-            $credentials['shop_domain'],
-            $credentials['access_token'],
+        /*
+         * ShopifyGraphQLService automatically handles
+         * Client Credentials authentication.
+         */
+        $data = $this->shopify->execute(
             $mutation,
             [
                 'name' => $serviceName,
-
                 'callbackUrl' => $callbackUrl,
             ]
         );
@@ -268,9 +245,11 @@ GRAPHQL;
             Log::error(
                 'Shopify fulfillment service registration failed.',
                 [
-                    'shop_domain' => $credentials['shop_domain'],
+                    'shop_domain' =>
+                        $credentials['shop_domain'],
 
-                    'user_errors' => $result['userErrors'],
+                    'user_errors' =>
+                        $result['userErrors'],
                 ]
             );
 
@@ -306,16 +285,25 @@ GRAPHQL;
 
         /*
          * Save Shopify service and location IDs.
+         *
+         * Authentication is no longer stored/retrieved from
+         * this record. We only use it to persist fulfillment
+         * service information.
          */
-        $token = $this->getShopifyToken();
+        $token = ShopifyToken::where(
+            'shop_domain',
+            $credentials['shop_domain']
+        )->first();
 
-        $token->update([
-            'fulfillment_service_id' =>
-                $service['id'] ?? null,
+        if ($token) {
+            $token->update([
+                'fulfillment_service_id' =>
+                    $service['id'] ?? null,
 
-            'fulfillment_location_id' =>
-                $service['location']['id'] ?? null,
-        ]);
+                'fulfillment_location_id' =>
+                    $service['location']['id'] ?? null,
+            ]);
+        }
 
         /*
          * Log only IDs and store domain.
@@ -325,7 +313,8 @@ GRAPHQL;
         Log::info(
             'Shopify fulfillment service registered successfully.',
             [
-                'shop_domain' => $credentials['shop_domain'],
+                'shop_domain' =>
+                    $credentials['shop_domain'],
 
                 'fulfillment_service_id' =>
                     $service['id'] ?? null,
@@ -343,7 +332,6 @@ GRAPHQL;
 
         return [
             'created' => true,
-
             'service' => $service,
         ];
     }
