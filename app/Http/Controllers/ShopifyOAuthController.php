@@ -224,21 +224,31 @@ class ShopifyOAuthController extends Controller
 
             $tokenData = $response->json();
 
-            Log::info('Shopify OAuth token exchange response', [
-            'status' => $response->status(),
-            'successful' => $response->successful(),
-            'scope' => $tokenData['scope'] ?? null,
-            'expires_in' => $tokenData['expires_in'] ?? null,
-            'associated_user_id' => $tokenData['associated_user']['id'] ?? null,
-            'associated_user_email' => $tokenData['associated_user']['email'] ?? null,
-            'access_token_present' => !empty($tokenData['access_token']),
-            'access_token_prefix' => !empty($tokenData['access_token'])
-                ? substr($tokenData['access_token'], 0, 6)
-                : null,
-            'access_token_length' => !empty($tokenData['access_token'])
-                ? strlen($tokenData['access_token'])
-                : null,
-        ]);
+            $testAccessToken = $tokenData['access_token'] ?? null;
+
+            if ($testAccessToken) {
+                $testResponse = Http::timeout(30)
+                    ->withHeaders([
+                        'Content-Type' => 'application/json',
+                        'X-Shopify-Access-Token' => $testAccessToken,
+                    ])
+                    ->post(
+                        "https://{$shop}/admin/api/" .
+                        config('shopify.api_version') .
+                        "/graphql.json",
+                        [
+                            'query' => 'query { shop { name } }',
+                        ]
+                    );
+
+                Log::info('Shopify immediate token test', [
+                    'status' => $testResponse->status(),
+                    'successful' => $testResponse->successful(),
+                    'body' => $testResponse->body(),
+                    'token_present' => true,
+                    'token_length' => strlen($testAccessToken),
+                ]);
+            }
 
             /*
             |--------------------------------------------------------------------------
