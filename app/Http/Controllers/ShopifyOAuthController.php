@@ -224,6 +224,22 @@ class ShopifyOAuthController extends Controller
 
             $tokenData = $response->json();
 
+            Log::info('Shopify OAuth token exchange response', [
+            'status' => $response->status(),
+            'successful' => $response->successful(),
+            'scope' => $tokenData['scope'] ?? null,
+            'expires_in' => $tokenData['expires_in'] ?? null,
+            'associated_user_id' => $tokenData['associated_user']['id'] ?? null,
+            'associated_user_email' => $tokenData['associated_user']['email'] ?? null,
+            'access_token_present' => !empty($tokenData['access_token']),
+            'access_token_prefix' => !empty($tokenData['access_token'])
+                ? substr($tokenData['access_token'], 0, 6)
+                : null,
+            'access_token_length' => !empty($tokenData['access_token'])
+                ? strlen($tokenData['access_token'])
+                : null,
+        ]);
+
             /*
             |--------------------------------------------------------------------------
             | 7. Validate token response
