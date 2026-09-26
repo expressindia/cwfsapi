@@ -13,7 +13,7 @@ class ShopifyClientCredentialsService
      */
     public function getAccessToken(): string
     {
-        $shopDomain = config('shopify.shop_domain');
+        $shopDomain = config('shopify.store_domain');
         $clientId = config('shopify.client_id');
         $clientSecret = config('shopify.client_secret');
 
@@ -72,7 +72,7 @@ class ShopifyClientCredentialsService
      */
     public function clearToken(): void
     {
-        $shopDomain = config('shopify.shop_domain');
+        $shopDomain = config('shopify.store_domain');
 
         Cache::forget(
             'shopify.client_credentials_token.' . $shopDomain

@@ -224,33 +224,6 @@ class ShopifyOAuthController extends Controller
 
             $tokenData = $response->json();
 
-            $tokenData = $response->json();
-
-            $testToken = $tokenData['access_token'] ?? null;
-
-            if ($testToken) {
-                $testResponse = Http::timeout(30)
-                    ->withHeaders([
-                        'Content-Type' => 'application/json',
-                        'X-Shopify-Access-Token' => $testToken,
-                    ])
-                    ->post(
-                        "https://{$shop}/admin/api/" .
-                        config('shopify.api_version') .
-                        "/graphql.json",
-                        [
-                            'query' => 'query { shop { id name } }',
-                        ]
-                    );
-
-                Log::info('SHOPIFY IMMEDIATE TOKEN TEST', [
-                    'status' => $testResponse->status(),
-                    'body' => $testResponse->body(),
-                    'token_length' => strlen($testToken),
-                    'token_prefix' => substr($testToken, 0, 6),
-                ]);
-            }
-
             /*
             |--------------------------------------------------------------------------
             | 7. Validate token response
