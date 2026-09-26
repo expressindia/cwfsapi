@@ -8,18 +8,12 @@ use RuntimeException;
 class ShopifyGraphQLService
 {
     protected string $storeDomain;
-    protected string $apiVersion;
-    protected string $accessToken;
 
-    public function __construct()
-    {
-        /*
-         * These credentials are optional now.
-         *
-         * Multi-store operations use executeWithCredentials()
-         * with credentials retrieved from the authenticated
-         * Shopify store.
-         */
+    protected string $apiVersion;
+
+    public function __construct(
+        protected ShopifyClientCredentialsService $clientCredentials
+    ) {
         $this->storeDomain = (string) config(
             'shopify.store_domain'
         );
@@ -28,44 +22,66 @@ class ShopifyGraphQLService
             'shopify.api_version',
             '2026-07'
         );
-
-        $this->accessToken = (string) config(
-            'shopify.access_token'
-        );
     }
 
     /**
-     * Execute a GraphQL request using the default Shopify
-     * credentials from .env.
+     * Execute a GraphQL request using Shopify Client Credentials.
      *
-     * This is kept for existing single-store functionality.
+     * A fresh/cached Client Credentials access token is obtained
+     * automatically. If Shopify returns 401, the cached token is
+     * cleared and a new token is requested before retrying once.
      */
     public function execute(
         string $query,
         array $variables = []
     ): array {
-        if (
-            blank($this->storeDomain) ||
-            blank($this->accessToken)
-        ) {
+        if (blank($this->storeDomain)) {
             throw new RuntimeException(
-                'Default Shopify credentials are not configured.'
+                'Shopify store domain is not configured.'
             );
         }
 
-        return $this->sendRequest(
-            $this->storeDomain,
-            $this->accessToken,
-            $query,
-            $variables
-        );
+        $accessToken = $this->clientCredentials->getAccessToken();
+
+        try {
+            return $this->sendRequest(
+                $this->storeDomain,
+                $accessToken,
+                $query,
+                $variables
+            );
+        } catch (RuntimeException $exception) {
+            /*
+             * If the cached Client Credentials token is no longer
+             * accepted by Shopify, clear it and obtain a new token.
+             */
+            if (
+                str_contains(
+                    $exception->getMessage(),
+                    'Shopify HTTP error: 401'
+                )
+            ) {
+                $this->clientCredentials->clearToken();
+
+                $accessToken = $this->clientCredentials->getAccessToken();
+
+                return $this->sendRequest(
+                    $this->storeDomain,
+                    $accessToken,
+                    $query,
+                    $variables
+                );
+            }
+
+            throw $exception;
+        }
     }
 
     /**
-     * Execute a GraphQL request using credentials belonging
-     * to a specific authenticated Shopify store.
+     * Execute a GraphQL request using explicitly supplied credentials.
      *
-     * This is the method used by the multi-store OAuth flow.
+     * Kept for existing functionality that supplies a specific
+     * store domain and access token.
      */
     public function executeWithCredentials(
         string $storeDomain,
@@ -110,12 +126,6 @@ class ShopifyGraphQLService
 
         /*
          * Do not send an empty "variables" object.
-         *
-         * Shopify can reject:
-         *
-         * "variables": []
-         *
-         * when the query does not define variables.
          */
         $payload = [
             'query' => $query,
