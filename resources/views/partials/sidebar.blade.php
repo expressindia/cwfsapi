@@ -103,7 +103,14 @@
     </div>
 
     <nav class="nav flex-column">
+        <a href="{{ route('webhooks.index') }}"
+        class="nav-link {{ request()->routeIs('webhooks.*') ? 'active' : '' }}">
 
+            <i class="bi bi-broadcast"></i>
+
+            Webhooks
+
+        </a>
         <a href="#"
            class="nav-link">
 
