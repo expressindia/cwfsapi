@@ -29,7 +29,7 @@ Route::get('/fullscript/status', [FullscriptStatusController::class,'status']) -
 Route::get('/fullscript/connect', [FullscriptOAuthController::class, 'redirect'])->name('fullscript.connect');
 
 
-
+Route::get('/webhooks', [WebhookController::class, 'index'])->name('webhooks.index');
 /*
 |--------------------------------------------------------------------------
 | Fullscript OAuth
