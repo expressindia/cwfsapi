@@ -20,7 +20,8 @@ class ProcessShopifyFulfillmentRequest implements ShouldQueue
 
     public function __construct(
         public int $webhookEventId,
-        public string $fulfillmentOrderId
+        public string $fulfillmentOrderId,
+        public int $shopifyTokenId
     ) {
     }
 
@@ -28,12 +29,11 @@ class ProcessShopifyFulfillmentRequest implements ShouldQueue
         ShopifyFulfillmentService $service
     ): void {
 
-        $event =
-            WebhookEvent::find(
-                $this->webhookEventId
-            );
+        $event = WebhookEvent::find(
+            $this->webhookEventId
+        );
 
-        if (!$event) {
+        if (! $event) {
 
             Log::error(
                 'Webhook event not found.',
@@ -60,12 +60,12 @@ class ProcessShopifyFulfillmentRequest implements ShouldQueue
         }
 
         $service->processFulfillmentRequest(
-            $this->fulfillmentOrderId
+            $this->fulfillmentOrderId,
+            $this->shopifyTokenId
         );
 
         $event->update([
-            'processed_at' =>
-                Carbon::now(),
+            'processed_at' => Carbon::now(),
         ]);
 
         Log::info(
@@ -76,6 +76,9 @@ class ProcessShopifyFulfillmentRequest implements ShouldQueue
 
                 'fulfillment_order_id' =>
                     $this->fulfillmentOrderId,
+
+                'shopify_token_id' =>
+                    $this->shopifyTokenId,
             ]
         );
     }
@@ -90,6 +93,9 @@ class ProcessShopifyFulfillmentRequest implements ShouldQueue
 
                 'fulfillment_order_id' =>
                     $this->fulfillmentOrderId,
+
+                'shopify_token_id' =>
+                    $this->shopifyTokenId,
 
                 'error' =>
                     $exception->getMessage(),
