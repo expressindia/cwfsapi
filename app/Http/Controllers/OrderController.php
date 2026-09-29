@@ -23,7 +23,7 @@ class OrderController extends Controller
     | Orders List
     |--------------------------------------------------------------------------
     |
-    | Shows only orders that have fulfillment orders assigned to our
+    | Show only orders that have a fulfillment order assigned to our
     | registered FSWarehouse fulfillment location.
     |
     */
@@ -87,29 +87,6 @@ class OrderController extends Controller
                                 lastName
                                 email
                             }
-
-                            fulfillments {
-                                id
-                                status
-                                createdAt
-
-                                location {
-                                    id
-                                    name
-                                }
-
-                                service {
-                                    id
-                                    handle
-                                    serviceName
-                                }
-
-                                trackingInfo {
-                                    company
-                                    number
-                                    url
-                                }
-                            }
                         }
                     }
 
@@ -139,6 +116,15 @@ class OrderController extends Controller
 
             $pageInfo =
                 $data['assignedFulfillmentOrders']['pageInfo'] ?? [];
+
+            /*
+            |--------------------------------------------------------------------------
+            | Remove duplicate orders
+            |--------------------------------------------------------------------------
+            |
+            | An order can have more than one FSWarehouse fulfillment order.
+            |
+            */
 
             $orders = [];
 
@@ -183,16 +169,11 @@ class OrderController extends Controller
     |
     | IMPORTANT:
     |
-    | We do NOT use order.fulfillments directly.
+    | We use assignedFulfillmentOrders instead of the normal
+    | order.fulfillments connection.
     |
-    | We first get the order's fulfillmentOrders and keep only the
-    | fulfillment order assigned to our registered FSWarehouse location.
-    |
-    | This allows an order to contain:
-    |
-    |   FSWarehouse       -> shown
-    |   Headquarters      -> hidden
-    |   Other locations   -> hidden
+    | This ensures that only fulfillment orders assigned to the
+    | registered FSWarehouse location are returned.
     |
     */
 
@@ -211,70 +192,84 @@ class OrderController extends Controller
                 );
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Get FSWarehouse assigned fulfillment orders
+            |--------------------------------------------------------------------------
+            */
+
             $query = <<<'GRAPHQL'
-            query GetOrder($id: ID!) {
-                order(id: $id) {
-                    id
-                    name
-                    createdAt
+            query GetAssignedFulfillmentOrders(
+                $first: Int!
+                $locationIds: [ID!]
+            ) {
+                assignedFulfillmentOrders(
+                    first: $first
+                    locationIds: $locationIds
+                    sortKey: UPDATED_AT
+                    reverse: true
+                ) {
+                    nodes {
+                        id
+                        status
+                        requestStatus
+                        createdAt
+                        updatedAt
 
-                    displayFinancialStatus
-                    displayFulfillmentStatus
-
-                    totalPriceSet {
-                        shopMoney {
-                            amount
-                            currencyCode
+                        assignedLocation {
+                            location {
+                                id
+                                name
+                            }
                         }
-                    }
 
-                    customer {
-                        firstName
-                        lastName
-                        email
-                    }
-
-                    fulfillmentOrders(first: 100) {
-                        nodes {
+                        order {
                             id
-                            status
-                            requestStatus
+                            name
                             createdAt
-                            updatedAt
 
-                            assignedLocation {
-                                location {
+                            displayFinancialStatus
+                            displayFulfillmentStatus
+
+                            totalPriceSet {
+                                shopMoney {
+                                    amount
+                                    currencyCode
+                                }
+                            }
+
+                            customer {
+                                firstName
+                                lastName
+                                email
+                            }
+                        }
+
+                        lineItems(first: 100) {
+                            nodes {
+                                id
+                                totalQuantity
+                                remainingQuantity
+
+                                lineItem {
                                     id
                                     name
-                                }
-                            }
-
-                            lineItems(first: 100) {
-                                nodes {
-                                    id
+                                    sku
                                     quantity
-                                    remainingQuantity
-
-                                    lineItem {
-                                        id
-                                        name
-                                        sku
-                                        quantity
-                                    }
                                 }
                             }
+                        }
 
-                            fulfillments(first: 50) {
-                                nodes {
-                                    id
-                                    status
-                                    createdAt
+                        fulfillments(first: 50) {
+                            nodes {
+                                id
+                                status
+                                createdAt
 
-                                    trackingInfo {
-                                        company
-                                        number
-                                        url
-                                    }
+                                trackingInfo {
+                                    company
+                                    number
+                                    url
                                 }
                             }
                         }
@@ -288,36 +283,36 @@ class OrderController extends Controller
                 $shopifyToken->access_token,
                 $query,
                 [
-                    'id' => $shopifyOrderId,
+                    'first' => 100,
+                    'locationIds' => [
+                        $locationId,
+                    ],
                 ]
             );
 
-            $order = $data['order'] ?? null;
-
-            if (! $order) {
-                abort(404, 'Shopify order not found.');
-            }
+            $assignedFulfillmentOrders =
+                $data['assignedFulfillmentOrders']['nodes'] ?? [];
 
             /*
             |--------------------------------------------------------------------------
-            | Keep ONLY FSWarehouse fulfillment orders
+            | Find only this order
             |--------------------------------------------------------------------------
             */
 
             $fsFulfillmentOrders = collect(
-                $order['fulfillmentOrders']['nodes'] ?? []
+                $assignedFulfillmentOrders
             )
-                ->filter(function (array $fulfillmentOrder) use ($locationId) {
-                    return ($fulfillmentOrder['assignedLocation']['location']['id'] ?? null)
-                        === $locationId;
+                ->filter(function (array $fulfillmentOrder) use ($shopifyOrderId) {
+                    return (
+                        $fulfillmentOrder['order']['id'] ?? null
+                    ) === $shopifyOrderId;
                 })
                 ->values()
                 ->all();
 
             /*
             |--------------------------------------------------------------------------
-            | If the order exists but does not contain an FSWarehouse
-            | fulfillment order, don't display other locations.
+            | No FSWarehouse fulfillment order
             |--------------------------------------------------------------------------
             */
 
@@ -330,7 +325,30 @@ class OrderController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Build FSWarehouse-only line items
+            | Use the first FSWarehouse fulfillment order for order details
+            |--------------------------------------------------------------------------
+            */
+
+            $firstFulfillmentOrder = $fsFulfillmentOrders[0];
+
+            $order = $firstFulfillmentOrder['order'] ?? null;
+
+            if (! $order) {
+                abort(404, 'Shopify order not found.');
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Attach FSWarehouse-specific data
+            |--------------------------------------------------------------------------
+            */
+
+            $order['fsFulfillmentOrders'] =
+                $fsFulfillmentOrders;
+
+            /*
+            |--------------------------------------------------------------------------
+            | Build FSWarehouse products
             |--------------------------------------------------------------------------
             */
 
@@ -343,8 +361,12 @@ class OrderController extends Controller
                 ) {
                     $fsLineItems[] = [
                         'id' => $lineItem['id'] ?? null,
-                        'quantity' => $lineItem['quantity'] ?? 0,
-                        'remainingQuantity' => $lineItem['remainingQuantity'] ?? 0,
+
+                        'quantity' =>
+                            $lineItem['totalQuantity'] ?? 0,
+
+                        'remainingQuantity' =>
+                            $lineItem['remainingQuantity'] ?? 0,
 
                         'name' =>
                             $lineItem['lineItem']['name'] ?? '-',
@@ -355,9 +377,11 @@ class OrderController extends Controller
                 }
             }
 
+            $order['fsLineItems'] = $fsLineItems;
+
             /*
             |--------------------------------------------------------------------------
-            | Build FSWarehouse-only fulfillments
+            | Build FSWarehouse fulfillments
             |--------------------------------------------------------------------------
             */
 
@@ -371,16 +395,6 @@ class OrderController extends Controller
                     $fsFulfillments[] = $fulfillment;
                 }
             }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Add our filtered data to the order
-            |--------------------------------------------------------------------------
-            */
-
-            $order['fsFulfillmentOrders'] = $fsFulfillmentOrders;
-
-            $order['fsLineItems'] = $fsLineItems;
 
             $order['fsFulfillments'] = $fsFulfillments;
 
@@ -405,10 +419,10 @@ class OrderController extends Controller
     | Add / Update Tracking
     |--------------------------------------------------------------------------
     |
-    | The same method handles both:
+    | The same endpoint handles both:
     |
-    |   No tracking -> Add tracking
-    |   Existing tracking -> Update tracking
+    | 1. Adding tracking when no tracking exists.
+    | 2. Updating tracking when tracking already exists.
     |
     */
 
@@ -443,11 +457,11 @@ class OrderController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Make sure this fulfillment belongs to FSWarehouse
+            | Security check
             |--------------------------------------------------------------------------
             |
-            | This protects the endpoint even if somebody manually changes
-            | the fulfillment ID in the browser.
+            | Make sure the fulfillment belongs to our FSWarehouse
+            | fulfillment order before allowing tracking changes.
             |
             */
 
@@ -458,7 +472,7 @@ class OrderController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Add / Update tracking
+            | Add / Update Shopify Tracking
             |--------------------------------------------------------------------------
             */
 
@@ -498,7 +512,7 @@ class OrderController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Get Current Shopify Token
+    | Get Shopify Token
     |--------------------------------------------------------------------------
     */
 
@@ -524,10 +538,13 @@ class OrderController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Verify Fulfillment Belongs to FSWarehouse
+    | Verify Fulfillment Belongs To FSWarehouse
     |--------------------------------------------------------------------------
     |
-    | We check the fulfillment's associated fulfillment orders.
+    | Instead of querying an arbitrary fulfillment directly, we inspect
+    | the assigned fulfillment orders returned to our app.
+    |
+    | This keeps the check restricted to our registered FSWarehouse.
     |
     */
 
@@ -535,7 +552,8 @@ class OrderController extends Controller
         ShopifyToken $shopifyToken,
         string $fulfillmentId
     ): void {
-        $locationId = $shopifyToken->fulfillment_location_id;
+        $locationId =
+            $shopifyToken->fulfillment_location_id;
 
         if (blank($locationId)) {
             throw new RuntimeException(
@@ -544,17 +562,22 @@ class OrderController extends Controller
         }
 
         $query = <<<'GRAPHQL'
-        query GetFulfillment($id: ID!) {
-            fulfillment(id: $id) {
-                id
+        query GetAssignedFulfillmentOrders(
+            $first: Int!
+            $locationIds: [ID!]
+        ) {
+            assignedFulfillmentOrders(
+                first: $first
+                locationIds: $locationIds
+                sortKey: UPDATED_AT
+                reverse: true
+            ) {
+                nodes {
+                    id
 
-                fulfillmentOrders(first: 50) {
-                    nodes {
-                        assignedLocation {
-                            location {
-                                id
-                                name
-                            }
+                    fulfillments(first: 50) {
+                        nodes {
+                            id
                         }
                     }
                 }
@@ -567,38 +590,32 @@ class OrderController extends Controller
             $shopifyToken->access_token,
             $query,
             [
-                'id' => $fulfillmentId,
+                'first' => 100,
+                'locationIds' => [
+                    $locationId,
+                ],
             ]
         );
 
-        $fulfillment = $data['fulfillment'] ?? null;
+        $assignedFulfillmentOrders =
+            $data['assignedFulfillmentOrders']['nodes'] ?? [];
 
-        if (! $fulfillment) {
-            throw new RuntimeException(
-                'Shopify fulfillment not found.'
-            );
-        }
-
-        $belongsToFsw = false;
-
-        foreach (
-            $fulfillment['fulfillmentOrders']['nodes'] ?? []
-            as $fulfillmentOrder
-        ) {
-            $assignedLocationId =
-                $fulfillmentOrder['assignedLocation']['location']['id']
-                ?? null;
-
-            if ($assignedLocationId === $locationId) {
-                $belongsToFsw = true;
-                break;
+        foreach ($assignedFulfillmentOrders as $fulfillmentOrder) {
+            foreach (
+                $fulfillmentOrder['fulfillments']['nodes'] ?? []
+                as $fulfillment
+            ) {
+                if (
+                    ($fulfillment['id'] ?? null)
+                    === $fulfillmentId
+                ) {
+                    return;
+                }
             }
         }
 
-        if (! $belongsToFsw) {
-            throw new RuntimeException(
-                'This fulfillment does not belong to FSWarehouse.'
-            );
-        }
+        throw new RuntimeException(
+            'This fulfillment does not belong to FSWarehouse.'
+        );
     }
 }
