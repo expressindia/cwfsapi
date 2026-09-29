@@ -10,6 +10,7 @@ use App\Http\Controllers\ShopifyOAuthController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\FulfillmentController;
+use App\Http\Controllers\OrderController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -33,6 +34,9 @@ Route::get('/fullscript/connect', [FullscriptOAuthController::class, 'redirect']
 Route::get('/fulfillments', [FulfillmentController::class, 'index'])->name('fulfillments.index');
 Route::get('/fulfillments/{fulfillment}', [FulfillmentController::class, 'show'])->name('fulfillments.show');
 Route::get('/webhooks', [WebhookController::class, 'index'])->name('webhooks.index');
+
+// Order Route 
+Route::get('/orders', [OrderController::class, 'index'])->middleware('shopify.standalone')->name('orders.index');
 /*
 |--------------------------------------------------------------------------
 | Fullscript OAuth

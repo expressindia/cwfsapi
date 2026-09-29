@@ -77,10 +77,10 @@
 
         </a>
 
-        <a href="#"
-           class="nav-link">
+        <a href="{{ route('orders.index') }}"
+        class="nav-link {{ request()->routeIs('orders.*') ? 'active' : '' }}">
 
-            <i class="bi bi-cart3"></i>
+            <i class="bi bi-cart"></i>
 
             Orders
 

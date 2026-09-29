@@ -1,0 +1,92 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\Shopify\ShopifyGraphQLService;
+use Illuminate\View\View;
+use Throwable;
+
+class OrderController extends Controller
+{
+    public function __construct(
+        protected ShopifyGraphQLService $shopify
+    ) {
+    }
+
+    /**
+     * Display Shopify orders.
+     */
+    public function index(): View
+    {
+        $query = <<<'GRAPHQL'
+        query GetOrders($first: Int!, $after: String) {
+            orders(
+                first: $first
+                after: $after
+                sortKey: CREATED_AT
+                reverse: true
+            ) {
+                nodes {
+                    id
+                    name
+                    createdAt
+                    displayFinancialStatus
+                    displayFulfillmentStatus
+                    totalPriceSet {
+                        shopMoney {
+                            amount
+                            currencyCode
+                        }
+                    }
+                    customer {
+                        firstName
+                        lastName
+                        email
+                    }
+                    fulfillments {
+                        id
+                        status
+                        createdAt
+                        trackingInfo {
+                            company
+                            number
+                            url
+                        }
+                    }
+                }
+
+                pageInfo {
+                    hasNextPage
+                    endCursor
+                }
+            }
+        }
+        GRAPHQL;
+
+        try {
+
+            $data = $this->shopify->execute(
+                $query,
+                [
+                    'first' => 50,
+                    'after' => null,
+                ]
+            );
+
+            return view('orders.index', [
+                'orders' => $data['orders']['nodes'] ?? [],
+                'pageInfo' => $data['orders']['pageInfo'] ?? [],
+            ]);
+
+        } catch (Throwable $e) {
+
+            report($e);
+
+            return view('orders.index', [
+                'orders' => [],
+                'pageInfo' => [],
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+}
