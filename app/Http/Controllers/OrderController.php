@@ -222,60 +222,69 @@ class OrderController extends Controller
      */
     public function show(string $orderId): View
     {
-        $shopifyOrderId =
-            'gid://shopify/Order/' . $orderId;
+        $shopifyOrderId = 'gid://shopify/Order/' . $orderId;
 
-        $query = <<<'GRAPHQL'
-        query GetOrder($id: ID!) {
-            order(id: $id) {
-                id
-                name
-                createdAt
+        try {
+            $shopifyToken = ShopifyToken::query()
+                ->where('shop_domain', config('shopify.store_domain'))
+                ->whereNotNull('access_token')
+                ->first();
 
-                displayFinancialStatus
-                displayFulfillmentStatus
+            if (! $shopifyToken) {
+                throw new RuntimeException('Shopify token not found.');
+            }
 
-                totalPriceSet {
-                    shopMoney {
-                        amount
-                        currencyCode
-                    }
-                }
-
-                customer {
-                    firstName
-                    lastName
-                    email
-                }
-
-                fulfillments {
+            $query = <<<'GRAPHQL'
+            query GetOrder($id: ID!) {
+                order(id: $id) {
                     id
-                    status
+                    name
                     createdAt
+                    displayFinancialStatus
+                    displayFulfillmentStatus
 
-                    location {
-                        id
-                        name
+                    totalPriceSet {
+                        shopMoney {
+                            amount
+                            currencyCode
+                        }
                     }
 
-                    service {
-                        id
-                        handle
-                        serviceName
+                    customer {
+                        firstName
+                        lastName
+                        email
                     }
 
-                    trackingInfo {
-                        company
-                        number
-                        url
+                    fulfillments {
+                        id
+                        status
+                        createdAt
+
+                        location {
+                            id
+                            name
+                        }
+
+                        service {
+                            id
+                            handle
+                            serviceName
+                        }
+
+                        trackingInfo {
+                            company
+                            number
+                            url
+                        }
                     }
                 }
             }
-        }
-        GRAPHQL;
+            GRAPHQL;
 
-        try {
-            $data = $this->shopify->execute(
+            $data = $this->shopify->executeWithCredentials(
+                $shopifyToken->shop_domain,
+                $shopifyToken->access_token,
                 $query,
                 [
                     'id' => $shopifyOrderId,
@@ -287,6 +296,24 @@ class OrderController extends Controller
             if (! $order) {
                 abort(404, 'Shopify order not found.');
             }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Only keep fulfillments belonging to our registered FSWarehouse
+            |--------------------------------------------------------------------------
+            */
+
+            $registeredLocationId = $shopifyToken->fulfillment_location_id;
+
+            $fulfillments = collect($order['fulfillments'] ?? [])
+                ->filter(function (array $fulfillment) use ($registeredLocationId) {
+                    return ($fulfillment['location']['id'] ?? null)
+                        === $registeredLocationId;
+                })
+                ->values()
+                ->all();
+
+            $order['fulfillments'] = $fulfillments;
 
             return view('orders.show', [
                 'order' => $order,
@@ -302,7 +329,6 @@ class OrderController extends Controller
             ]);
         }
     }
-
     /**
      * Update tracking information for a Shopify fulfillment.
      */
