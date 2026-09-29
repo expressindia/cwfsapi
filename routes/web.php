@@ -9,6 +9,7 @@ use App\Http\Controllers\FullscriptWebhookController;
 use App\Http\Controllers\ShopifyOAuthController;
 use App\Http\Controllers\ShopifyController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\FulfillmentController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -29,7 +30,7 @@ Route::post('logs/clear', [LogController::class, 'clear']) ->name('logs.clear');
 Route::get('/fullscript/status', [FullscriptStatusController::class,'status']) ->name('fullscript.status');
 Route::get('/fullscript/connect', [FullscriptOAuthController::class, 'redirect'])->name('fullscript.connect');
 
-
+Route::get('/fulfillments', [FulfillmentController::class, 'index'])->name('fulfillments.index');
 Route::get('/webhooks', [WebhookController::class, 'index'])->name('webhooks.index');
 /*
 |--------------------------------------------------------------------------

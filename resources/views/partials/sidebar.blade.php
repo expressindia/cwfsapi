@@ -86,10 +86,10 @@
 
         </a>
 
-        <a href="#"
-           class="nav-link">
+        <a href="{{ route('fulfillments.index') }}"
+        class="nav-link {{ request()->routeIs('fulfillments.*') ? 'active' : '' }}">
 
-            <i class="bi bi-truck"></i>
+            <i class="bi bi-box-seam"></i>
 
             Fulfillments
 
