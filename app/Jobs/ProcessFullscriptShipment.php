@@ -3,10 +3,12 @@
 namespace App\Jobs;
 
 use App\Models\FulfillmentOrder;
+use App\Models\ShopifyToken;
 use App\Services\Shopify\ShopifyFulfillmentService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 class ProcessFullscriptShipment implements ShouldQueue
@@ -25,6 +27,12 @@ class ProcessFullscriptShipment implements ShouldQueue
     public function handle(
         ShopifyFulfillmentService $shopifyFulfillmentService
     ): void {
+        /*
+        |--------------------------------------------------------------------------
+        | Get local fulfillment order
+        |--------------------------------------------------------------------------
+        */
+
         $fulfillmentOrder = FulfillmentOrder::find(
             $this->fulfillmentOrderId
         );
@@ -40,6 +48,49 @@ class ProcessFullscriptShipment implements ShouldQueue
 
             return;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get Shopify token
+        |--------------------------------------------------------------------------
+        |
+        | ShopifyFulfillmentService requires the Shopify token ID for all
+        | Shopify API operations.
+        |
+        | The application currently has one Shopify store/token record,
+        | so we use the configured ShopifyToken record.
+        |
+        */
+
+        $shopifyToken = ShopifyToken::query()->first();
+
+        if (! $shopifyToken) {
+            throw new RuntimeException(
+                'Shopify token record was not found.'
+            );
+        }
+
+        $shopifyTokenId = (int) $shopifyToken->id;
+
+        if ($shopifyTokenId <= 0) {
+            throw new RuntimeException(
+                'Shopify token ID is invalid.'
+            );
+        }
+
+        Log::info(
+            'Shopify token resolved for Fullscript shipment.',
+            [
+                'fulfillment_order_id' =>
+                    $fulfillmentOrder->id,
+
+                'shopify_token_id' =>
+                    $shopifyTokenId,
+
+                'shop_domain' =>
+                    $shopifyToken->shop_domain,
+            ]
+        );
 
         /*
         |--------------------------------------------------------------------------
@@ -115,13 +166,9 @@ class ProcessFullscriptShipment implements ShouldQueue
         | Validate Shopify FulfillmentOrder ID
         |--------------------------------------------------------------------------
         |
-        | This is the Shopify FulfillmentOrder GID.
-        |
         | Example:
-        | gid://shopify/FulfillmentOrder/8321819967559
         |
-        | We use this ID to retrieve the line items and create
-        | the Shopify Fulfillment.
+        | gid://shopify/FulfillmentOrder/8321819967559
         |
         */
 
@@ -168,6 +215,12 @@ class ProcessFullscriptShipment implements ShouldQueue
             return;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Log shipment information
+        |--------------------------------------------------------------------------
+        */
+
         Log::info(
             'Processing Fullscript shipment.',
             [
@@ -179,6 +232,9 @@ class ProcessFullscriptShipment implements ShouldQueue
 
                 'fullscript_order_id' =>
                     $fulfillmentOrder->fullscript_order_id,
+
+                'shopify_token_id' =>
+                    $shopifyTokenId,
 
                 'carrier' =>
                     $carrier,
@@ -198,11 +254,16 @@ class ProcessFullscriptShipment implements ShouldQueue
         |--------------------------------------------------------------------------
         | Get Shopify FulfillmentOrder line items
         |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        | getFulfillmentOrderLineItems() requires the Shopify token ID.
+        |
         */
 
         $shopifyLineItems =
             $shopifyFulfillmentService->getFulfillmentOrderLineItems(
-                $shopifyFulfillmentOrderId
+                $shopifyFulfillmentOrderId,
+                $shopifyTokenId
             );
 
         if (empty($shopifyLineItems)) {
@@ -214,6 +275,9 @@ class ProcessFullscriptShipment implements ShouldQueue
 
                     'shopify_fulfillment_order_id' =>
                         $shopifyFulfillmentOrderId,
+
+                    'shopify_token_id' =>
+                        $shopifyTokenId,
                 ]
             );
 
@@ -347,48 +411,19 @@ class ProcessFullscriptShipment implements ShouldQueue
         |--------------------------------------------------------------------------
         | Create Shopify Fulfillment
         |--------------------------------------------------------------------------
-        */
-
-        Log::info(
-            'Creating Shopify fulfillment.',
-            [
-                'fulfillment_order_id' =>
-                    $fulfillmentOrder->id,
-
-                'shopify_fulfillment_order_id' =>
-                    $shopifyFulfillmentOrderId,
-
-                'line_items' =>
-                    $fulfillmentLineItems,
-            ]
-        );
-
-        $shopifyFulfillment =
-            $shopifyFulfillmentService->createFulfillment(
-                $shopifyFulfillmentOrderId,
-                $fulfillmentLineItems,
-                true
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Get Shopify Fulfillment ID
-        |--------------------------------------------------------------------------
         |
-        | This is different from the FulfillmentOrder ID.
-        |
-        | Example:
-        | gid://shopify/Fulfillment/6564809244743
+        | If a Shopify fulfillment was already created by a previous attempt,
+        | reuse it instead of creating another fulfillment.
         |
         */
 
         $shopifyFulfillmentId =
-            $shopifyFulfillment['id']
+            $fulfillmentOrder->shopify_fulfillment_id
             ?? null;
 
         if (blank($shopifyFulfillmentId)) {
-            Log::error(
-                'Shopify fulfillment was created but no fulfillment ID was returned.',
+            Log::info(
+                'Creating Shopify fulfillment.',
                 [
                     'fulfillment_order_id' =>
                         $fulfillmentOrder->id,
@@ -396,41 +431,114 @@ class ProcessFullscriptShipment implements ShouldQueue
                     'shopify_fulfillment_order_id' =>
                         $shopifyFulfillmentOrderId,
 
-                    'shopify_response' =>
-                        $shopifyFulfillment,
+                    'shopify_token_id' =>
+                        $shopifyTokenId,
+
+                    'line_items' =>
+                        $fulfillmentLineItems,
                 ]
             );
 
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Save Shopify Fulfillment ID
-        |--------------------------------------------------------------------------
-        */
-
-        $fulfillmentOrder->update([
-            'shopify_fulfillment_id' =>
-                $shopifyFulfillmentId,
-        ]);
-
-        Log::info(
-            'Shopify fulfillment created successfully.',
-            [
-                'fulfillment_order_id' =>
-                    $fulfillmentOrder->id,
-
-                'shopify_fulfillment_order_id' =>
+            $shopifyFulfillment =
+                $shopifyFulfillmentService->createFulfillment(
                     $shopifyFulfillmentOrderId,
+                    $fulfillmentLineItems,
+                    true,
+                    $shopifyTokenId
+                );
 
+            /*
+            |--------------------------------------------------------------------------
+            | Get Shopify Fulfillment ID
+            |--------------------------------------------------------------------------
+            |
+            | This is different from the FulfillmentOrder ID.
+            |
+            | Example:
+            |
+            | gid://shopify/Fulfillment/6564809244743
+            |
+            */
+
+            $shopifyFulfillmentId =
+                $shopifyFulfillment['id']
+                ?? null;
+
+            if (blank($shopifyFulfillmentId)) {
+                Log::error(
+                    'Shopify fulfillment was created but no fulfillment ID was returned.',
+                    [
+                        'fulfillment_order_id' =>
+                            $fulfillmentOrder->id,
+
+                        'shopify_fulfillment_order_id' =>
+                            $shopifyFulfillmentOrderId,
+
+                        'shopify_token_id' =>
+                            $shopifyTokenId,
+
+                        'shopify_response' =>
+                            $shopifyFulfillment,
+                    ]
+                );
+
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Save Shopify Fulfillment ID
+            |--------------------------------------------------------------------------
+            */
+
+            $fulfillmentOrder->update([
                 'shopify_fulfillment_id' =>
                     $shopifyFulfillmentId,
+            ]);
 
-                'fullscript_order_id' =>
-                    $fulfillmentOrder->fullscript_order_id,
-            ]
-        );
+            Log::info(
+                'Shopify fulfillment created successfully.',
+                [
+                    'fulfillment_order_id' =>
+                        $fulfillmentOrder->id,
+
+                    'shopify_fulfillment_order_id' =>
+                        $shopifyFulfillmentOrderId,
+
+                    'shopify_fulfillment_id' =>
+                        $shopifyFulfillmentId,
+
+                    'fullscript_order_id' =>
+                        $fulfillmentOrder->fullscript_order_id,
+
+                    'shopify_token_id' =>
+                        $shopifyTokenId,
+                ]
+            );
+        } else {
+            /*
+            |--------------------------------------------------------------------------
+            | Existing Shopify Fulfillment
+            |--------------------------------------------------------------------------
+            */
+
+            Log::info(
+                'Existing Shopify fulfillment found. Reusing it.',
+                [
+                    'fulfillment_order_id' =>
+                        $fulfillmentOrder->id,
+
+                    'shopify_fulfillment_order_id' =>
+                        $shopifyFulfillmentOrderId,
+
+                    'shopify_fulfillment_id' =>
+                        $shopifyFulfillmentId,
+
+                    'shopify_token_id' =>
+                        $shopifyTokenId,
+                ]
+            );
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -450,6 +558,9 @@ class ProcessFullscriptShipment implements ShouldQueue
                 'fullscript_order_id' =>
                     $fulfillmentOrder->fullscript_order_id,
 
+                'shopify_token_id' =>
+                    $shopifyTokenId,
+
                 'carrier' =>
                     $carrier,
 
@@ -461,12 +572,20 @@ class ProcessFullscriptShipment implements ShouldQueue
             ]
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | IMPORTANT:
+        | Pass Shopify token ID to updateTracking()
+        |--------------------------------------------------------------------------
+        */
+
         $result =
             $shopifyFulfillmentService->updateTracking(
                 $shopifyFulfillmentId,
                 $trackingNumber,
                 $carrier,
-                $trackingUrl
+                $trackingUrl,
+                $shopifyTokenId
             );
 
         /*
@@ -491,6 +610,9 @@ class ProcessFullscriptShipment implements ShouldQueue
 
                 'fullscript_order_id' =>
                     $fulfillmentOrder->fullscript_order_id,
+
+                'shopify_token_id' =>
+                    $shopifyTokenId,
 
                 'carrier' =>
                     $carrier,
