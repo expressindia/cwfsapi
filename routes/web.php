@@ -8,6 +8,7 @@ use App\Http\Controllers\LogController;
 use App\Http\Controllers\FullscriptWebhookController;
 use App\Http\Controllers\ShopifyOAuthController;
 use App\Http\Controllers\ShopifyController;
+use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 
