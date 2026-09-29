@@ -9,6 +9,39 @@
 <div class="container-fluid px-0">
 
     {{-- =========================================================
+         Page Header
+    ========================================================== --}}
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+
+            <h3 class="fw-semibold mb-1">
+                Webhook Events
+            </h3>
+
+            <p class="text-muted mb-0">
+                View webhook events received by CWFSAPI.
+            </p>
+
+        </div>
+
+        <div>
+
+            <span class="badge bg-primary px-3 py-2">
+
+                <i class="bi bi-broadcast me-1"></i>
+
+                Webhooks
+
+            </span>
+
+        </div>
+
+    </div>
+
+
+    {{-- =========================================================
          Flash Messages
     ========================================================== --}}
 
@@ -59,40 +92,6 @@
 
 
     {{-- =========================================================
-         Page Header
-    ========================================================== --}}
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-
-        <div>
-
-            <h3 class="fw-semibold mb-1">
-                Webhook Events
-            </h3>
-
-            <p class="text-muted mb-0">
-                View Fullscript webhook events, shipments, tracking information and fulfillment status.
-            </p>
-
-        </div>
-
-
-        <div>
-
-            <span class="badge bg-primary px-3 py-2">
-
-                <i class="bi bi-broadcast me-1"></i>
-
-                Webhooks
-
-            </span>
-
-        </div>
-
-    </div>
-
-
-    {{-- =========================================================
          Webhook Events Card
     ========================================================== --}}
 
@@ -112,15 +111,14 @@
 
                     </div>
 
-
                     <div>
 
                         <h5 class="mb-1">
-                            Fullscript Webhook Events
+                            Webhook Events
                         </h5>
 
                         <small class="text-muted">
-                            Events received from Fullscript
+                            Events received from webhook providers
                         </small>
 
                     </div>
@@ -158,27 +156,23 @@
                             <tr>
 
                                 <th>
-                                    Event ID
+                                    ID
                                 </th>
 
                                 <th>
-                                    Event Type
+                                    Provider
                                 </th>
 
                                 <th>
-                                    Fullscript Order
+                                    Webhook ID
                                 </th>
 
                                 <th>
-                                    Shipment
+                                    Topic
                                 </th>
 
                                 <th>
-                                    Tracking
-                                </th>
-
-                                <th>
-                                    Status
+                                    Processed
                                 </th>
 
                                 <th>
@@ -196,447 +190,507 @@
 
                         <tbody>
 
-                        @foreach($events as $event)
+                            @foreach($events as $event)
 
-                            <tr>
-
-                                {{-- =================================
-                                     Event ID
-                                ================================== --}}
-
-                                <td>
-
-                                    @if($event->fullscript_event_id)
-
-                                        <code class="text-break">
-                                            {{ $event->fullscript_event_id }}
-                                        </code>
-
-                                    @else
-
-                                        <span class="text-muted">
-                                            -
-                                        </span>
-
-                                    @endif
-
-                                </td>
+                                <tr>
 
 
-                                {{-- =================================
-                                     Event Type
-                                ================================== --}}
+                                    {{-- =================================
+                                         ID
+                                    ================================== --}}
 
-                                <td>
-
-                                    <span class="badge bg-light text-dark border">
-
-                                        <i class="bi bi-lightning-charge me-1"></i>
-
-                                        {{ $event->tracking_data['event_type'] ?? 'fulfillment.shipment.shipped' }}
-
-                                    </span>
-
-                                </td>
-
-
-                                {{-- =================================
-                                     Fullscript Order
-                                ================================== --}}
-
-                                <td>
-
-                                    @if($event->fullscript_order_id)
+                                    <td>
 
                                         <strong>
-                                            {{ $event->fullscript_order_id }}
+                                            #{{ $event->id }}
                                         </strong>
 
-                                    @else
-
-                                        <span class="text-muted">
-                                            -
-                                        </span>
-
-                                    @endif
-
-                                </td>
+                                    </td>
 
 
-                                {{-- =================================
-                                     Shipment
-                                ================================== --}}
+                                    {{-- =================================
+                                         Provider
+                                    ================================== --}}
 
-                                <td>
+                                    <td>
 
-                                    {{ $event->tracking_data['shipment_number'] ?? '-' }}
+                                        @if($event->provider)
 
-                                </td>
+                                            <span class="badge bg-light text-dark border">
+
+                                                <i class="bi bi-cloud-arrow-down me-1"></i>
+
+                                                {{ ucfirst($event->provider) }}
+
+                                            </span>
+
+                                        @else
+
+                                            <span class="text-muted">
+                                                -
+                                            </span>
+
+                                        @endif
+
+                                    </td>
 
 
-                                {{-- =================================
-                                     Tracking
-                                ================================== --}}
+                                    {{-- =================================
+                                         Webhook ID
+                                    ================================== --}}
 
-                                <td>
+                                    <td>
 
-                                    @if(!empty($event->tracking_data['tracking_number']))
+                                        @if($event->webhook_id)
 
-                                        <strong>
-                                            {{ $event->tracking_data['tracking_number'] }}
-                                        </strong>
+                                            <code
+                                                class="text-break"
+                                                style="font-size: 12px;"
+                                            >
+                                                {{ $event->webhook_id }}
+                                            </code>
+
+                                        @else
+
+                                            <span class="text-muted">
+                                                -
+                                            </span>
+
+                                        @endif
+
+                                    </td>
 
 
-                                        @if(!empty($event->tracking_data['carrier']))
+                                    {{-- =================================
+                                         Topic
+                                    ================================== --}}
+
+                                    <td>
+
+                                        @if($event->topic)
+
+                                            <span class="badge bg-light text-dark border">
+
+                                                <i class="bi bi-lightning-charge me-1"></i>
+
+                                                {{ $event->topic }}
+
+                                            </span>
+
+                                        @else
+
+                                            <span class="text-muted">
+                                                -
+                                            </span>
+
+                                        @endif
+
+                                    </td>
+
+
+                                    {{-- =================================
+                                         Processed
+                                    ================================== --}}
+
+                                    <td>
+
+                                        @if($event->processed_at)
+
+                                            <span class="badge bg-success">
+
+                                                <i class="bi bi-check-circle me-1"></i>
+
+                                                Processed
+
+                                            </span>
 
                                             <br>
 
                                             <small class="text-muted">
 
-                                                <i class="bi bi-truck me-1"></i>
-
-                                                {{ $event->tracking_data['carrier'] }}
+                                                {{ $event->processed_at->format('Y-m-d H:i:s') }}
 
                                             </small>
+
+                                        @else
+
+                                            <span class="badge bg-warning text-dark">
+
+                                                <i class="bi bi-hourglass-split me-1"></i>
+
+                                                Pending
+
+                                            </span>
 
                                         @endif
 
-                                    @else
-
-                                        <span class="text-muted">
-                                            -
-                                        </span>
-
-                                    @endif
-
-                                </td>
+                                    </td>
 
 
-                                {{-- =================================
-                                     Status
-                                ================================== --}}
+                                    {{-- =================================
+                                         Received
+                                    ================================== --}}
 
-                                <td>
+                                    <td>
 
-                                    @php
-
-                                        $status = strtolower(
-                                            $event->status ?? ''
-                                        );
-
-                                    @endphp
-
-
-                                    @if($status === 'shipped')
-
-                                        <span class="badge bg-success">
-
-                                            <i class="bi bi-check-circle me-1"></i>
-
-                                            Shipped
-
-                                        </span>
-
-
-                                    @elseif($status === 'cancelled')
-
-                                        <span class="badge bg-danger">
-
-                                            <i class="bi bi-x-circle me-1"></i>
-
-                                            Cancelled
-
-                                        </span>
-
-
-                                    @elseif($status === 'processing')
-
-                                        <span class="badge bg-warning text-dark">
-
-                                            <i class="bi bi-hourglass-split me-1"></i>
-
-                                            Processing
-
-                                        </span>
-
-
-                                    @else
-
-                                        <span class="badge bg-secondary">
-
-                                            {{ $event->status ?? 'Unknown' }}
-
-                                        </span>
-
-                                    @endif
-
-                                </td>
-
-
-                                {{-- =================================
-                                     Received
-                                ================================== --}}
-
-                                <td>
-
-                                    @if($event->created_at)
-
-                                        <div>
-                                            {{ $event->created_at->format('Y-m-d') }}
-                                        </div>
-
-                                        <small class="text-muted">
-                                            {{ $event->created_at->format('H:i:s') }}
-                                        </small>
-
-                                    @else
-
-                                        <span class="text-muted">
-                                            -
-                                        </span>
-
-                                    @endif
-
-                                </td>
-
-
-                                {{-- =================================
-                                     View Payload
-                                ================================== --}}
-
-                                <td class="text-center">
-
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-primary"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#payloadModal{{ $event->id }}"
-                                    >
-
-                                        <i class="bi bi-code-slash me-1"></i>
-
-                                        View Payload
-
-                                    </button>
-
-                                </td>
-
-                            </tr>
-
-
-                            {{-- =================================================
-                                 Payload Modal
-                            ================================================== --}}
-
-                            <div
-                                class="modal fade"
-                                id="payloadModal{{ $event->id }}"
-                                tabindex="-1"
-                                aria-labelledby="payloadModalLabel{{ $event->id }}"
-                                aria-hidden="true"
-                            >
-
-                                <div
-                                    class="modal-dialog modal-xl modal-dialog-scrollable"
-                                >
-
-                                    <div class="modal-content">
-
-
-                                        {{-- Modal Header --}}
-                                        <div class="modal-header">
+                                        @if($event->created_at)
 
                                             <div>
 
-                                                <h5
-                                                    class="modal-title"
-                                                    id="payloadModalLabel{{ $event->id }}"
-                                                >
-
-                                                    <i class="bi bi-code-slash me-2"></i>
-
-                                                    Webhook Payload
-
-                                                </h5>
-
-
-                                                <small class="text-muted">
-
-                                                    Event ID:
-
-                                                    <code>
-                                                        {{ $event->fullscript_event_id ?? '-' }}
-                                                    </code>
-
-                                                </small>
+                                                {{ $event->created_at->format('Y-m-d') }}
 
                                             </div>
 
+                                            <small class="text-muted">
 
-                                            <button
-                                                type="button"
-                                                class="btn-close"
-                                                data-bs-dismiss="modal"
-                                                aria-label="Close"
-                                            ></button>
-
-                                        </div>
-
-
-                                        {{-- Modal Body --}}
-                                        <div class="modal-body">
-
-
-                                            {{-- Event Information --}}
-                                            <div class="row g-3 mb-4">
-
-
-                                                {{-- Event ID --}}
-                                                <div class="col-md-6">
-
-                                                    <div class="border rounded p-3">
-
-                                                        <small class="text-muted d-block mb-2">
-                                                            Event ID
-                                                        </small>
-
-                                                        <code class="text-break">
-
-                                                            {{ $event->fullscript_event_id ?? '-' }}
-
-                                                        </code>
-
-                                                    </div>
-
-                                                </div>
-
-
-                                                {{-- Event Type --}}
-                                                <div class="col-md-6">
-
-                                                    <div class="border rounded p-3">
-
-                                                        <small class="text-muted d-block mb-2">
-                                                            Event Type
-                                                        </small>
-
-                                                        <strong>
-
-                                                            {{ $event->tracking_data['event_type'] ?? 'fulfillment.shipment.shipped' }}
-
-                                                        </strong>
-
-                                                    </div>
-
-                                                </div>
-
-
-                                                {{-- Fullscript Order --}}
-                                                <div class="col-md-6">
-
-                                                    <div class="border rounded p-3">
-
-                                                        <small class="text-muted d-block mb-2">
-                                                            Fullscript Order
-                                                        </small>
-
-                                                        <strong>
-
-                                                            {{ $event->fullscript_order_id ?? '-' }}
-
-                                                        </strong>
-
-                                                    </div>
-
-                                                </div>
-
-
-                                                {{-- Shipment --}}
-                                                <div class="col-md-6">
-
-                                                    <div class="border rounded p-3">
-
-                                                        <small class="text-muted d-block mb-2">
-                                                            Shipment
-                                                        </small>
-
-                                                        <strong>
-
-                                                            {{ $event->tracking_data['shipment_number'] ?? '-' }}
-
-                                                        </strong>
-
-                                                    </div>
-
-                                                </div>
-
-
-                                            </div>
-
-
-                                            {{-- Payload --}}
-                                            <div>
-
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-
-                                                    <h6 class="mb-0 fw-semibold">
-                                                        Payload
-                                                    </h6>
-
-                                                    <span class="badge bg-secondary">
-                                                        JSON
-                                                    </span>
-
-                                                </div>
-
-
-                                                <div
-                                                    class="border rounded bg-dark p-3"
-                                                    style="max-height: 600px; overflow-y: auto;"
-                                                >
-
-                                                    <pre
-                                                        class="text-light mb-0"
-                                                        style="
-                                                            white-space: pre-wrap;
-                                                            word-break: break-word;
-                                                            font-size: 13px;
-                                                        "
-                                                    ><code>{{ json_encode(
-                                                        $event->tracking_data,
-                                                        JSON_PRETTY_PRINT |
-                                                        JSON_UNESCAPED_SLASHES |
-                                                        JSON_UNESCAPED_UNICODE
-                                                    ) }}</code></pre>
-
-                                                </div>
-
-                                            </div>
-
-                                        </div>
-
-
-                                        {{-- Modal Footer --}}
-                                        <div class="modal-footer">
-
-                                            <small class="text-muted me-auto">
-
-                                                Received:
-
-                                                {{ $event->created_at?->format('Y-m-d H:i:s') ?? '-' }}
+                                                {{ $event->created_at->format('H:i:s') }}
 
                                             </small>
 
+                                        @else
 
-                                            <button
-                                                type="button"
-                                                class="btn btn-secondary"
-                                                data-bs-dismiss="modal"
-                                            >
+                                            <span class="text-muted">
+                                                -
+                                            </span>
 
-                                                Close
+                                        @endif
 
-                                            </button>
+                                    </td>
+
+
+                                    {{-- =================================
+                                         Payload
+                                    ================================== --}}
+
+                                    <td class="text-center">
+
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#payloadModal{{ $event->id }}"
+                                        >
+
+                                            <i class="bi bi-code-slash me-1"></i>
+
+                                            View Payload
+
+                                        </button>
+
+                                    </td>
+
+
+                                </tr>
+
+
+                                {{-- =================================================
+                                     Payload Modal
+                                ================================================== --}}
+
+                                <div
+                                    class="modal fade"
+                                    id="payloadModal{{ $event->id }}"
+                                    tabindex="-1"
+                                    aria-labelledby="payloadModalLabel{{ $event->id }}"
+                                    aria-hidden="true"
+                                >
+
+                                    <div
+                                        class="modal-dialog modal-xl modal-dialog-scrollable"
+                                    >
+
+                                        <div class="modal-content">
+
+
+                                            {{-- Modal Header --}}
+                                            <div class="modal-header">
+
+                                                <div>
+
+                                                    <h5
+                                                        class="modal-title"
+                                                        id="payloadModalLabel{{ $event->id }}"
+                                                    >
+
+                                                        <i class="bi bi-code-slash me-2"></i>
+
+                                                        Webhook Payload
+
+                                                    </h5>
+
+
+                                                    <small class="text-muted">
+
+                                                        Webhook ID:
+
+                                                        <code>
+
+                                                            {{ $event->webhook_id }}
+
+                                                        </code>
+
+                                                    </small>
+
+                                                </div>
+
+
+                                                <button
+                                                    type="button"
+                                                    class="btn-close"
+                                                    data-bs-dismiss="modal"
+                                                    aria-label="Close"
+                                                ></button>
+
+                                            </div>
+
+
+                                            {{-- Modal Body --}}
+                                            <div class="modal-body">
+
+
+                                                {{-- =================================
+                                                     Event Information
+                                                ================================== --}}
+
+                                                <div class="row g-3 mb-4">
+
+
+                                                    {{-- Provider --}}
+                                                    <div class="col-md-6">
+
+                                                        <div class="border rounded p-3 h-100">
+
+                                                            <small class="text-muted d-block mb-2">
+
+                                                                Provider
+
+                                                            </small>
+
+                                                            <strong>
+
+                                                                {{ $event->provider ?? '-' }}
+
+                                                            </strong>
+
+                                                        </div>
+
+                                                    </div>
+
+
+                                                    {{-- Webhook ID --}}
+                                                    <div class="col-md-6">
+
+                                                        <div class="border rounded p-3 h-100">
+
+                                                            <small class="text-muted d-block mb-2">
+
+                                                                Webhook ID
+
+                                                            </small>
+
+                                                            <code class="text-break">
+
+                                                                {{ $event->webhook_id ?? '-' }}
+
+                                                            </code>
+
+                                                        </div>
+
+                                                    </div>
+
+
+                                                    {{-- Topic --}}
+                                                    <div class="col-md-6">
+
+                                                        <div class="border rounded p-3 h-100">
+
+                                                            <small class="text-muted d-block mb-2">
+
+                                                                Topic
+
+                                                            </small>
+
+                                                            <strong>
+
+                                                                {{ $event->topic ?? '-' }}
+
+                                                            </strong>
+
+                                                        </div>
+
+                                                    </div>
+
+
+                                                    {{-- Processed --}}
+                                                    <div class="col-md-6">
+
+                                                        <div class="border rounded p-3 h-100">
+
+                                                            <small class="text-muted d-block mb-2">
+
+                                                                Processed
+
+                                                            </small>
+
+
+                                                            @if($event->processed_at)
+
+                                                                <span class="badge bg-success">
+
+                                                                    <i class="bi bi-check-circle me-1"></i>
+
+                                                                    Processed
+
+                                                                </span>
+
+
+                                                                <div class="mt-2 text-muted small">
+
+                                                                    {{ $event->processed_at->format('Y-m-d H:i:s') }}
+
+                                                                </div>
+
+                                                            @else
+
+                                                                <span class="badge bg-warning text-dark">
+
+                                                                    <i class="bi bi-hourglass-split me-1"></i>
+
+                                                                    Pending
+
+                                                                </span>
+
+                                                            @endif
+
+                                                        </div>
+
+                                                    </div>
+
+
+                                                    {{-- Received --}}
+                                                    <div class="col-md-6">
+
+                                                        <div class="border rounded p-3 h-100">
+
+                                                            <small class="text-muted d-block mb-2">
+
+                                                                Received
+
+                                                            </small>
+
+                                                            <strong>
+
+                                                                {{ $event->created_at?->format('Y-m-d H:i:s') ?? '-' }}
+
+                                                            </strong>
+
+                                                        </div>
+
+                                                    </div>
+
+
+                                                    {{-- Database ID --}}
+                                                    <div class="col-md-6">
+
+                                                        <div class="border rounded p-3 h-100">
+
+                                                            <small class="text-muted d-block mb-2">
+
+                                                                Database ID
+
+                                                            </small>
+
+                                                            <strong>
+
+                                                                #{{ $event->id }}
+
+                                                            </strong>
+
+                                                        </div>
+
+                                                    </div>
+
+                                                </div>
+
+
+                                                {{-- =================================
+                                                     Complete Payload
+                                                ================================== --}}
+
+                                                <div>
+
+                                                    <div
+                                                        class="d-flex justify-content-between align-items-center mb-2"
+                                                    >
+
+                                                        <h6 class="mb-0 fw-semibold">
+
+                                                            Complete Payload
+
+                                                        </h6>
+
+
+                                                        <span class="badge bg-secondary">
+
+                                                            JSON
+
+                                                        </span>
+
+                                                    </div>
+
+
+                                                    <div
+                                                        class="border rounded bg-dark p-3"
+                                                        style="
+                                                            max-height: 600px;
+                                                            overflow-y: auto;
+                                                        "
+                                                    >
+
+                                                        <pre
+                                                            class="text-light mb-0"
+                                                            style="
+                                                                white-space: pre-wrap;
+                                                                word-break: break-word;
+                                                                font-size: 13px;
+                                                            "
+                                                        ><code>{{ json_encode(
+                                                            $event->payload,
+                                                            JSON_PRETTY_PRINT |
+                                                            JSON_UNESCAPED_SLASHES |
+                                                            JSON_UNESCAPED_UNICODE
+                                                        ) }}</code></pre>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+
+
+                                            {{-- Modal Footer --}}
+                                            <div class="modal-footer">
+
+                                                <small class="text-muted me-auto">
+
+                                                    Received:
+
+                                                    {{ $event->created_at?->format('Y-m-d H:i:s') ?? '-' }}
+
+                                                </small>
+
+
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-secondary"
+                                                    data-bs-dismiss="modal"
+                                                >
+
+                                                    Close
+
+                                                </button>
+
+                                            </div>
 
                                         </div>
 
@@ -644,9 +698,7 @@
 
                                 </div>
 
-                            </div>
-
-                        @endforeach
+                            @endforeach
 
                         </tbody>
 
@@ -718,12 +770,16 @@
 
 
                     <h5 class="mb-2">
+
                         No Webhook Events
+
                     </h5>
 
 
                     <p class="text-muted mb-0">
-                        No Fullscript webhook events have been received yet.
+
+                        No webhook events have been received yet.
+
                     </p>
 
                 </div>
@@ -736,7 +792,7 @@
 
 
     {{-- =========================================================
-         Fullscript Webhook Information
+         Webhook Information
     ========================================================== --}}
 
     <div class="card dashboard-card">
@@ -757,11 +813,15 @@
                 <div>
 
                     <h5 class="mb-1">
+
                         Fullscript Webhook
+
                     </h5>
 
                     <small class="text-muted">
+
                         Webhook endpoint information
+
                     </small>
 
                 </div>
@@ -776,10 +836,12 @@
                 {{-- Endpoint --}}
                 <div class="col-md-6">
 
-                    <div class="border rounded p-3">
+                    <div class="border rounded p-3 h-100">
 
                         <small class="text-muted d-block mb-2">
+
                             Webhook Endpoint
+
                         </small>
 
                         <code class="text-break">
@@ -793,17 +855,21 @@
                 </div>
 
 
-                {{-- Event --}}
+                {{-- Provider --}}
                 <div class="col-md-6">
 
-                    <div class="border rounded p-3">
+                    <div class="border rounded p-3 h-100">
 
                         <small class="text-muted d-block mb-2">
-                            Event
+
+                            Provider
+
                         </small>
 
                         <strong>
-                            Fullscript Fulfillment Events
+
+                            Fullscript
+
                         </strong>
 
                     </div>
@@ -814,10 +880,12 @@
                 {{-- HTTP Method --}}
                 <div class="col-md-6">
 
-                    <div class="border rounded p-3">
+                    <div class="border rounded p-3 h-100">
 
                         <small class="text-muted d-block mb-2">
+
                             HTTP Method
+
                         </small>
 
                         <span class="badge bg-primary">
@@ -836,10 +904,12 @@
                 {{-- Status --}}
                 <div class="col-md-6">
 
-                    <div class="border rounded p-3">
+                    <div class="border rounded p-3 h-100">
 
                         <small class="text-muted d-block mb-2">
+
                             Status
+
                         </small>
 
                         <span class="badge bg-success">

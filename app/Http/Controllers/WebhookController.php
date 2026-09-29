@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\FulfillmentOrder;
+use App\Models\WebhookEvent;
 
 class WebhookController extends Controller
 {
     public function index()
     {
-        $events = FulfillmentOrder::latest()->paginate(25);
+        $events = WebhookEvent::latest()->paginate(25);
 
         return view('webhooks.index', compact('events'));
     }
