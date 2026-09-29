@@ -28,138 +28,138 @@ class OrderController extends Controller
     |
     */
 
-    public function index(): View
-    {
-        try {
-            $shopifyToken = $this->getShopifyToken();
+public function index(): View
+{
+    try {
+        $shopifyToken = $this->getShopifyToken();
 
-            $locationId = $shopifyToken->fulfillment_location_id;
+        $locationId = $shopifyToken->fulfillment_location_id;
 
-            if (blank($locationId)) {
-                throw new RuntimeException(
-                    'Shopify fulfillment location ID is not configured.'
-                );
-            }
+        if (blank($locationId)) {
+            throw new RuntimeException(
+                'Shopify fulfillment location ID is not configured.'
+            );
+        }
 
-            $query = <<<'GRAPHQL'
-            query GetAssignedFulfillmentOrders(
-                $first: Int!
-                $after: String
-                $locationIds: [ID!]
+        $after = request()->query('after');
+
+        $query = <<<'GRAPHQL'
+        query GetAssignedFulfillmentOrders(
+            $first: Int!
+            $after: String
+            $locationIds: [ID!]
+        ) {
+            assignedFulfillmentOrders(
+                first: $first
+                after: $after
+                locationIds: $locationIds
+                sortKey: UPDATED_AT
+                reverse: true
             ) {
-                assignedFulfillmentOrders(
-                    first: $first
-                    after: $after
-                    locationIds: $locationIds
-                    sortKey: UPDATED_AT
-                    reverse: true
-                ) {
-                    nodes {
-                        id
-                        status
-                        requestStatus
-                        createdAt
-                        updatedAt
+                nodes {
+                    id
+                    status
+                    requestStatus
+                    createdAt
+                    updatedAt
 
-                        assignedLocation {
-                            location {
-                                id
-                                name
-                            }
-                        }
-
-                        order {
+                    assignedLocation {
+                        location {
                             id
                             name
-                            createdAt
-                            displayFinancialStatus
-                            displayFulfillmentStatus
-
-                            totalPriceSet {
-                                shopMoney {
-                                    amount
-                                    currencyCode
-                                }
-                            }
-
-                            customer {
-                                firstName
-                                lastName
-                                email
-                            }
                         }
                     }
 
-                    pageInfo {
-                        hasNextPage
-                        endCursor
+                    order {
+                        id
+                        name
+                        createdAt
+                        displayFinancialStatus
+                        displayFulfillmentStatus
+
+                        totalPriceSet {
+                            shopMoney {
+                                amount
+                                currencyCode
+                            }
+                        }
+
+                        customer {
+                            firstName
+                            lastName
+                            email
+                        }
                     }
                 }
-            }
-            GRAPHQL;
 
-            $data = $this->shopify->executeWithCredentials(
-                $shopifyToken->shop_domain,
-                $shopifyToken->access_token,
-                $query,
-                [
-                    'first' => 100,
-                    'after' => null,
-                    'locationIds' => [
-                        $locationId,
-                    ],
-                ]
-            );
-
-            $assignedFulfillmentOrders =
-                $data['assignedFulfillmentOrders']['nodes'] ?? [];
-
-            $pageInfo =
-                $data['assignedFulfillmentOrders']['pageInfo'] ?? [];
-
-            /*
-            |--------------------------------------------------------------------------
-            | Remove duplicate orders
-            |--------------------------------------------------------------------------
-            |
-            | An order can have more than one FSWarehouse fulfillment order.
-            |
-            */
-
-            $orders = [];
-
-            foreach ($assignedFulfillmentOrders as $fulfillmentOrder) {
-                $order = $fulfillmentOrder['order'] ?? null;
-
-                if (! $order || empty($order['id'])) {
-                    continue;
-                }
-
-                $orderId = $order['id'];
-
-                if (! isset($orders[$orderId])) {
-                    $orders[$orderId] = $order;
+                pageInfo {
+                    hasNextPage
+                    hasPreviousPage
+                    startCursor
+                    endCursor
                 }
             }
-
-            $orders = array_values($orders);
-
-            return view('orders.index', [
-                'orders' => $orders,
-                'pageInfo' => $pageInfo,
-                'error' => null,
-            ]);
-
-        } catch (Throwable $e) {
-            report($e);
-
-            return view('orders.index', [
-                'orders' => [],
-                'pageInfo' => [],
-                'error' => $e->getMessage(),
-            ]);
         }
+        GRAPHQL;
+
+        $data = $this->shopify->executeWithCredentials(
+            $shopifyToken->shop_domain,
+            $shopifyToken->access_token,
+            $query,
+            [
+                'first' => 100,
+                'after' => $after ?: null,
+                'locationIds' => [
+                    $locationId,
+                ],
+            ]
+        );
+
+        $connection =
+            $data['assignedFulfillmentOrders'] ?? [];
+
+        $assignedFulfillmentOrders =
+            $connection['nodes'] ?? [];
+
+        $pageInfo =
+            $connection['pageInfo'] ?? [];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Remove duplicate Shopify orders
+        |--------------------------------------------------------------------------
+        */
+
+        $orders = [];
+
+        foreach ($assignedFulfillmentOrders as $fulfillmentOrder) {
+            $order = $fulfillmentOrder['order'] ?? null;
+
+            if (! $order || empty($order['id'])) {
+                continue;
+            }
+
+            $orders[$order['id']] = $order;
+        }
+
+        $orders = array_values($orders);
+
+        return view('orders.index', [
+            'orders' => $orders,
+            'pageInfo' => $pageInfo,
+            'error' => null,
+        ]);
+
+    } catch (Throwable $e) {
+        report($e);
+
+        return view('orders.index', [
+            'orders' => [],
+            'pageInfo' => [],
+            'error' => $e->getMessage(),
+        ]);
     }
+}
 
 
     /*
