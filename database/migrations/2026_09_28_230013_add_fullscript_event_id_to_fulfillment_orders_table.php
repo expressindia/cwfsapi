@@ -1,0 +1,18 @@
+public function up(): void
+{
+    Schema::table('fulfillment_orders', function (Blueprint $table) {
+        $table->string('fullscript_event_id')
+            ->nullable()
+            ->after('fullscript_order_id');
+
+        $table->index('fullscript_event_id');
+    });
+}
+
+public function down(): void
+{
+    Schema::table('fulfillment_orders', function (Blueprint $table) {
+        $table->dropIndex(['fullscript_event_id']);
+        $table->dropColumn('fullscript_event_id');
+    });
+}
