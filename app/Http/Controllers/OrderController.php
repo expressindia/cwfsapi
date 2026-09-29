@@ -92,8 +92,9 @@ class OrderController extends Controller
 
     public function show(string $orderId): View
     {
+        // Convert numeric URL ID back to Shopify GraphQL GID.
         $shopifyOrderId = 'gid://shopify/Order/' . $orderId;
-            
+
         $query = <<<'GRAPHQL'
         query GetOrder($id: ID!) {
             order(id: $id) {
@@ -135,7 +136,7 @@ class OrderController extends Controller
             $data = $this->shopify->execute(
                 $query,
                 [
-                    'id' => $orderId,
+                    'id' => $shopifyOrderId,
                 ]
             );
 
