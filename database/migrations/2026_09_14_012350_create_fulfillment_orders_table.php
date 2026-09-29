@@ -21,7 +21,13 @@ return new class extends Migration
             $table->string('shopify_fulfillment_order_id')
                 ->unique();
 
+            $table->string('shopify_fulfillment_id')
+                ->nullable();
+
             $table->string('fullscript_order_id')
+                ->nullable()
+                ->index();
+            $table->string('fullscript_event_id')
                 ->nullable()
                 ->index();
 

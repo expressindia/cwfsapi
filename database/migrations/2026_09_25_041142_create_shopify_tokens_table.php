@@ -18,6 +18,12 @@ return new class extends Migration
 
             $table->text('access_token');
 
+            $table->string('fulfillment_service_id')
+                ->nullable();
+
+            $table->string('fulfillment_location_id')
+                ->nullable();
+
             $table->text('scope')->nullable();
 
             /*
