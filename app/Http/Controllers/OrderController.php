@@ -116,6 +116,20 @@ query GetAssignedFulfillmentOrders(
                 }
             }
 
+            fulfillments(first: 50) {
+                nodes {
+                    id
+                    status
+                    createdAt
+
+                    trackingInfo {
+                        company
+                        number
+                        url
+                    }
+                }
+            }
+
             order {
                 id
                 name
@@ -177,6 +191,17 @@ GRAPHQL;
                  */
                 $order['fsFulfillmentOrder'] = $fulfillmentOrder;
 
+                /*
+                 * Attach actual Shopify fulfillments belonging to
+                 * this FSWarehouse fulfillment order.
+                 *
+                 * The Blade view expects:
+                 *
+                 * $order['fulfillments']
+                 */
+                $order['fulfillments'] =
+                    $fulfillmentOrder['fulfillments']['nodes'] ?? [];
+
                 $orders[] = $order;
             }
 
@@ -190,13 +215,19 @@ GRAPHQL;
             $nextUrl = null;
             $previousUrl = null;
 
-            if (!empty($pageInfo['hasNextPage']) && !empty($pageInfo['endCursor'])) {
+            if (
+                !empty($pageInfo['hasNextPage']) &&
+                !empty($pageInfo['endCursor'])
+            ) {
                 $nextUrl = route('orders.index', [
                     'after' => $pageInfo['endCursor'],
                 ]);
             }
 
-            if (!empty($pageInfo['hasPreviousPage']) && !empty($pageInfo['startCursor'])) {
+            if (
+                !empty($pageInfo['hasPreviousPage']) &&
+                !empty($pageInfo['startCursor'])
+            ) {
                 $previousUrl = route('orders.index', [
                     'before' => $pageInfo['startCursor'],
                 ]);
@@ -397,14 +428,30 @@ GRAPHQL;
                     'nextUrl' => null,
                     'previousUrl' => null,
                     'search' => $search,
-                    'error' => "Order #{$orderNumber} exists, but it is not assigned to FSWarehouse.",
+                    'error' =>
+                        "Order #{$orderNumber} exists, but it is not assigned to FSWarehouse.",
                 ]);
             }
 
             /*
-             * Attach the FSWarehouse fulfillment order to the order.
+             * Attach the FSWarehouse fulfillment orders to the order.
              */
             $order['fsFulfillmentOrders'] = $fsFulfillmentOrders;
+
+            /*
+             * Collect actual FSWarehouse Shopify fulfillments
+             * so the Orders index can display tracking information.
+             */
+            $order['fulfillments'] = [];
+
+            foreach ($fsFulfillmentOrders as $fulfillmentOrder) {
+                foreach (
+                    ($fulfillmentOrder['fulfillments']['nodes'] ?? [])
+                    as $fulfillment
+                ) {
+                    $order['fulfillments'][] = $fulfillment;
+                }
+            }
 
             /*
              * Return one order to the Orders page.
@@ -588,7 +635,8 @@ GRAPHQL;
             if (empty($matchingFulfillmentOrders)) {
                 return view('orders.show', [
                     'order' => null,
-                    'error' => "Order #{$orderId} was not found in FSWarehouse.",
+                    'error' =>
+                        "Order #{$orderId} was not found in FSWarehouse.",
                 ]);
             }
 
