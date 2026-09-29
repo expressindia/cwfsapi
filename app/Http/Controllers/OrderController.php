@@ -16,40 +16,23 @@ class OrderController extends Controller
     public function __construct(
         protected ShopifyGraphQLService $shopify,
         protected ShopifyFulfillmentService $fulfillmentService
-    ) {
-    }
+    ) {}
 
-    /**
-     * Display orders assigned to this app's fulfillment service.
-     *
-     * This uses Shopify's assignedFulfillmentOrders connection,
-     * so we only receive fulfillment orders assigned to locations
-     * managed by this app.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Orders List
+    |--------------------------------------------------------------------------
+    |
+    | Shows only orders that have fulfillment orders assigned to our
+    | registered FSWarehouse fulfillment location.
+    |
+    */
+
     public function index(): View
     {
         try {
-            /*
-             * Get the Shopify token for this store.
-             */
-            $shopifyToken = ShopifyToken::query()
-                ->where(
-                    'shop_domain',
-                    config('shopify.store_domain')
-                )
-                ->whereNotNull('access_token')
-                ->first();
+            $shopifyToken = $this->getShopifyToken();
 
-            if (! $shopifyToken) {
-                throw new RuntimeException(
-                    'Shopify token not found.'
-                );
-            }
-
-            /*
-             * Make sure our registered fulfillment location
-             * exists.
-             */
             $locationId = $shopifyToken->fulfillment_location_id;
 
             if (blank($locationId)) {
@@ -58,16 +41,6 @@ class OrderController extends Controller
                 );
             }
 
-            /*
-             * Get fulfillment orders assigned to this app.
-             *
-             * assignedFulfillmentOrders is specifically designed
-             * for fulfillment-service apps.
-             *
-             * The locationIds filter makes sure we only retrieve
-             * fulfillment orders assigned to our registered
-             * FSWarehouse location.
-             */
             $query = <<<'GRAPHQL'
             query GetAssignedFulfillmentOrders(
                 $first: Int!
@@ -99,7 +72,6 @@ class OrderController extends Controller
                             id
                             name
                             createdAt
-
                             displayFinancialStatus
                             displayFulfillmentStatus
 
@@ -163,19 +135,11 @@ class OrderController extends Controller
             );
 
             $assignedFulfillmentOrders =
-                $data['assignedFulfillmentOrders']['nodes']
-                ?? [];
+                $data['assignedFulfillmentOrders']['nodes'] ?? [];
 
             $pageInfo =
-                $data['assignedFulfillmentOrders']['pageInfo']
-                ?? [];
+                $data['assignedFulfillmentOrders']['pageInfo'] ?? [];
 
-            /*
-             * An order can have multiple fulfillment orders.
-             *
-             * Therefore, use the Shopify Order GID as the array key
-             * to prevent duplicate orders in the Orders page.
-             */
             $orders = [];
 
             foreach ($assignedFulfillmentOrders as $fulfillmentOrder) {
@@ -187,17 +151,11 @@ class OrderController extends Controller
 
                 $orderId = $order['id'];
 
-                /*
-                 * Store the first occurrence of this order.
-                 */
                 if (! isset($orders[$orderId])) {
                     $orders[$orderId] = $order;
                 }
             }
 
-            /*
-             * Convert associative array to normal indexed array.
-             */
             $orders = array_values($orders);
 
             return view('orders.index', [
@@ -217,21 +175,40 @@ class OrderController extends Controller
         }
     }
 
-    /**
-     * Display a single Shopify order.
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Order Details
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | We do NOT use order.fulfillments directly.
+    |
+    | We first get the order's fulfillmentOrders and keep only the
+    | fulfillment order assigned to our registered FSWarehouse location.
+    |
+    | This allows an order to contain:
+    |
+    |   FSWarehouse       -> shown
+    |   Headquarters      -> hidden
+    |   Other locations   -> hidden
+    |
+    */
+
     public function show(string $orderId): View
     {
         $shopifyOrderId = 'gid://shopify/Order/' . $orderId;
 
         try {
-            $shopifyToken = ShopifyToken::query()
-                ->where('shop_domain', config('shopify.store_domain'))
-                ->whereNotNull('access_token')
-                ->first();
+            $shopifyToken = $this->getShopifyToken();
 
-            if (! $shopifyToken) {
-                throw new RuntimeException('Shopify token not found.');
+            $locationId = $shopifyToken->fulfillment_location_id;
+
+            if (blank($locationId)) {
+                throw new RuntimeException(
+                    'Shopify fulfillment location ID is not configured.'
+                );
             }
 
             $query = <<<'GRAPHQL'
@@ -240,6 +217,7 @@ class OrderController extends Controller
                     id
                     name
                     createdAt
+
                     displayFinancialStatus
                     displayFulfillmentStatus
 
@@ -256,26 +234,49 @@ class OrderController extends Controller
                         email
                     }
 
-                    fulfillments {
-                        id
-                        status
-                        createdAt
-
-                        location {
+                    fulfillmentOrders(first: 100) {
+                        nodes {
                             id
-                            name
-                        }
+                            status
+                            requestStatus
+                            createdAt
+                            updatedAt
 
-                        service {
-                            id
-                            handle
-                            serviceName
-                        }
+                            assignedLocation {
+                                location {
+                                    id
+                                    name
+                                }
+                            }
 
-                        trackingInfo {
-                            company
-                            number
-                            url
+                            lineItems(first: 100) {
+                                nodes {
+                                    id
+                                    quantity
+                                    remainingQuantity
+
+                                    lineItem {
+                                        id
+                                        name
+                                        sku
+                                        quantity
+                                    }
+                                }
+                            }
+
+                            fulfillments(first: 50) {
+                                nodes {
+                                    id
+                                    status
+                                    createdAt
+
+                                    trackingInfo {
+                                        company
+                                        number
+                                        url
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -299,21 +300,89 @@ class OrderController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Only keep fulfillments belonging to our registered FSWarehouse
+            | Keep ONLY FSWarehouse fulfillment orders
             |--------------------------------------------------------------------------
             */
 
-            $registeredLocationId = $shopifyToken->fulfillment_location_id;
-
-            $fulfillments = collect($order['fulfillments'] ?? [])
-                ->filter(function (array $fulfillment) use ($registeredLocationId) {
-                    return ($fulfillment['location']['id'] ?? null)
-                        === $registeredLocationId;
+            $fsFulfillmentOrders = collect(
+                $order['fulfillmentOrders']['nodes'] ?? []
+            )
+                ->filter(function (array $fulfillmentOrder) use ($locationId) {
+                    return ($fulfillmentOrder['assignedLocation']['location']['id'] ?? null)
+                        === $locationId;
                 })
                 ->values()
                 ->all();
 
-            $order['fulfillments'] = $fulfillments;
+            /*
+            |--------------------------------------------------------------------------
+            | If the order exists but does not contain an FSWarehouse
+            | fulfillment order, don't display other locations.
+            |--------------------------------------------------------------------------
+            */
+
+            if (empty($fsFulfillmentOrders)) {
+                abort(
+                    404,
+                    'No FSWarehouse fulfillment found for this order.'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Build FSWarehouse-only line items
+            |--------------------------------------------------------------------------
+            */
+
+            $fsLineItems = [];
+
+            foreach ($fsFulfillmentOrders as $fulfillmentOrder) {
+                foreach (
+                    $fulfillmentOrder['lineItems']['nodes'] ?? []
+                    as $lineItem
+                ) {
+                    $fsLineItems[] = [
+                        'id' => $lineItem['id'] ?? null,
+                        'quantity' => $lineItem['quantity'] ?? 0,
+                        'remainingQuantity' => $lineItem['remainingQuantity'] ?? 0,
+
+                        'name' =>
+                            $lineItem['lineItem']['name'] ?? '-',
+
+                        'sku' =>
+                            $lineItem['lineItem']['sku'] ?? '-',
+                    ];
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Build FSWarehouse-only fulfillments
+            |--------------------------------------------------------------------------
+            */
+
+            $fsFulfillments = [];
+
+            foreach ($fsFulfillmentOrders as $fulfillmentOrder) {
+                foreach (
+                    $fulfillmentOrder['fulfillments']['nodes'] ?? []
+                    as $fulfillment
+                ) {
+                    $fsFulfillments[] = $fulfillment;
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Add our filtered data to the order
+            |--------------------------------------------------------------------------
+            */
+
+            $order['fsFulfillmentOrders'] = $fsFulfillmentOrders;
+
+            $order['fsLineItems'] = $fsLineItems;
+
+            $order['fsFulfillments'] = $fsFulfillments;
 
             return view('orders.show', [
                 'order' => $order,
@@ -329,9 +398,20 @@ class OrderController extends Controller
             ]);
         }
     }
-    /**
-     * Update tracking information for a Shopify fulfillment.
-     */
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Add / Update Tracking
+    |--------------------------------------------------------------------------
+    |
+    | The same method handles both:
+    |
+    |   No tracking -> Add tracking
+    |   Existing tracking -> Update tracking
+    |
+    */
+
     public function updateTracking(
         Request $request,
         string $orderId,
@@ -359,32 +439,29 @@ class OrderController extends Controller
             'gid://shopify/Fulfillment/' . $fulfillmentId;
 
         try {
-            /*
-             * Get the Shopify token for this store.
-             */
-            $shopifyToken = ShopifyToken::query()
-                ->where(
-                    'shop_domain',
-                    config('shopify.store_domain')
-                )
-                ->whereNotNull('access_token')
-                ->first();
-
-            if (! $shopifyToken) {
-                throw new RuntimeException(
-                    'Shopify token not found.'
-                );
-            }
+            $shopifyToken = $this->getShopifyToken();
 
             /*
-             * Update existing Shopify fulfillment tracking.
-             *
-             * We only send:
-             * - tracking number
-             * - shipping carrier
-             *
-             * Tracking URL is intentionally null.
-             */
+            |--------------------------------------------------------------------------
+            | Make sure this fulfillment belongs to FSWarehouse
+            |--------------------------------------------------------------------------
+            |
+            | This protects the endpoint even if somebody manually changes
+            | the fulfillment ID in the browser.
+            |
+            */
+
+            $this->ensureFulfillmentBelongsToFswWarehouse(
+                $shopifyToken,
+                $shopifyFulfillmentId
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Add / Update tracking
+            |--------------------------------------------------------------------------
+            */
+
             $this->fulfillmentService->updateTracking(
                 $shopifyFulfillmentId,
                 $validated['tracking_number'],
@@ -394,12 +471,9 @@ class OrderController extends Controller
             );
 
             return redirect()
-                ->route(
-                    'orders.show',
-                    [
-                        'orderId' => $orderId,
-                    ]
-                )
+                ->route('orders.show', [
+                    'orderId' => $orderId,
+                ])
                 ->with(
                     'success',
                     'Tracking information updated successfully.'
@@ -409,18 +483,122 @@ class OrderController extends Controller
             report($e);
 
             return redirect()
-                ->route(
-                    'orders.show',
-                    [
-                        'orderId' => $orderId,
-                    ]
-                )
+                ->route('orders.show', [
+                    'orderId' => $orderId,
+                ])
                 ->withInput()
                 ->with(
                     'error',
                     'Unable to update tracking information: ' .
                     $e->getMessage()
                 );
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Get Current Shopify Token
+    |--------------------------------------------------------------------------
+    */
+
+    protected function getShopifyToken(): ShopifyToken
+    {
+        $shopifyToken = ShopifyToken::query()
+            ->where(
+                'shop_domain',
+                config('shopify.store_domain')
+            )
+            ->whereNotNull('access_token')
+            ->first();
+
+        if (! $shopifyToken) {
+            throw new RuntimeException(
+                'Shopify token not found.'
+            );
+        }
+
+        return $shopifyToken;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verify Fulfillment Belongs to FSWarehouse
+    |--------------------------------------------------------------------------
+    |
+    | We check the fulfillment's associated fulfillment orders.
+    |
+    */
+
+    protected function ensureFulfillmentBelongsToFswWarehouse(
+        ShopifyToken $shopifyToken,
+        string $fulfillmentId
+    ): void {
+        $locationId = $shopifyToken->fulfillment_location_id;
+
+        if (blank($locationId)) {
+            throw new RuntimeException(
+                'Shopify fulfillment location ID is not configured.'
+            );
+        }
+
+        $query = <<<'GRAPHQL'
+        query GetFulfillment($id: ID!) {
+            fulfillment(id: $id) {
+                id
+
+                fulfillmentOrders(first: 50) {
+                    nodes {
+                        assignedLocation {
+                            location {
+                                id
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        GRAPHQL;
+
+        $data = $this->shopify->executeWithCredentials(
+            $shopifyToken->shop_domain,
+            $shopifyToken->access_token,
+            $query,
+            [
+                'id' => $fulfillmentId,
+            ]
+        );
+
+        $fulfillment = $data['fulfillment'] ?? null;
+
+        if (! $fulfillment) {
+            throw new RuntimeException(
+                'Shopify fulfillment not found.'
+            );
+        }
+
+        $belongsToFsw = false;
+
+        foreach (
+            $fulfillment['fulfillmentOrders']['nodes'] ?? []
+            as $fulfillmentOrder
+        ) {
+            $assignedLocationId =
+                $fulfillmentOrder['assignedLocation']['location']['id']
+                ?? null;
+
+            if ($assignedLocationId === $locationId) {
+                $belongsToFsw = true;
+                break;
+            }
+        }
+
+        if (! $belongsToFsw) {
+            throw new RuntimeException(
+                'This fulfillment does not belong to FSWarehouse.'
+            );
         }
     }
 }
