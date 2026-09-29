@@ -35,23 +35,39 @@ class OrderController extends Controller
                     id
                     name
                     createdAt
+
                     displayFinancialStatus
                     displayFulfillmentStatus
+
                     totalPriceSet {
                         shopMoney {
                             amount
                             currencyCode
                         }
                     }
+
                     customer {
                         firstName
                         lastName
                         email
                     }
+
                     fulfillments {
                         id
                         status
                         createdAt
+
+                        location {
+                            id
+                            name
+                        }
+
+                        service {
+                            id
+                            handle
+                            serviceName
+                        }
+
                         trackingInfo {
                             company
                             number
@@ -69,7 +85,6 @@ class OrderController extends Controller
         GRAPHQL;
 
         try {
-
             $data = $this->shopify->execute(
                 $query,
                 [
@@ -82,9 +97,7 @@ class OrderController extends Controller
                 'orders' => $data['orders']['nodes'] ?? [],
                 'pageInfo' => $data['orders']['pageInfo'] ?? [],
             ]);
-
         } catch (Throwable $e) {
-
             report($e);
 
             return view('orders.index', [
@@ -96,11 +109,10 @@ class OrderController extends Controller
     }
 
     /**
-     * Display Shopify order details.
+     * Display a single Shopify order.
      */
     public function show(string $orderId): View
     {
-        // Convert numeric URL ID back to Shopify GraphQL GID.
         $shopifyOrderId = 'gid://shopify/Order/' . $orderId;
 
         $query = <<<'GRAPHQL'
@@ -109,6 +121,7 @@ class OrderController extends Controller
                 id
                 name
                 createdAt
+
                 displayFinancialStatus
                 displayFulfillmentStatus
 
@@ -130,6 +143,17 @@ class OrderController extends Controller
                     status
                     createdAt
 
+                    location {
+                        id
+                        name
+                    }
+
+                    service {
+                        id
+                        handle
+                        serviceName
+                    }
+
                     trackingInfo {
                         company
                         number
@@ -141,7 +165,6 @@ class OrderController extends Controller
         GRAPHQL;
 
         try {
-
             $data = $this->shopify->execute(
                 $query,
                 [
@@ -151,16 +174,14 @@ class OrderController extends Controller
 
             $order = $data['order'] ?? null;
 
-            if (!$order) {
+            if (! $order) {
                 abort(404, 'Shopify order not found.');
             }
 
             return view('orders.show', [
                 'order' => $order,
             ]);
-
         } catch (Throwable $e) {
-
             report($e);
 
             return view('orders.show', [
@@ -197,37 +218,32 @@ class OrderController extends Controller
             ],
         ]);
 
-        /*
-         * Convert numeric fulfillment ID from the URL
-         * back to Shopify GraphQL GID.
-         */
         $shopifyFulfillmentId =
             'gid://shopify/Fulfillment/' . $fulfillmentId;
 
         try {
-
             /*
-             * Get the Shopify token used by this application.
-             *
-             * We use the first active token here because the current
-             * standalone Shopify application is connected to one store.
+             * Get the Shopify token for this store.
              */
             $shopifyToken = ShopifyToken::query()
-                ->where('shop_domain', config('shopify.store_domain'))
+                ->where(
+                    'shop_domain',
+                    config('shopify.store_domain')
+                )
                 ->whereNotNull('access_token')
                 ->first();
 
-            if (!$shopifyToken) {
-
+            if (! $shopifyToken) {
                 throw new \RuntimeException(
                     'Shopify token not found.'
                 );
             }
 
             /*
-             * Update the existing Shopify fulfillment.
+             * Update Shopify fulfillment tracking.
              *
-             * We are NOT creating a new fulfillment.
+             * Tracking URL is intentionally null because
+             * the user only enters carrier + tracking number.
              */
             $this->fulfillmentService->updateTracking(
                 $shopifyFulfillmentId,
@@ -238,22 +254,26 @@ class OrderController extends Controller
             );
 
             return redirect()
-                ->route('orders.show', [
-                    'orderId' => $orderId,
-                ])
+                ->route(
+                    'orders.show',
+                    [
+                        'orderId' => $orderId,
+                    ]
+                )
                 ->with(
                     'success',
                     'Tracking information updated successfully.'
                 );
-
         } catch (Throwable $e) {
-
             report($e);
 
             return redirect()
-                ->route('orders.show', [
-                    'orderId' => $orderId,
-                ])
+                ->route(
+                    'orders.show',
+                    [
+                        'orderId' => $orderId,
+                    ]
+                )
                 ->withInput()
                 ->with(
                     'error',

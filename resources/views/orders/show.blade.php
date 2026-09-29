@@ -113,7 +113,7 @@
     @if($order)
 
         {{-- ========================================================= --}}
-        {{-- Order Information --}}
+        {{-- ORDER INFORMATION --}}
         {{-- ========================================================= --}}
 
         <div class="card mb-4">
@@ -155,16 +155,20 @@
                         <strong>
 
                             {{ trim(
-                                ($order['customer']['firstName'] ?? '') . ' ' .
+                                ($order['customer']['firstName'] ?? '') .
+                                ' ' .
                                 ($order['customer']['lastName'] ?? '')
                             ) ?: '-' }}
 
                         </strong>
 
+
                         @if(!empty($order['customer']['email']))
 
                             <div class="small text-muted">
+
                                 {{ $order['customer']['email'] }}
+
                             </div>
 
                         @endif
@@ -172,7 +176,7 @@
                     </div>
 
 
-                    {{-- Date --}}
+                    {{-- Order Date --}}
                     <div class="col-md-4">
 
                         <small class="text-muted d-block">
@@ -195,9 +199,15 @@
 
                         <strong>
 
-                            {{ $order['totalPriceSet']['shopMoney']['currencyCode'] ?? '' }}
+                            {{
+                                $order['totalPriceSet']['shopMoney']['currencyCode']
+                                ?? ''
+                            }}
 
-                            {{ $order['totalPriceSet']['shopMoney']['amount'] ?? '0.00' }}
+                            {{
+                                $order['totalPriceSet']['shopMoney']['amount']
+                                ?? '0.00'
+                            }}
 
                         </strong>
 
@@ -213,7 +223,10 @@
 
                         <span class="badge bg-success">
 
-                            {{ $order['displayFinancialStatus'] ?? '-' }}
+                            {{
+                                $order['displayFinancialStatus']
+                                ?? '-'
+                            }}
 
                         </span>
 
@@ -229,7 +242,10 @@
 
                         <span class="badge bg-secondary">
 
-                            {{ $order['displayFulfillmentStatus'] ?? '-' }}
+                            {{
+                                $order['displayFulfillmentStatus']
+                                ?? '-'
+                            }}
 
                         </span>
 
@@ -243,7 +259,7 @@
 
 
         {{-- ========================================================= --}}
-        {{-- Fulfillments --}}
+        {{-- FULFILLMENTS --}}
         {{-- ========================================================= --}}
 
         <div class="card">
@@ -263,13 +279,13 @@
 
                     @foreach($order['fulfillments'] as $fulfillment)
 
-                        <div class="border rounded p-4 mb-3">
+                        <div class="border rounded p-4 mb-4">
 
                             <div class="row g-4">
 
 
                                 {{-- ================================================= --}}
-                                {{-- Fulfillment ID --}}
+                                {{-- FULFILLMENT ID --}}
                                 {{-- ================================================= --}}
 
                                 <div class="col-md-6">
@@ -288,7 +304,7 @@
 
 
                                 {{-- ================================================= --}}
-                                {{-- Fulfillment Status --}}
+                                {{-- STATUS --}}
                                 {{-- ================================================= --}}
 
                                 <div class="col-md-6">
@@ -307,7 +323,91 @@
 
 
                                 {{-- ================================================= --}}
-                                {{-- Tracking Information --}}
+                                {{-- FULFILLMENT LOCATION --}}
+                                {{-- ================================================= --}}
+
+                                <div class="col-md-6">
+
+                                    <small class="text-muted d-block">
+                                        Fulfillment Location
+                                    </small>
+
+                                    <strong>
+
+                                        {{
+                                            $fulfillment['location']['name']
+                                            ?? '-'
+                                        }}
+
+                                    </strong>
+
+                                    @if(!empty($fulfillment['location']['id']))
+
+                                        <div class="small text-muted text-break">
+
+                                            {{
+                                                $fulfillment['location']['id']
+                                            }}
+
+                                        </div>
+
+                                    @endif
+
+                                </div>
+
+
+                                {{-- ================================================= --}}
+                                {{-- FULFILLMENT SERVICE --}}
+                                {{-- ================================================= --}}
+
+                                <div class="col-md-6">
+
+                                    <small class="text-muted d-block">
+                                        Fulfillment Service
+                                    </small>
+
+                                    <strong>
+
+                                        {{
+                                            $fulfillment['service']['serviceName']
+                                            ?? '-'
+                                        }}
+
+                                    </strong>
+
+
+                                    @if(!empty($fulfillment['service']['id']))
+
+                                        <div class="small text-muted text-break">
+
+                                            Service ID:
+                                            {{
+                                                $fulfillment['service']['id']
+                                            }}
+
+                                        </div>
+
+                                    @endif
+
+
+                                    @if(!empty($fulfillment['service']['handle']))
+
+                                        <div class="small text-muted">
+
+                                            Handle:
+                                            {{
+                                                $fulfillment['service']['handle']
+                                            }}
+
+                                        </div>
+
+                                    @endif
+
+                                </div>
+
+
+                                {{-- ================================================= --}}
+                                {{-- TRACKING INFORMATION --}}
                                 {{-- ================================================= --}}
 
                                 <div class="col-12">
@@ -319,14 +419,17 @@
 
                                     @if(!empty($fulfillment['trackingInfo']))
 
-                                        @foreach($fulfillment['trackingInfo'] as $tracking)
+                                        @foreach(
+                                            $fulfillment['trackingInfo']
+                                            as $tracking
+                                        )
 
                                             <div class="border rounded p-3 mb-2">
 
                                                 <div class="row g-3">
 
 
-                                                    {{-- Shipping Carrier --}}
+                                                    {{-- Carrier --}}
                                                     <div class="col-md-4">
 
                                                         <small class="text-muted d-block">
@@ -335,7 +438,10 @@
 
                                                         <strong>
 
-                                                            {{ $tracking['company'] ?? 'Unknown carrier' }}
+                                                            {{
+                                                                $tracking['company']
+                                                                ?? 'Unknown carrier'
+                                                            }}
 
                                                         </strong>
 
@@ -351,14 +457,17 @@
 
                                                         <strong>
 
-                                                            {{ $tracking['number'] ?? 'No tracking number' }}
+                                                            {{
+                                                                $tracking['number']
+                                                                ?? 'No tracking number'
+                                                            }}
 
                                                         </strong>
 
                                                     </div>
 
 
-                                                    {{-- Tracking URL --}}
+                                                    {{-- Tracking Link --}}
                                                     <div class="col-md-4">
 
                                                         <small class="text-muted d-block">
@@ -383,7 +492,9 @@
                                                         @else
 
                                                             <span class="text-muted">
+
                                                                 No tracking link
+
                                                             </span>
 
                                                         @endif
@@ -399,7 +510,10 @@
                                     @else
 
                                         <div class="text-muted">
-                                            No tracking information found for this fulfillment.
+
+                                            No tracking information found
+                                            for this fulfillment.
+
                                         </div>
 
                                     @endif
@@ -408,7 +522,7 @@
 
 
                                 {{-- ================================================= --}}
-                                {{-- Update Tracking --}}
+                                {{-- UPDATE TRACKING --}}
                                 {{-- ================================================= --}}
 
                                 <div class="col-12">
@@ -436,19 +550,22 @@
 
                                             <form
                                                 method="POST"
-                                                action="{{ route('orders.tracking.update', [
-                                                    'orderId' => str_replace(
-                                                        'gid://shopify/Order/',
-                                                        '',
-                                                        $order['id']
-                                                    ),
+                                                action="{{ route(
+                                                    'orders.tracking.update',
+                                                    [
+                                                        'orderId' => str_replace(
+                                                            'gid://shopify/Order/',
+                                                            '',
+                                                            $order['id']
+                                                        ),
 
-                                                    'fulfillmentId' => str_replace(
-                                                        'gid://shopify/Fulfillment/',
-                                                        '',
-                                                        $fulfillment['id']
-                                                    ),
-                                                ]) }}">
+                                                        'fulfillmentId' => str_replace(
+                                                            'gid://shopify/Fulfillment/',
+                                                            '',
+                                                            $fulfillment['id']
+                                                        ),
+                                                    ]
+                                                ) }}">
 
                                                 @csrf
 
@@ -456,10 +573,7 @@
                                                 <div class="row g-3">
 
 
-                                                    {{-- ================================= --}}
-                                                    {{-- Shipping Carrier --}}
-                                                    {{-- ================================= --}}
-
+                                                    {{-- Carrier --}}
                                                     <div class="col-md-5">
 
                                                         <label
@@ -478,7 +592,9 @@
                                                             required>
 
                                                             <option value="">
+
                                                                 Select carrier
+
                                                             </option>
 
 
@@ -486,8 +602,7 @@
                                                                 config(
                                                                     'shopify.tracking_carriers',
                                                                     []
-                                                                )
-                                                                as $carrier
+                                                                ) as $carrier
                                                             )
 
                                                                 <option
@@ -495,7 +610,8 @@
                                                                     @selected(
                                                                         old(
                                                                             'company',
-                                                                            $fulfillment['trackingInfo'][0]['company'] ?? ''
+                                                                            $fulfillment['trackingInfo'][0]['company']
+                                                                            ?? ''
                                                                         ) === $carrier
                                                                     )>
 
@@ -510,10 +626,7 @@
                                                     </div>
 
 
-                                                    {{-- ================================= --}}
                                                     {{-- Tracking Number --}}
-                                                    {{-- ================================= --}}
-
                                                     <div class="col-md-5">
 
                                                         <label
@@ -532,7 +645,8 @@
                                                             class="form-control"
                                                             value="{{ old(
                                                                 'tracking_number',
-                                                                $fulfillment['trackingInfo'][0]['number'] ?? ''
+                                                                $fulfillment['trackingInfo'][0]['number']
+                                                                ?? ''
                                                             ) }}"
                                                             placeholder="Enter tracking number"
                                                             required>
@@ -540,10 +654,7 @@
                                                     </div>
 
 
-                                                    {{-- ================================= --}}
-                                                    {{-- Save Button --}}
-                                                    {{-- ================================= --}}
-
+                                                    {{-- Save --}}
                                                     <div class="col-md-2 d-flex align-items-end">
 
                                                         <button
