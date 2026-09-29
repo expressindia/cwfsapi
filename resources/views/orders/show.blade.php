@@ -1,497 +1,946 @@
 @extends('layouts.app')
 
+@section('title', 'Order ' . ($order['name'] ?? ''))
+
 @section('content')
 
 <div class="container-fluid">
 
-    {{-- ============================================================= --}}
-    {{-- PAGE HEADER --}}
-    {{-- ============================================================= --}}
-
+    {{-- ============================================================
+         PAGE HEADER
+    ============================================================= --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
 
         <div>
-
-            <h2 class="mb-1">
-                Orders
-            </h2>
+            <h1 class="h3 mb-1">
+                Order {{ $order['name'] ?? '' }}
+            </h1>
 
             <p class="text-muted mb-0">
-                Orders assigned to FSWarehouse
+                FSWarehouse fulfillment details
             </p>
+        </div>
 
+        <div>
+            <a href="{{ route('orders.index') }}"
+               class="btn btn-outline-secondary">
+
+                <i class="bi bi-arrow-left me-1"></i>
+
+                Back to Orders
+
+            </a>
         </div>
 
     </div>
 
 
-    {{-- ============================================================= --}}
-    {{-- ERROR --}}
-    {{-- ============================================================= --}}
+    {{-- ============================================================
+         SUCCESS MESSAGE
+    ============================================================= --}}
+    @if(session('success'))
 
-    @if($error)
+        <div class="alert alert-success alert-dismissible fade show">
 
-        <div class="alert alert-danger">
+            <i class="bi bi-check-circle me-1"></i>
 
-            <i class="bi bi-exclamation-triangle me-1"></i>
+            {{ session('success') }}
 
-            {{ $error }}
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert">
+            </button>
 
         </div>
 
     @endif
 
 
-    {{-- ============================================================= --}}
-    {{-- ORDERS CARD --}}
-    {{-- ============================================================= --}}
+    {{-- ============================================================
+         ERROR MESSAGE
+    ============================================================= --}}
+    @if(!empty($error))
 
-    <div class="card shadow-sm">
+        <div class="alert alert-danger alert-dismissible fade show">
 
-        <div class="card-header d-flex justify-content-between align-items-center">
+            <i class="bi bi-exclamation-triangle me-1"></i>
 
-            <h5 class="mb-0">
-                FSWarehouse Orders
-            </h5>
+            {{ $error }}
 
-
-            <span class="badge bg-primary">
-
-                {{ count($orders) }}
-
-            </span>
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert">
+            </button>
 
         </div>
 
+    @endif
 
-        <div class="card-body">
 
+    {{-- ============================================================
+         SESSION ERROR
+    ============================================================= --}}
+    @if(session('error'))
 
-            {{-- ===================================================== --}}
-            {{-- ORDERS TABLE --}}
-            {{-- ===================================================== --}}
+        <div class="alert alert-danger alert-dismissible fade show">
 
-            @if(count($orders) > 0)
+            <i class="bi bi-exclamation-triangle me-1"></i>
 
-                <div class="table-responsive">
+            {{ session('error') }}
 
-                    <table class="table table-hover align-middle">
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert">
+            </button>
 
-                        <thead>
+        </div>
 
-                            <tr>
+    @endif
 
-                                <th>
-                                    Order
-                                </th>
 
-                                <th>
-                                    Customer
-                                </th>
+    {{-- ============================================================
+         ORDER NOT FOUND
+    ============================================================= --}}
+    @if(empty($order))
 
-                                <th>
-                                    Date
-                                </th>
+        <div class="card">
 
-                                <th>
-                                    Total
-                                </th>
+            <div class="card-body text-center py-5">
 
-                                <th>
-                                    Financial Status
-                                </th>
+                <i class="bi bi-search display-5 text-muted"></i>
 
-                                <th>
-                                    Fulfillment Status
-                                </th>
+                <h5 class="mt-3">
+                    Order not found
+                </h5>
 
-                                <th>
-                                    Tracking
-                                </th>
+                <p class="text-muted">
+                    The order could not be found in FSWarehouse.
+                </p>
 
-                                <th class="text-end">
-                                    Action
-                                </th>
+                <a href="{{ route('orders.index') }}"
+                   class="btn btn-primary">
 
-                            </tr>
+                    Back to Orders
 
-                        </thead>
+                </a>
 
+            </div>
 
-                        <tbody>
+        </div>
 
-                            @foreach($orders as $order)
+        @return
 
-                                @php
+    @endif
 
-                                    $numericOrderId =
-                                        str_replace(
-                                            'gid://shopify/Order/',
-                                            '',
-                                            $order['id'] ?? ''
-                                        );
 
-                                    $customerName =
-                                        trim(
-                                            ($order['customer']['firstName'] ?? '')
-                                            . ' ' .
-                                            ($order['customer']['lastName'] ?? '')
-                                        );
+    {{-- ============================================================
+         ORDER INFORMATION
+    ============================================================= --}}
+    <div class="row g-4">
 
-                                @endphp
+        <div class="col-lg-8">
 
+            {{-- ----------------------------------------------------
+                 ORDER DETAILS
+            ----------------------------------------------------- --}}
+            <div class="card mb-4">
 
-                                <tr>
+                <div class="card-header">
 
+                    <h5 class="mb-0">
+                        Order Information
+                    </h5>
 
-                                    {{-- ================================= --}}
-                                    {{-- ORDER --}}
-                                    {{-- ================================= --}}
+                </div>
 
-                                    <td>
+                <div class="card-body">
 
-                                        <strong>
-                                            {{ $order['name'] ?? '-' }}
-                                        </strong>
+                    <div class="row">
 
-                                    </td>
+                        <div class="col-md-6 mb-3">
 
+                            <div class="text-muted small">
+                                Order
+                            </div>
 
-                                    {{-- ================================= --}}
-                                    {{-- CUSTOMER --}}
-                                    {{-- ================================= --}}
+                            <div class="fw-semibold">
+                                {{ $order['name'] ?? '—' }}
+                            </div>
 
-                                    <td>
+                        </div>
 
-                                        @if($customerName)
 
-                                            <div>
-                                                {{ $customerName }}
-                                            </div>
+                        <div class="col-md-6 mb-3">
 
-                                        @endif
+                            <div class="text-muted small">
+                                Shopify Order ID
+                            </div>
 
+                            <div class="fw-semibold text-break">
+                                {{ $order['id'] ?? '—' }}
+                            </div>
 
-                                        @if(
-                                            !empty(
-                                                $order['customer']['email']
-                                                ?? null
-                                            )
-                                        )
+                        </div>
 
-                                            <small class="text-muted">
 
-                                                {{
-                                                    $order['customer']['email']
-                                                }}
+                        <div class="col-md-6 mb-3">
 
-                                            </small>
+                            <div class="text-muted small">
+                                Created
+                            </div>
 
-                                        @endif
+                            <div>
+                                @if(!empty($order['createdAt']))
+                                    {{ \Carbon\Carbon::parse($order['createdAt'])->format('M d, Y h:i A') }}
+                                @else
+                                    —
+                                @endif
+                            </div>
 
+                        </div>
 
-                                        @if(
-                                            !$customerName
-                                            &&
-                                            empty(
-                                                $order['customer']['email']
-                                                ?? null
-                                            )
-                                        )
 
-                                            -
+                        <div class="col-md-6 mb-3">
 
-                                        @endif
+                            <div class="text-muted small">
+                                Total
+                            </div>
 
-                                    </td>
+                            <div class="fw-semibold">
 
+                                {{ $order['totalPriceSet']['shopMoney']['currencyCode'] ?? '' }}
 
-                                    {{-- ================================= --}}
-                                    {{-- DATE --}}
-                                    {{-- ================================= --}}
+                                {{ $order['totalPriceSet']['shopMoney']['amount'] ?? '0.00' }}
 
-                                    <td>
+                            </div>
 
-                                        @if(!empty($order['createdAt']))
+                        </div>
 
-                                            {{ \Carbon\Carbon::parse(
-                                                $order['createdAt']
-                                            )->format('M d, Y H:i') }}
 
-                                        @else
+                        <div class="col-md-6 mb-3">
 
-                                            -
+                            <div class="text-muted small">
+                                Financial Status
+                            </div>
 
-                                        @endif
+                            <div>
+                                {{ $order['displayFinancialStatus'] ?? '—' }}
+                            </div>
 
-                                    </td>
+                        </div>
 
 
-                                    {{-- ================================= --}}
-                                    {{-- TOTAL --}}
-                                    {{-- ================================= --}}
+                        <div class="col-md-6 mb-3">
 
-                                    <td>
+                            <div class="text-muted small">
+                                Fulfillment Status
+                            </div>
 
-                                        <strong>
+                            <div>
+                                {{ $order['displayFulfillmentStatus'] ?? '—' }}
+                            </div>
 
-                                            {{
-                                                $order['totalPriceSet']['shopMoney']['amount']
-                                                ?? '0.00'
-                                            }}
+                        </div>
 
-                                        </strong>
+                    </div>
 
-                                        <small class="text-muted">
+                </div>
 
-                                            {{
-                                                $order['totalPriceSet']['shopMoney']['currencyCode']
-                                                ?? ''
-                                            }}
+            </div>
 
-                                        </small>
 
-                                    </td>
+            {{-- ----------------------------------------------------
+                 CUSTOMER
+            ----------------------------------------------------- --}}
+            <div class="card mb-4">
 
+                <div class="card-header">
 
-                                    {{-- ================================= --}}
-                                    {{-- FINANCIAL STATUS --}}
-                                    {{-- ================================= --}}
+                    <h5 class="mb-0">
+                        Customer
+                    </h5>
 
-                                    <td>
+                </div>
 
-                                        @php
+                <div class="card-body">
 
-                                            $financialStatus =
-                                                $order[
-                                                    'displayFinancialStatus'
-                                                ]
-                                                ?? null;
+                    @php
+                        $customer = $order['customer'] ?? null;
 
-                                            $financialBadge = match(
-                                                $financialStatus
-                                            ) {
-                                                'PAID' => 'bg-success',
-                                                'PARTIALLY_PAID' => 'bg-warning text-dark',
-                                                'REFUNDED' => 'bg-danger',
-                                                'PARTIALLY_REFUNDED' => 'bg-warning text-dark',
-                                                'PENDING' => 'bg-warning text-dark',
-                                                default => 'bg-secondary',
-                                            };
+                        $customerName = trim(
+                            ($customer['firstName'] ?? '') .
+                            ' ' .
+                            ($customer['lastName'] ?? '')
+                        );
+                    @endphp
 
-                                        @endphp
+                    @if($customer)
 
+                        <div class="row">
 
-                                        <span
-                                            class="badge {{ $financialBadge }}"
-                                        >
+                            <div class="col-md-6">
 
-                                            {{
-                                                $financialStatus
-                                                ?? '-'
-                                            }}
+                                <div class="text-muted small">
+                                    Name
+                                </div>
 
-                                        </span>
+                                <div class="fw-semibold">
+                                    {{ $customerName ?: '—' }}
+                                </div>
 
-                                    </td>
+                            </div>
 
 
-                                    {{-- ================================= --}}
-                                    {{-- FULFILLMENT STATUS --}}
-                                    {{-- ================================= --}}
+                            <div class="col-md-6">
 
-                                    <td>
+                                <div class="text-muted small">
+                                    Email
+                                </div>
 
-                                        @php
+                                <div>
+                                    {{ $customer['email'] ?? '—' }}
+                                </div>
 
-                                            $fulfillmentStatus =
-                                                $order[
-                                                    'displayFulfillmentStatus'
-                                                ]
-                                                ?? null;
+                            </div>
 
-                                            $fulfillmentBadge = match(
-                                                $fulfillmentStatus
-                                            ) {
-                                                'FULFILLED' => 'bg-success',
-                                                'PARTIALLY_FULFILLED' => 'bg-warning text-dark',
-                                                default => 'bg-secondary',
-                                            };
+                        </div>
 
-                                        @endphp
+                    @else
 
+                        <span class="text-muted">
+                            No customer information available.
+                        </span>
 
-                                        <span
-                                            class="badge {{ $fulfillmentBadge }}"
-                                        >
+                    @endif
 
-                                            {{
-                                                $fulfillmentStatus
-                                                ?? '-'
-                                            }}
+                </div>
 
-                                        </span>
+            </div>
 
-                                    </td>
 
+            {{-- ====================================================
+                 FSWarehouse FULFILLMENT
+            ===================================================== --}}
+            <div class="card mb-4">
 
-                                    {{-- ================================= --}}
-                                    {{-- TRACKING --}}
-                                    {{-- ================================= --}}
+                <div class="card-header">
 
-                                    <td>
+                    <div class="d-flex justify-content-between align-items-center">
 
-                                        <span class="text-muted">
-                                            —
-                                        </span>
+                        <h5 class="mb-0">
+                            FSWarehouse Fulfillment
+                        </h5>
 
-                                    </td>
+                        <span class="badge bg-primary">
+                            FSWarehouse
+                        </span>
 
-
-                                    {{-- ================================= --}}
-                                    {{-- VIEW --}}
-                                    {{-- ================================= --}}
-
-                                    <td class="text-end">
-
-                                        <a
-                                            href="{{
-                                                route(
-                                                    'orders.show',
-                                                    [
-                                                        'orderId' =>
-                                                            $numericOrderId
-                                                    ]
-                                                )
-                                            }}"
-                                            class="btn btn-sm btn-outline-primary"
-                                        >
-
-                                            <i class="bi bi-eye"></i>
-
-                                            View
-
-                                        </a>
-
-                                    </td>
-
-                                </tr>
-
-                            @endforeach
-
-                        </tbody>
-
-                    </table>
+                    </div>
 
                 </div>
 
 
-            @else
+                <div class="card-body">
+
+                    @if(!empty($order['fsFulfillmentOrders']))
+
+                        @foreach($order['fsFulfillmentOrders'] as $fulfillmentOrder)
+
+                            {{-- =================================================
+                                 FULFILLMENT ORDER INFORMATION
+                            ================================================== --}}
+                            <div class="border rounded p-3 mb-4">
+
+                                <div class="row">
+
+                                    <div class="col-md-6 mb-3">
+
+                                        <div class="text-muted small">
+                                            Fulfillment Order ID
+                                        </div>
+
+                                        <div class="fw-semibold text-break">
+                                            {{ $fulfillmentOrder['id'] ?? '—' }}
+                                        </div>
+
+                                    </div>
 
 
-                {{-- ================================================= --}}
-                {{-- EMPTY STATE --}}
-                {{-- ================================================= --}}
+                                    <div class="col-md-3 mb-3">
 
-                <div class="text-center py-5">
+                                        <div class="text-muted small">
+                                            Status
+                                        </div>
 
-                    <i
-                        class="bi bi-inbox fs-1 text-muted"
-                    ></i>
+                                        <div>
+                                            {{ $fulfillmentOrder['status'] ?? '—' }}
+                                        </div>
+
+                                    </div>
 
 
-                    <h5 class="mt-3">
+                                    <div class="col-md-3 mb-3">
 
-                        No FSWarehouse orders found
+                                        <div class="text-muted small">
+                                            Request Status
+                                        </div>
 
+                                        <div>
+                                            {{ $fulfillmentOrder['requestStatus'] ?? '—' }}
+                                        </div>
+
+                                    </div>
+
+
+                                    <div class="col-md-6">
+
+                                        <div class="text-muted small">
+                                            Assigned Location
+                                        </div>
+
+                                        <div class="fw-semibold">
+
+                                            {{
+                                                $fulfillmentOrder['assignedLocation']['location']['name']
+                                                ?? 'FSWarehouse'
+                                            }}
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+
+                                {{-- =================================================
+                                     LINE ITEMS
+                                ================================================== --}}
+                                <div class="mt-4">
+
+                                    <h6 class="mb-3">
+                                        Products
+                                    </h6>
+
+                                    @if(!empty($fulfillmentOrder['lineItems']['nodes']))
+
+                                        <div class="table-responsive">
+
+                                            <table class="table table-sm align-middle">
+
+                                                <thead>
+
+                                                    <tr>
+
+                                                        <th>
+                                                            Product
+                                                        </th>
+
+                                                        <th>
+                                                            SKU
+                                                        </th>
+
+                                                        <th class="text-center">
+                                                            Quantity
+                                                        </th>
+
+                                                        <th class="text-center">
+                                                            Remaining
+                                                        </th>
+
+                                                    </tr>
+
+                                                </thead>
+
+                                                <tbody>
+
+                                                    @foreach($fulfillmentOrder['lineItems']['nodes'] as $lineItem)
+
+                                                        @php
+                                                            $product = $lineItem['lineItem'] ?? [];
+                                                        @endphp
+
+                                                        <tr>
+
+                                                            <td>
+                                                                {{ $product['name'] ?? '—' }}
+                                                            </td>
+
+                                                            <td>
+                                                                {{ $product['sku'] ?? '—' }}
+                                                            </td>
+
+                                                            <td class="text-center">
+
+                                                                {{ $lineItem['totalQuantity'] ?? 0 }}
+
+                                                            </td>
+
+                                                            <td class="text-center">
+
+                                                                {{ $lineItem['remainingQuantity'] ?? 0 }}
+
+                                                            </td>
+
+                                                        </tr>
+
+                                                    @endforeach
+
+                                                </tbody>
+
+                                            </table>
+
+                                        </div>
+
+                                    @else
+
+                                        <div class="text-muted">
+                                            No products found for FSWarehouse.
+                                        </div>
+
+                                    @endif
+
+                                </div>
+
+
+                                {{-- =================================================
+                                     SHIPMENTS / FULFILLMENTS
+                                ================================================== --}}
+                                <div class="mt-4">
+
+                                    <h6 class="mb-3">
+                                        Shipment / Tracking
+                                    </h6>
+
+
+                                    @if(!empty($fulfillmentOrder['fulfillments']['nodes']))
+
+                                        @foreach($fulfillmentOrder['fulfillments']['nodes'] as $fulfillment)
+
+                                            @php
+                                                $tracking = $fulfillment['trackingInfo'] ?? [];
+
+                                                $trackingNumber =
+                                                    $tracking['number'] ?? null;
+
+                                                $trackingCompany =
+                                                    $tracking['company'] ?? null;
+
+                                                $trackingUrl =
+                                                    $tracking['url'] ?? null;
+
+                                                $fulfillmentGid =
+                                                    $fulfillment['id'] ?? '';
+
+                                                $fulfillmentNumericId =
+                                                    str_replace(
+                                                        'gid://shopify/Fulfillment/',
+                                                        '',
+                                                        $fulfillmentGid
+                                                    );
+                                            @endphp
+
+
+                                            <div class="border rounded p-3 mb-3">
+
+                                                <div class="row">
+
+                                                    <div class="col-md-6 mb-3">
+
+                                                        <div class="text-muted small">
+                                                            Fulfillment ID
+                                                        </div>
+
+                                                        <div class="text-break small">
+                                                            {{ $fulfillmentGid }}
+                                                        </div>
+
+                                                    </div>
+
+
+                                                    <div class="col-md-6 mb-3">
+
+                                                        <div class="text-muted small">
+                                                            Status
+                                                        </div>
+
+                                                        <div>
+                                                            {{ $fulfillment['status'] ?? '—' }}
+                                                        </div>
+
+                                                    </div>
+
+                                                </div>
+
+
+                                                {{-- ---------------------------------
+                                                     TRACKING EXISTS
+                                                ---------------------------------- --}}
+                                                @if($trackingNumber)
+
+                                                    <div class="alert alert-success mb-3">
+
+                                                        <div class="fw-semibold mb-2">
+
+                                                            <i class="bi bi-truck me-1"></i>
+
+                                                            Tracking Information
+
+                                                        </div>
+
+
+                                                        <div class="row">
+
+                                                            <div class="col-md-4">
+
+                                                                <div class="text-muted small">
+                                                                    Carrier
+                                                                </div>
+
+                                                                <div class="fw-semibold">
+                                                                    {{ $trackingCompany ?: '—' }}
+                                                                </div>
+
+                                                            </div>
+
+
+                                                            <div class="col-md-4">
+
+                                                                <div class="text-muted small">
+                                                                    Tracking Number
+                                                                </div>
+
+                                                                <div class="fw-semibold">
+                                                                    {{ $trackingNumber }}
+                                                                </div>
+
+                                                            </div>
+
+
+                                                            <div class="col-md-4">
+
+                                                                <div class="text-muted small">
+                                                                    Tracking URL
+                                                                </div>
+
+                                                                <div>
+
+                                                                    @if($trackingUrl)
+
+                                                                        <a href="{{ $trackingUrl }}"
+                                                                           target="_blank"
+                                                                           rel="noopener noreferrer">
+
+                                                                            Track Shipment
+                                                                            <i class="bi bi-box-arrow-up-right ms-1"></i>
+
+                                                                        </a>
+
+                                                                    @else
+
+                                                                        <span class="text-muted">
+                                                                            No URL
+                                                                        </span>
+
+                                                                    @endif
+
+                                                                </div>
+
+                                                            </div>
+
+                                                        </div>
+
+                                                    </div>
+
+
+                                                    {{-- ---------------------------------
+                                                         UPDATE TRACKING
+                                                    ---------------------------------- --}}
+                                                    <button type="button"
+                                                            class="btn btn-outline-primary"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#trackingModal{{ $fulfillmentNumericId }}">
+
+                                                        <i class="bi bi-pencil me-1"></i>
+
+                                                        Update Tracking Information
+
+                                                    </button>
+
+                                                @else
+
+                                                    {{-- ---------------------------------
+                                                         NO TRACKING
+                                                    ---------------------------------- --}}
+                                                    <div class="alert alert-warning">
+
+                                                        <i class="bi bi-exclamation-triangle me-1"></i>
+
+                                                        A shipment has been created, but
+                                                        tracking information has not been
+                                                        added yet.
+
+                                                    </div>
+
+
+                                                    <button type="button"
+                                                            class="btn btn-primary"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#trackingModal{{ $fulfillmentNumericId }}">
+
+                                                        <i class="bi bi-plus-circle me-1"></i>
+
+                                                        Add Tracking Information
+
+                                                    </button>
+
+                                                @endif
+
+                                            </div>
+
+
+                                            {{-- =================================================
+                                                 TRACKING MODAL
+                                            ================================================== --}}
+                                            <div class="modal fade"
+                                                 id="trackingModal{{ $fulfillmentNumericId }}"
+                                                 tabindex="-1"
+                                                 aria-hidden="true">
+
+                                                <div class="modal-dialog">
+
+                                                    <div class="modal-content">
+
+                                                        <form method="POST"
+                                                              action="{{ route('orders.tracking.update', [
+                                                                  'orderId' => str_replace(
+                                                                      'gid://shopify/Order/',
+                                                                      '',
+                                                                      $order['id']
+                                                                  ),
+                                                                  'fulfillmentId' => $fulfillmentNumericId,
+                                                              ]) }}">
+
+                                                            @csrf
+
+
+                                                            <div class="modal-header">
+
+                                                                <h5 class="modal-title">
+
+                                                                    {{ $trackingNumber
+                                                                        ? 'Update Tracking Information'
+                                                                        : 'Add Tracking Information'
+                                                                    }}
+
+                                                                </h5>
+
+                                                                <button type="button"
+                                                                        class="btn-close"
+                                                                        data-bs-dismiss="modal">
+                                                                </button>
+
+                                                            </div>
+
+
+                                                            <div class="modal-body">
+
+                                                                {{-- Tracking Number --}}
+                                                                <div class="mb-3">
+
+                                                                    <label class="form-label">
+                                                                        Tracking Number
+                                                                    </label>
+
+                                                                    <input type="text"
+                                                                           name="tracking_number"
+                                                                           class="form-control"
+                                                                           value="{{ old('tracking_number', $trackingNumber) }}"
+                                                                           required>
+
+                                                                </div>
+
+
+                                                                {{-- Carrier --}}
+                                                                <div class="mb-3">
+
+                                                                    <label class="form-label">
+                                                                        Shipping Carrier
+                                                                    </label>
+
+                                                                    <select name="carrier"
+                                                                            class="form-select"
+                                                                            required>
+
+                                                                        <option value="">
+                                                                            Select Carrier
+                                                                        </option>
+
+                                                                        @foreach(config('shopify.tracking_carriers', []) as $carrier)
+
+                                                                            <option value="{{ $carrier }}"
+                                                                                @selected(
+                                                                                    old(
+                                                                                        'carrier',
+                                                                                        $trackingCompany
+                                                                                    ) === $carrier
+                                                                                )>
+
+                                                                                {{ $carrier }}
+
+                                                                            </option>
+
+                                                                        @endforeach
+
+                                                                    </select>
+
+                                                                </div>
+
+
+                                                                {{-- Tracking URL --}}
+                                                                <div class="mb-3">
+
+                                                                    <label class="form-label">
+                                                                        Tracking URL
+                                                                        <span class="text-muted">
+                                                                            (Optional)
+                                                                        </span>
+                                                                    </label>
+
+                                                                    <input type="url"
+                                                                           name="tracking_url"
+                                                                           class="form-control"
+                                                                           value="{{ old('tracking_url', $trackingUrl) }}"
+                                                                           placeholder="https://...">
+
+                                                                </div>
+
+
+                                                                <div class="alert alert-info mb-0">
+
+                                                                    <i class="bi bi-info-circle me-1"></i>
+
+                                                                    Shopify will update the tracking
+                                                                    information for this FSWarehouse
+                                                                    fulfillment.
+
+                                                                </div>
+
+                                                            </div>
+
+
+                                                            <div class="modal-footer">
+
+                                                                <button type="button"
+                                                                        class="btn btn-secondary"
+                                                                        data-bs-dismiss="modal">
+
+                                                                    Cancel
+
+                                                                </button>
+
+
+                                                                <button type="submit"
+                                                                        class="btn btn-primary">
+
+                                                                    <i class="bi bi-check-lg me-1"></i>
+
+                                                                    Save Tracking
+
+                                                                </button>
+
+                                                            </div>
+
+                                                        </form>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+
+                                        @endforeach
+
+                                    @else
+
+                                        {{-- =================================================
+                                             NO ACTUAL FULFILLMENT
+                                        ================================================== --}}
+                                        <div class="alert alert-info mb-0">
+
+                                            <i class="bi bi-info-circle me-1"></i>
+
+                                            No shipment has been created yet for this
+                                            FSWarehouse fulfillment order.
+
+                                        </div>
+
+                                    @endif
+
+                                </div>
+
+                            </div>
+
+                        @endforeach
+
+                    @else
+
+                        <div class="alert alert-info mb-0">
+
+                            <i class="bi bi-info-circle me-1"></i>
+
+                            No FSWarehouse fulfillment information was found.
+
+                        </div>
+
+                    @endif
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        {{-- ============================================================
+             RIGHT SIDEBAR
+        ============================================================= --}}
+        <div class="col-lg-4">
+
+            <div class="card">
+
+                <div class="card-header">
+
+                    <h5 class="mb-0">
+                        FSWarehouse
                     </h5>
 
+                </div>
 
-                    <p class="text-muted mb-0">
+                <div class="card-body">
 
-                        There are currently no orders assigned
-                        to FSWarehouse.
+                    <div class="d-flex align-items-center mb-3">
+
+                        <span class="badge bg-success me-2">
+                            Connected
+                        </span>
+
+                        <span>
+                            Fulfillment Service
+                        </span>
+
+                    </div>
+
+
+                    <p class="text-muted small mb-0">
+
+                        Only products and fulfillment information assigned
+                        to the FSWarehouse location are displayed on this page.
 
                     </p>
 
                 </div>
 
-
-            @endif
-
-
-            {{-- ===================================================== --}}
-            {{-- PAGINATION --}}
-            {{-- ===================================================== --}}
-
-            @if(
-                ($previousUrl ?? null)
-                ||
-                ($nextUrl ?? null)
-            )
-
-                <div
-                    class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top"
-                >
-
-
-                    {{-- ============================================= --}}
-                    {{-- PAGINATION INFO --}}
-                    {{-- ============================================= --}}
-
-                    <div class="text-muted small">
-
-                        Showing FSWarehouse orders
-
-                    </div>
-
-
-                    {{-- ============================================= --}}
-                    {{-- PAGINATION BUTTONS --}}
-                    {{-- ============================================= --}}
-
-                    <div class="d-flex gap-2">
-
-
-                        {{-- Previous --}}
-                        @if($previousUrl)
-
-                            <a
-                                href="{{ $previousUrl }}"
-                                class="btn btn-outline-secondary"
-                            >
-
-                                <i class="bi bi-arrow-left"></i>
-
-                                Previous
-
-                            </a>
-
-                        @endif
-
-
-                        {{-- Next --}}
-                        @if($nextUrl)
-
-                            <a
-                                href="{{ $nextUrl }}"
-                                class="btn btn-outline-primary"
-                            >
-
-                                Next
-
-                                <i class="bi bi-arrow-right"></i>
-
-                            </a>
-
-                        @endif
-
-                    </div>
-
-                </div>
-
-            @endif
-
+            </div>
 
         </div>
 
