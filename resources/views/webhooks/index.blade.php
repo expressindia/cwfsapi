@@ -8,10 +8,16 @@
 
 <div class="container-fluid px-0">
 
-    {{-- Flash Messages --}}
+    {{-- =========================================================
+         Flash Messages
+    ========================================================== --}}
+
     @if(session('success'))
 
-        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+        <div
+            class="alert alert-success alert-dismissible fade show mb-4"
+            role="alert"
+        >
 
             <i class="bi bi-check-circle me-1"></i>
 
@@ -21,8 +27,8 @@
                 type="button"
                 class="btn-close"
                 data-bs-dismiss="alert"
-                aria-label="Close">
-            </button>
+                aria-label="Close"
+            ></button>
 
         </div>
 
@@ -31,7 +37,10 @@
 
     @if(session('error'))
 
-        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+        <div
+            class="alert alert-danger alert-dismissible fade show mb-4"
+            role="alert"
+        >
 
             <i class="bi bi-x-circle me-1"></i>
 
@@ -41,15 +50,18 @@
                 type="button"
                 class="btn-close"
                 data-bs-dismiss="alert"
-                aria-label="Close">
-            </button>
+                aria-label="Close"
+            ></button>
 
         </div>
 
     @endif
 
 
-    {{-- Page Header --}}
+    {{-- =========================================================
+         Page Header
+    ========================================================== --}}
+
     <div class="d-flex justify-content-between align-items-center mb-4">
 
         <div>
@@ -63,6 +75,7 @@
             </p>
 
         </div>
+
 
         <div>
 
@@ -79,10 +92,14 @@
     </div>
 
 
-    {{-- Webhook Events Card --}}
+    {{-- =========================================================
+         Webhook Events Card
+    ========================================================== --}}
+
     <div class="card dashboard-card mb-4">
 
         <div class="card-body p-4">
+
 
             {{-- Card Header --}}
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -94,6 +111,7 @@
                         <i class="bi bi-broadcast"></i>
 
                     </div>
+
 
                     <div>
 
@@ -125,7 +143,10 @@
             </div>
 
 
-            {{-- Events Table --}}
+            {{-- =================================================
+                 Events Table
+            ================================================== --}}
+
             @if($events->count())
 
                 <div class="table-responsive">
@@ -164,6 +185,10 @@
                                     Received
                                 </th>
 
+                                <th class="text-center">
+                                    Payload
+                                </th>
+
                             </tr>
 
                         </thead>
@@ -175,17 +200,33 @@
 
                             <tr>
 
-                                {{-- Event ID --}}
+                                {{-- =================================
+                                     Event ID
+                                ================================== --}}
+
                                 <td>
 
-                                    <code class="text-break">
-                                        {{ $event->fullscript_event_id ?? '-' }}
-                                    </code>
+                                    @if($event->fullscript_event_id)
+
+                                        <code class="text-break">
+                                            {{ $event->fullscript_event_id }}
+                                        </code>
+
+                                    @else
+
+                                        <span class="text-muted">
+                                            -
+                                        </span>
+
+                                    @endif
 
                                 </td>
 
 
-                                {{-- Event Type --}}
+                                {{-- =================================
+                                     Event Type
+                                ================================== --}}
+
                                 <td>
 
                                     <span class="badge bg-light text-dark border">
@@ -199,17 +240,33 @@
                                 </td>
 
 
-                                {{-- Fullscript Order --}}
+                                {{-- =================================
+                                     Fullscript Order
+                                ================================== --}}
+
                                 <td>
 
-                                    <strong>
-                                        {{ $event->fullscript_order_id ?? '-' }}
-                                    </strong>
+                                    @if($event->fullscript_order_id)
+
+                                        <strong>
+                                            {{ $event->fullscript_order_id }}
+                                        </strong>
+
+                                    @else
+
+                                        <span class="text-muted">
+                                            -
+                                        </span>
+
+                                    @endif
 
                                 </td>
 
 
-                                {{-- Shipment --}}
+                                {{-- =================================
+                                     Shipment
+                                ================================== --}}
+
                                 <td>
 
                                     {{ $event->tracking_data['shipment_number'] ?? '-' }}
@@ -217,7 +274,10 @@
                                 </td>
 
 
-                                {{-- Tracking --}}
+                                {{-- =================================
+                                     Tracking
+                                ================================== --}}
+
                                 <td>
 
                                     @if(!empty($event->tracking_data['tracking_number']))
@@ -225,6 +285,7 @@
                                         <strong>
                                             {{ $event->tracking_data['tracking_number'] }}
                                         </strong>
+
 
                                         @if(!empty($event->tracking_data['carrier']))
 
@@ -251,11 +312,18 @@
                                 </td>
 
 
-                                {{-- Status --}}
+                                {{-- =================================
+                                     Status
+                                ================================== --}}
+
                                 <td>
 
                                     @php
-                                        $status = strtolower($event->status ?? '');
+
+                                        $status = strtolower(
+                                            $event->status ?? ''
+                                        );
+
                                     @endphp
 
 
@@ -269,6 +337,7 @@
 
                                         </span>
 
+
                                     @elseif($status === 'cancelled')
 
                                         <span class="badge bg-danger">
@@ -279,6 +348,7 @@
 
                                         </span>
 
+
                                     @elseif($status === 'processing')
 
                                         <span class="badge bg-warning text-dark">
@@ -288,6 +358,7 @@
                                             Processing
 
                                         </span>
+
 
                                     @else
 
@@ -302,7 +373,10 @@
                                 </td>
 
 
-                                {{-- Received --}}
+                                {{-- =================================
+                                     Received
+                                ================================== --}}
+
                                 <td>
 
                                     @if($event->created_at)
@@ -317,13 +391,260 @@
 
                                     @else
 
-                                        -
+                                        <span class="text-muted">
+                                            -
+                                        </span>
 
                                     @endif
 
                                 </td>
 
+
+                                {{-- =================================
+                                     View Payload
+                                ================================== --}}
+
+                                <td class="text-center">
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#payloadModal{{ $event->id }}"
+                                    >
+
+                                        <i class="bi bi-code-slash me-1"></i>
+
+                                        View Payload
+
+                                    </button>
+
+                                </td>
+
                             </tr>
+
+
+                            {{-- =================================================
+                                 Payload Modal
+                            ================================================== --}}
+
+                            <div
+                                class="modal fade"
+                                id="payloadModal{{ $event->id }}"
+                                tabindex="-1"
+                                aria-labelledby="payloadModalLabel{{ $event->id }}"
+                                aria-hidden="true"
+                            >
+
+                                <div
+                                    class="modal-dialog modal-xl modal-dialog-scrollable"
+                                >
+
+                                    <div class="modal-content">
+
+
+                                        {{-- Modal Header --}}
+                                        <div class="modal-header">
+
+                                            <div>
+
+                                                <h5
+                                                    class="modal-title"
+                                                    id="payloadModalLabel{{ $event->id }}"
+                                                >
+
+                                                    <i class="bi bi-code-slash me-2"></i>
+
+                                                    Webhook Payload
+
+                                                </h5>
+
+
+                                                <small class="text-muted">
+
+                                                    Event ID:
+
+                                                    <code>
+                                                        {{ $event->fullscript_event_id ?? '-' }}
+                                                    </code>
+
+                                                </small>
+
+                                            </div>
+
+
+                                            <button
+                                                type="button"
+                                                class="btn-close"
+                                                data-bs-dismiss="modal"
+                                                aria-label="Close"
+                                            ></button>
+
+                                        </div>
+
+
+                                        {{-- Modal Body --}}
+                                        <div class="modal-body">
+
+
+                                            {{-- Event Information --}}
+                                            <div class="row g-3 mb-4">
+
+
+                                                {{-- Event ID --}}
+                                                <div class="col-md-6">
+
+                                                    <div class="border rounded p-3">
+
+                                                        <small class="text-muted d-block mb-2">
+                                                            Event ID
+                                                        </small>
+
+                                                        <code class="text-break">
+
+                                                            {{ $event->fullscript_event_id ?? '-' }}
+
+                                                        </code>
+
+                                                    </div>
+
+                                                </div>
+
+
+                                                {{-- Event Type --}}
+                                                <div class="col-md-6">
+
+                                                    <div class="border rounded p-3">
+
+                                                        <small class="text-muted d-block mb-2">
+                                                            Event Type
+                                                        </small>
+
+                                                        <strong>
+
+                                                            {{ $event->tracking_data['event_type'] ?? 'fulfillment.shipment.shipped' }}
+
+                                                        </strong>
+
+                                                    </div>
+
+                                                </div>
+
+
+                                                {{-- Fullscript Order --}}
+                                                <div class="col-md-6">
+
+                                                    <div class="border rounded p-3">
+
+                                                        <small class="text-muted d-block mb-2">
+                                                            Fullscript Order
+                                                        </small>
+
+                                                        <strong>
+
+                                                            {{ $event->fullscript_order_id ?? '-' }}
+
+                                                        </strong>
+
+                                                    </div>
+
+                                                </div>
+
+
+                                                {{-- Shipment --}}
+                                                <div class="col-md-6">
+
+                                                    <div class="border rounded p-3">
+
+                                                        <small class="text-muted d-block mb-2">
+                                                            Shipment
+                                                        </small>
+
+                                                        <strong>
+
+                                                            {{ $event->tracking_data['shipment_number'] ?? '-' }}
+
+                                                        </strong>
+
+                                                    </div>
+
+                                                </div>
+
+
+                                            </div>
+
+
+                                            {{-- Payload --}}
+                                            <div>
+
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+
+                                                    <h6 class="mb-0 fw-semibold">
+                                                        Payload
+                                                    </h6>
+
+                                                    <span class="badge bg-secondary">
+                                                        JSON
+                                                    </span>
+
+                                                </div>
+
+
+                                                <div
+                                                    class="border rounded bg-dark p-3"
+                                                    style="max-height: 600px; overflow-y: auto;"
+                                                >
+
+                                                    <pre
+                                                        class="text-light mb-0"
+                                                        style="
+                                                            white-space: pre-wrap;
+                                                            word-break: break-word;
+                                                            font-size: 13px;
+                                                        "
+                                                    ><code>{{ json_encode(
+                                                        $event->tracking_data,
+                                                        JSON_PRETTY_PRINT |
+                                                        JSON_UNESCAPED_SLASHES |
+                                                        JSON_UNESCAPED_UNICODE
+                                                    ) }}</code></pre>
+
+                                                </div>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        {{-- Modal Footer --}}
+                                        <div class="modal-footer">
+
+                                            <small class="text-muted me-auto">
+
+                                                Received:
+
+                                                {{ $event->created_at?->format('Y-m-d H:i:s') ?? '-' }}
+
+                                            </small>
+
+
+                                            <button
+                                                type="button"
+                                                class="btn btn-secondary"
+                                                data-bs-dismiss="modal"
+                                            >
+
+                                                Close
+
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
 
                         @endforeach
 
@@ -334,22 +655,40 @@
                 </div>
 
 
-                {{-- Pagination --}}
+                {{-- =================================================
+                     Pagination
+                ================================================== --}}
+
                 @if($events->hasPages())
 
-                    <div class="d-flex justify-content-between align-items-center mt-4">
+                    <div
+                        class="d-flex justify-content-between align-items-center mt-4"
+                    >
 
                         <div class="text-muted small">
 
                             Showing
-                            <strong>{{ $events->firstItem() }}</strong>
+
+                            <strong>
+                                {{ $events->firstItem() }}
+                            </strong>
+
                             to
-                            <strong>{{ $events->lastItem() }}</strong>
+
+                            <strong>
+                                {{ $events->lastItem() }}
+                            </strong>
+
                             of
-                            <strong>{{ $events->total() }}</strong>
+
+                            <strong>
+                                {{ $events->total() }}
+                            </strong>
+
                             webhook events
 
                         </div>
+
 
                         <div>
 
@@ -364,7 +703,11 @@
 
             @else
 
-                {{-- Empty State --}}
+
+                {{-- =================================================
+                     Empty State
+                ================================================== --}}
+
                 <div class="text-center py-5">
 
                     <div class="status-icon success mx-auto mb-3">
@@ -373,9 +716,11 @@
 
                     </div>
 
+
                     <h5 class="mb-2">
                         No Webhook Events
                     </h5>
+
 
                     <p class="text-muted mb-0">
                         No Fullscript webhook events have been received yet.
@@ -390,11 +735,16 @@
     </div>
 
 
-    {{-- Webhook Information --}}
+    {{-- =========================================================
+         Fullscript Webhook Information
+    ========================================================== --}}
+
     <div class="card dashboard-card">
 
         <div class="card-body p-4">
 
+
+            {{-- Card Header --}}
             <div class="d-flex align-items-center mb-4">
 
                 <div class="status-icon success me-3">
@@ -402,6 +752,7 @@
                     <i class="bi bi-info-circle"></i>
 
                 </div>
+
 
                 <div>
 
@@ -418,7 +769,9 @@
             </div>
 
 
+            {{-- Information --}}
             <div class="row g-4">
+
 
                 {{-- Endpoint --}}
                 <div class="col-md-6">
@@ -430,7 +783,9 @@
                         </small>
 
                         <code class="text-break">
+
                             {{ url('/webhooks/fullscript') }}
+
                         </code>
 
                     </div>
@@ -438,7 +793,7 @@
                 </div>
 
 
-                {{-- Supported Events --}}
+                {{-- Event --}}
                 <div class="col-md-6">
 
                     <div class="border rounded p-3">
@@ -456,7 +811,7 @@
                 </div>
 
 
-                {{-- Method --}}
+                {{-- HTTP Method --}}
                 <div class="col-md-6">
 
                     <div class="border rounded p-3">
@@ -466,7 +821,11 @@
                         </small>
 
                         <span class="badge bg-primary">
+
+                            <i class="bi bi-arrow-down-circle me-1"></i>
+
                             POST
+
                         </span>
 
                     </div>
