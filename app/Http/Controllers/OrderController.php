@@ -92,8 +92,69 @@ class OrderController extends Controller
 
     public function show(string $orderId): View
     {
-        return view('orders.show', [
-            'orderId' => $orderId,
-        ]);
+        $query = <<<'GRAPHQL'
+        query GetOrder($id: ID!) {
+            order(id: $id) {
+                id
+                name
+                createdAt
+                displayFinancialStatus
+                displayFulfillmentStatus
+
+                totalPriceSet {
+                    shopMoney {
+                        amount
+                        currencyCode
+                    }
+                }
+
+                customer {
+                    firstName
+                    lastName
+                    email
+                }
+
+                fulfillments {
+                    id
+                    status
+                    createdAt
+
+                    trackingInfo {
+                        company
+                        number
+                        url
+                    }
+                }
+            }
+        }
+        GRAPHQL;
+
+        try {
+            $data = $this->shopify->execute(
+                $query,
+                [
+                    'id' => $orderId,
+                ]
+            );
+
+            $order = $data['order'] ?? null;
+
+            if (!$order) {
+                abort(404, 'Shopify order not found.');
+            }
+
+            return view('orders.show', [
+                'order' => $order,
+            ]);
+
+        } catch (Throwable $e) {
+            report($e);
+
+            return view('orders.show', [
+                'order' => null,
+                'orderId' => $orderId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
