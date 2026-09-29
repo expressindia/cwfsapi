@@ -89,4 +89,11 @@ class OrderController extends Controller
             ]);
         }
     }
+
+    public function show(string $orderId): View
+    {
+        return view('orders.show', [
+            'orderId' => $orderId,
+        ]);
+    }
 }
