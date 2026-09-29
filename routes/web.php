@@ -31,6 +31,7 @@ Route::get('/fullscript/status', [FullscriptStatusController::class,'status']) -
 Route::get('/fullscript/connect', [FullscriptOAuthController::class, 'redirect'])->name('fullscript.connect');
 
 Route::get('/fulfillments', [FulfillmentController::class, 'index'])->name('fulfillments.index');
+Route::get('/fulfillments/{fulfillment}', [FulfillmentController::class, 'show'])->name('fulfillments.show');
 Route::get('/webhooks', [WebhookController::class, 'index'])->name('webhooks.index');
 /*
 |--------------------------------------------------------------------------

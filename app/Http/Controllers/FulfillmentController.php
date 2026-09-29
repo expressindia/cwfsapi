@@ -12,4 +12,8 @@ class FulfillmentController extends Controller
 
         return view('fulfillments.index', compact('fulfillments'));
     }
+    public function show(FulfillmentOrder $fulfillment)
+    {
+        return view('fulfillments.show', compact('fulfillment'));
+    }
 }
