@@ -17,8 +17,10 @@
 
         <a href="{{ route('orders.index') }}"
            class="btn btn-outline-secondary">
+
             <i class="bi bi-arrow-left"></i>
             Back to Orders
+
         </a>
 
     </div>
@@ -28,8 +30,11 @@
     @if(!empty($error))
 
         <div class="alert alert-danger">
+
             <strong>Error:</strong>
+
             {{ $error }}
+
         </div>
 
     @endif
@@ -41,10 +46,13 @@
         <div class="card mb-4">
 
             <div class="card-header">
+
                 <h5 class="mb-0">
                     Shopify Order {{ $order['name'] ?? '-' }}
                 </h5>
+
             </div>
+
 
             <div class="card-body">
 
@@ -52,6 +60,7 @@
 
                     {{-- Order --}}
                     <div class="col-md-4">
+
                         <small class="text-muted d-block">
                             Order
                         </small>
@@ -59,11 +68,13 @@
                         <strong>
                             {{ $order['name'] ?? '-' }}
                         </strong>
+
                     </div>
 
 
                     {{-- Customer --}}
                     <div class="col-md-4">
+
                         <small class="text-muted d-block">
                             Customer
                         </small>
@@ -76,15 +87,19 @@
                         </strong>
 
                         @if(!empty($order['customer']['email']))
+
                             <div class="small text-muted">
                                 {{ $order['customer']['email'] }}
                             </div>
+
                         @endif
+
                     </div>
 
 
                     {{-- Date --}}
                     <div class="col-md-4">
+
                         <small class="text-muted d-block">
                             Order Date
                         </small>
@@ -92,43 +107,57 @@
                         <strong>
                             {{ $order['createdAt'] ?? '-' }}
                         </strong>
+
                     </div>
 
 
                     {{-- Total --}}
                     <div class="col-md-4">
+
                         <small class="text-muted d-block">
                             Total
                         </small>
 
                         <strong>
+
                             {{ $order['totalPriceSet']['shopMoney']['currencyCode'] ?? '' }}
+
                             {{ $order['totalPriceSet']['shopMoney']['amount'] ?? '0.00' }}
+
                         </strong>
+
                     </div>
 
 
                     {{-- Financial Status --}}
                     <div class="col-md-4">
+
                         <small class="text-muted d-block">
                             Financial Status
                         </small>
 
                         <span class="badge bg-success">
+
                             {{ $order['displayFinancialStatus'] ?? '-' }}
+
                         </span>
+
                     </div>
 
 
                     {{-- Fulfillment Status --}}
                     <div class="col-md-4">
+
                         <small class="text-muted d-block">
                             Fulfillment Status
                         </small>
 
                         <span class="badge bg-secondary">
+
                             {{ $order['displayFulfillmentStatus'] ?? '-' }}
+
                         </span>
+
                     </div>
 
                 </div>
@@ -142,10 +171,13 @@
         <div class="card">
 
             <div class="card-header">
+
                 <h5 class="mb-0">
                     Fulfillments
                 </h5>
+
             </div>
+
 
             <div class="card-body">
 
@@ -185,53 +217,97 @@
                                 </div>
 
 
-                                {{-- Shipping Carrier --}}
-                                <div class="col-md-6">
+                                {{-- Tracking Information --}}
+                                <div class="col-12">
 
-                                    <small class="text-muted d-block">
-                                        Shipping Carrier
+                                    <small class="text-muted d-block mb-2">
+                                        Tracking Information
                                     </small>
 
-                                    <strong>
-                                        {{ $fulfillment['trackingInfo']['company'] ?? 'No carrier' }}
-                                    </strong>
+
+                                    @if(!empty($fulfillment['trackingInfo']))
+
+                                        @foreach($fulfillment['trackingInfo'] as $tracking)
+
+                                            <div class="border rounded p-3 mb-2">
+
+                                                <div class="row g-3">
+
+                                                    {{-- Shipping Carrier --}}
+                                                    <div class="col-md-4">
+
+                                                        <small class="text-muted d-block">
+                                                            Shipping Carrier
+                                                        </small>
+
+                                                        <strong>
+                                                            {{ $tracking['company'] ?? 'Unknown carrier' }}
+                                                        </strong>
+
+                                                    </div>
+
+
+                                                    {{-- Tracking Number --}}
+                                                    <div class="col-md-4">
+
+                                                        <small class="text-muted d-block">
+                                                            Tracking Number
+                                                        </small>
+
+                                                        <strong>
+                                                            {{ $tracking['number'] ?? 'No tracking number' }}
+                                                        </strong>
+
+                                                    </div>
+
+
+                                                    {{-- Tracking URL --}}
+                                                    <div class="col-md-4">
+
+                                                        <small class="text-muted d-block">
+                                                            Tracking
+                                                        </small>
+
+
+                                                        @if(!empty($tracking['url']))
+
+                                                            <a href="{{ $tracking['url'] }}"
+                                                               target="_blank"
+                                                               rel="noopener noreferrer"
+                                                               class="btn btn-sm btn-outline-primary">
+
+                                                                <i class="bi bi-box-arrow-up-right"></i>
+                                                                Track
+
+                                                            </a>
+
+                                                        @else
+
+                                                            <span class="text-muted">
+                                                                No tracking link
+                                                            </span>
+
+                                                        @endif
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+
+                                        @endforeach
+
+                                    @else
+
+                                        <div class="text-muted">
+
+                                            No tracking information found for this fulfillment.
+
+                                        </div>
+
+                                    @endif
 
                                 </div>
-
-
-                                {{-- Tracking Number --}}
-                                <div class="col-md-6">
-
-                                    <small class="text-muted d-block">
-                                        Tracking Number
-                                    </small>
-
-                                    <strong>
-                                        {{ $fulfillment['trackingInfo']['number'] ?? 'No tracking number' }}
-                                    </strong>
-
-                                </div>
-
-
-                                {{-- Tracking URL --}}
-                                @if(!empty($fulfillment['trackingInfo']['url']))
-
-                                    <div class="col-12">
-
-                                        <small class="text-muted d-block">
-                                            Tracking URL
-                                        </small>
-
-                                        <a href="{{ $fulfillment['trackingInfo']['url'] }}"
-                                           target="_blank"
-                                           rel="noopener noreferrer">
-
-                                            Track Shipment
-                                        </a>
-
-                                    </div>
-
-                                @endif
 
                             </div>
 
@@ -242,7 +318,9 @@
                 @else
 
                     <div class="text-muted">
+
                         No fulfillments found for this order.
+
                     </div>
 
                 @endif
