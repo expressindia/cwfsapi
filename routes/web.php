@@ -37,7 +37,7 @@ Route::get('/webhooks', [WebhookController::class, 'index'])->name('webhooks.ind
 
 // Order Route 
 Route::get('/orders', [OrderController::class, 'index'])->middleware('shopify.standalone')->name('orders.index');
-Route::get('/orders/{orderId}', [OrderController::class, 'show'])->where('orderId', '.*')->middleware('shopify.standalone')->name('orders.show');
+Route::get('/orders/{orderId}', [OrderController::class, 'show'])->whereNumber('orderId')->middleware('shopify.standalone')->name('orders.show');
 /*
 |--------------------------------------------------------------------------
 | Fullscript OAuth

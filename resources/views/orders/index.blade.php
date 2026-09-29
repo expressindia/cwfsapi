@@ -366,7 +366,9 @@
 
                                     </td>
                                     <td>
-                                        <a href="{{ route('orders.show', ['orderId' => $order['id']]) }}"
+                                        <a href="{{ route('orders.show', [
+                                            'orderId' => str_replace('gid://shopify/Order/', '', $order['id'])
+                                        ]) }}"
                                         class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-eye"></i>
                                             View

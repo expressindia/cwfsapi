@@ -92,6 +92,8 @@ class OrderController extends Controller
 
     public function show(string $orderId): View
     {
+        $shopifyOrderId = 'gid://shopify/Order/' . $orderId;
+            
         $query = <<<'GRAPHQL'
         query GetOrder($id: ID!) {
             order(id: $id) {
