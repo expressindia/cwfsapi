@@ -1,38 +1,20 @@
 @extends('layouts.app')
 
-@section('title', 'Shopify Orders - CWFSAPI')
-
-@section('page-title', 'Orders')
-
 @section('content')
 
-<div class="container-fluid px-0">
+<div class="container-fluid">
 
     {{-- Page Header --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
 
         <div>
-
-            <h3 class="fw-semibold mb-1">
-                Shopify Orders
-            </h3>
+            <h1 class="h3 mb-1">
+                Orders
+            </h1>
 
             <p class="text-muted mb-0">
-                View orders and fulfillment tracking information from Shopify.
+                Orders assigned to FSWarehouse
             </p>
-
-        </div>
-
-        <div>
-
-            <span class="badge bg-primary px-3 py-2">
-
-                <i class="bi bi-cart me-1"></i>
-
-                Shopify Orders
-
-            </span>
-
         </div>
 
     </div>
@@ -43,7 +25,9 @@
 
         <div class="alert alert-danger">
 
-            <i class="bi bi-exclamation-triangle me-2"></i>
+            <i class="bi bi-exclamation-triangle"></i>
+
+            <strong>Error:</strong>
 
             {{ $error }}
 
@@ -52,53 +36,31 @@
     @endif
 
 
-    {{-- Orders Card --}}
-    <div class="card dashboard-card">
+    {{-- Orders --}}
+    <div class="card">
 
-        <div class="card-body p-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
 
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <h5 class="mb-0">
+                FSWarehouse Orders
+            </h5>
 
-                <div class="d-flex align-items-center">
+            <span class="badge bg-primary">
+                {{ count($orders ?? []) }} Orders
+            </span>
 
-                    <div class="status-icon success me-3">
-
-                        <i class="bi bi-cart"></i>
-
-                    </div>
-
-                    <div>
-
-                        <h5 class="mb-1">
-                            Orders
-                        </h5>
-
-                        <small class="text-muted">
-                            Latest Shopify orders
-                        </small>
-
-                    </div>
-
-                </div>
-
-                <span class="badge bg-success px-3 py-2">
-
-                    <i class="bi bi-cloud-check me-1"></i>
-
-                    Shopify API
-
-                </span>
-
-            </div>
+        </div>
 
 
-            @if(count($orders))
+        <div class="card-body p-0">
+
+            @if(!empty($orders))
 
                 <div class="table-responsive">
 
                     <table class="table table-hover align-middle mb-0">
 
-                        <thead>
+                        <thead class="table-light">
 
                             <tr>
 
@@ -123,13 +85,16 @@
                                 </th>
 
                                 <th>
-                                    Fulfillment
+                                    Fulfillment Status
                                 </th>
 
                                 <th>
                                     Tracking
                                 </th>
-                                <th>View</th>
+
+                                <th class="text-end">
+                                    Action
+                                </th>
 
                             </tr>
 
@@ -140,14 +105,54 @@
 
                             @foreach($orders as $order)
 
+                                @php
+
+                                    $orderNumericId = str_replace(
+                                        'gid://shopify/Order/',
+                                        '',
+                                        $order['id'] ?? ''
+                                    );
+
+                                    $customerName = trim(
+                                        ($order['customer']['firstName'] ?? '') .
+                                        ' ' .
+                                        ($order['customer']['lastName'] ?? '')
+                                    );
+
+                                    $trackingInfo = [];
+
+                                    foreach (
+                                        $order['fulfillments'] ?? []
+                                        as $fulfillment
+                                    ) {
+                                        foreach (
+                                            $fulfillment['trackingInfo'] ?? []
+                                            as $tracking
+                                        ) {
+                                            $trackingInfo[] = $tracking;
+                                        }
+                                    }
+
+                                @endphp
+
+
                                 <tr>
 
                                     {{-- Order --}}
                                     <td>
 
-                                        <strong>
+                                        <a
+                                            href="{{ route(
+                                                'orders.show',
+                                                [
+                                                    'orderId' => $orderNumericId
+                                                ]
+                                            ) }}"
+                                            class="fw-semibold text-decoration-none">
+
                                             {{ $order['name'] ?? '-' }}
-                                        </strong>
+
+                                        </a>
 
                                     </td>
 
@@ -155,29 +160,26 @@
                                     {{-- Customer --}}
                                     <td>
 
-                                        @if(!empty($order['customer']))
+                                        <div class="fw-semibold">
 
-                                            {{ trim(
-                                                ($order['customer']['firstName'] ?? '') .
-                                                ' ' .
-                                                ($order['customer']['lastName'] ?? '')
-                                            ) }}
+                                            {{
+                                                $customerName ?: '-'
+                                            }}
 
-                                            @if(!empty($order['customer']['email']))
+                                        </div>
 
-                                                <br>
 
-                                                <small class="text-muted">
-                                                    {{ $order['customer']['email'] }}
-                                                </small>
+                                        @if(!empty(
+                                            $order['customer']['email']
+                                        ))
 
-                                            @endif
+                                            <div class="small text-muted">
 
-                                        @else
+                                                {{
+                                                    $order['customer']['email']
+                                                }}
 
-                                            <span class="text-muted">
-                                                Guest
-                                            </span>
+                                            </div>
 
                                         @endif
 
@@ -187,17 +189,13 @@
                                     {{-- Date --}}
                                     <td>
 
-                                        @if(!empty($order['createdAt']))
+                                        <span class="small">
 
-                                            {{ \Carbon\Carbon::parse(
-                                                $order['createdAt']
-                                            )->format('Y-m-d H:i') }}
+                                            {{
+                                                $order['createdAt'] ?? '-'
+                                            }}
 
-                                        @else
-
-                                            -
-
-                                        @endif
+                                        </span>
 
                                     </td>
 
@@ -205,24 +203,23 @@
                                     {{-- Total --}}
                                     <td>
 
-                                        @if(!empty($order['totalPriceSet']['shopMoney']))
+                                        <strong>
 
-                                            <strong>
+                                            {{
+                                                $order['totalPriceSet']
+                                                    ['shopMoney']
+                                                    ['currencyCode']
+                                                ?? ''
+                                            }}
 
-                                                {{ $order['totalPriceSet']['shopMoney']['currencyCode'] }}
+                                            {{
+                                                $order['totalPriceSet']
+                                                    ['shopMoney']
+                                                    ['amount']
+                                                ?? '0.00'
+                                            }}
 
-                                                {{ number_format(
-                                                    (float) $order['totalPriceSet']['shopMoney']['amount'],
-                                                    2
-                                                ) }}
-
-                                            </strong>
-
-                                        @else
-
-                                            -
-
-                                        @endif
+                                        </strong>
 
                                     </td>
 
@@ -231,19 +228,44 @@
                                     <td>
 
                                         @php
+
                                             $financialStatus =
-                                                $order['displayFinancialStatus'] ?? 'UNKNOWN';
+                                                $order[
+                                                    'displayFinancialStatus'
+                                                ] ?? '';
+
                                         @endphp
 
-                                        <span class="badge bg-light text-dark border">
 
-                                            {{ str_replace(
-                                                '_',
-                                                ' ',
-                                                $financialStatus
-                                            ) }}
+                                        @if($financialStatus === 'PAID')
 
-                                        </span>
+                                            <span class="badge bg-success">
+
+                                                {{ $financialStatus }}
+
+                                            </span>
+
+                                        @elseif(
+                                            $financialStatus === 'REFUNDED'
+                                        )
+
+                                            <span class="badge bg-warning text-dark">
+
+                                                {{ $financialStatus }}
+
+                                            </span>
+
+                                        @else
+
+                                            <span class="badge bg-secondary">
+
+                                                {{
+                                                    $financialStatus ?: '-'
+                                                }}
+
+                                            </span>
+
+                                        @endif
 
                                     </td>
 
@@ -252,27 +274,32 @@
                                     <td>
 
                                         @php
+
                                             $fulfillmentStatus =
-                                                $order['displayFulfillmentStatus'] ?? 'UNFULFILLED';
+                                                $order[
+                                                    'displayFulfillmentStatus'
+                                                ] ?? '';
+
                                         @endphp
 
-                                        @if($fulfillmentStatus === 'FULFILLED')
+
+                                        @if(
+                                            $fulfillmentStatus === 'FULFILLED'
+                                        )
 
                                             <span class="badge bg-success">
 
-                                                <i class="bi bi-check-circle me-1"></i>
-
-                                                Fulfilled
+                                                {{ $fulfillmentStatus }}
 
                                             </span>
 
-                                        @elseif($fulfillmentStatus === 'PARTIALLY_FULFILLED')
+                                        @elseif(
+                                            $fulfillmentStatus === 'UNFULFILLED'
+                                        )
 
                                             <span class="badge bg-warning text-dark">
 
-                                                <i class="bi bi-box-seam me-1"></i>
-
-                                                Partially Fulfilled
+                                                {{ $fulfillmentStatus }}
 
                                             </span>
 
@@ -280,11 +307,9 @@
 
                                             <span class="badge bg-secondary">
 
-                                                {{ str_replace(
-                                                    '_',
-                                                    ' ',
-                                                    $fulfillmentStatus
-                                                ) }}
+                                                {{
+                                                    $fulfillmentStatus ?: '-'
+                                                }}
 
                                             </span>
 
@@ -296,80 +321,70 @@
                                     {{-- Tracking --}}
                                     <td>
 
-                                        @if(!empty($order['fulfillments']))
+                                        @if(!empty($trackingInfo))
 
-                                            @foreach($order['fulfillments'] as $fulfillment)
+                                            @foreach(
+                                                $trackingInfo
+                                                as $tracking
+                                            )
 
-                                                @if(!empty($fulfillment['trackingInfo']))
+                                                <div class="small">
 
-                                                    @foreach($fulfillment['trackingInfo'] as $tracking)
+                                                    <strong>
 
-                                                        @if(!empty($tracking['number']))
+                                                        {{
+                                                            $tracking['company']
+                                                            ?? '-'
+                                                        }}
 
-                                                            <div class="mb-2">
+                                                    </strong>
 
-                                                                <strong>
-                                                                    {{ $tracking['number'] }}
-                                                                </strong>
+                                                    <br>
 
-                                                                @if(!empty($tracking['company']))
+                                                    <span class="text-muted">
 
-                                                                    <br>
+                                                        {{
+                                                            $tracking['number']
+                                                            ?? '-'
+                                                        }}
 
-                                                                    <small class="text-muted">
+                                                    </span>
 
-                                                                        <i class="bi bi-truck me-1"></i>
-
-                                                                        {{ $tracking['company'] }}
-
-                                                                    </small>
-
-                                                                @endif
-
-
-                                                                @if(!empty($tracking['url']))
-
-                                                                    <br>
-
-                                                                    <a
-                                                                        href="{{ $tracking['url'] }}"
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        class="btn btn-sm btn-outline-primary mt-1"
-                                                                    >
-
-                                                                        <i class="bi bi-box-arrow-up-right me-1"></i>
-
-                                                                        Track
-
-                                                                    </a>
-
-                                                                @endif
-
-                                                            </div>
-
-                                                        @endif
-
-                                                    @endforeach
-
-                                                @endif
+                                                </div>
 
                                             @endforeach
 
                                         @else
 
                                             <span class="text-muted">
+
                                                 No tracking
+
                                             </span>
 
                                         @endif
 
                                     </td>
-                                    <td>
-                                        <a href="{{ route('orders.show', ['orderId' => str_replace('gid://shopify/Order/', '', $order['id'])]) }}" class="btn btn-sm btn-outline-primary">
+
+
+                                    {{-- Action --}}
+                                    <td class="text-end">
+
+                                        <a
+                                            href="{{ route(
+                                                'orders.show',
+                                                [
+                                                    'orderId' => $orderNumericId
+                                                ]
+                                            ) }}"
+                                            class="btn btn-sm btn-outline-primary">
+
                                             <i class="bi bi-eye"></i>
+
                                             View
+
                                         </a>
+
                                     </td>
 
                                 </tr>
@@ -386,18 +401,19 @@
 
                 <div class="text-center py-5">
 
-                    <div class="status-icon success mx-auto mb-3">
+                    <i
+                        class="bi bi-inbox fs-1 text-muted">
+                    </i>
 
-                        <i class="bi bi-cart"></i>
-
-                    </div>
-
-                    <h5 class="mb-2">
-                        No Orders Found
+                    <h5 class="mt-3">
+                        No FSWarehouse orders found
                     </h5>
 
                     <p class="text-muted mb-0">
-                        No Shopify orders were returned by the API.
+
+                        There are currently no orders assigned
+                        to your registered fulfillment service.
+
                     </p>
 
                 </div>
