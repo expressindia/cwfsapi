@@ -38,6 +38,12 @@ Route::get('/webhooks', [WebhookController::class, 'index'])->name('webhooks.ind
 // Order Route 
 Route::get('/orders', [OrderController::class, 'index'])->middleware('shopify.standalone')->name('orders.index');
 Route::get('/orders/{orderId}', [OrderController::class, 'show'])->whereNumber('orderId')->middleware('shopify.standalone')->name('orders.show');
+
+Route::post( '/orders/{orderId}/fulfillments/{fulfillmentId}/tracking', [OrderController::class, 'updateTracking'])
+    ->whereNumber('orderId')
+    ->whereNumber('fulfillmentId')
+    ->middleware('shopify.standalone')
+    ->name('orders.tracking.update');
 /*
 |--------------------------------------------------------------------------
 | Fullscript OAuth

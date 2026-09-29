@@ -139,7 +139,7 @@ class ShopifyGraphQLService
             ->retry(
                 3,
                 1000,
-                throw: false
+                throw: false 
             )
             ->withHeaders([
                 'Content-Type' => 'application/json',

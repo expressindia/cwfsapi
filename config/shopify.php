@@ -59,4 +59,33 @@ return [
 
     ],
 
+    'tracking_carriers' => [
+        '4PX',
+        'Amazon',
+        'An Post',
+        'APC',
+        'Australia Post',
+        'BPost',
+        'Canada Post',
+        'Canpar',
+        'China Post',
+        'Colissimo',
+        'Correos',
+        'CTT',
+        'DHL eCommerce',
+        'DHL Express',
+        'DPD',
+        'DPD UK',
+        'FedEx',
+        'GLS',
+        'Japan Post (EN)',
+        'OnTrac',
+        'Purolator',
+        'Royal Mail',
+        'Singapore Post',
+        'TNT',
+        'UPS',
+        'USPS',
+    ],
+
 ];
