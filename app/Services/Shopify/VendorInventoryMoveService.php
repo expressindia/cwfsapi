@@ -994,94 +994,71 @@ GRAPHQL;
      * Load inventory levels for all product variants
      * in small batches.
      */
-    protected function loadVendorInventoryLevels(
-        ShopifyToken $shopifyToken,
-        array $products
-    ): array {
-        $inventoryItemIds = [];
+    /**
+ * Load inventory levels for all product variants.
+ *
+ * We query each InventoryItem directly instead of using
+ * a large nested products -> variants -> inventoryLevels
+ * query.
+ *
+ * This keeps the GraphQL query cost low and makes the
+ * inventory level lookup more reliable.
+ */
+protected function loadVendorInventoryLevels(
+    ShopifyToken $shopifyToken,
+    array $products
+): array {
+    foreach ($products as &$product) {
 
-        /*
-         * First collect all inventory item IDs.
-         */
-        foreach ($products as $product) {
-            foreach (
-                ($product['variants']['nodes'] ?? [])
-                as $variant
-            ) {
-                $inventoryItemId =
-                    $variant['inventoryItem']['id']
-                    ?? null;
+        foreach (
+            ($product['variants']['nodes'] ?? [])
+            as &$variant
+        ) {
+            $inventoryItemId =
+                $variant['inventoryItem']['id']
+                ?? null;
 
-                if (! $inventoryItemId) {
-                    continue;
-                }
-
-                $inventoryItemIds[] =
-                    $inventoryItemId;
+            if (! $inventoryItemId) {
+                continue;
             }
-        }
 
-        $inventoryItemIds =
-            array_values(
-                array_unique(
-                    $inventoryItemIds
-                )
-            );
-
-        if (empty($inventoryItemIds)) {
-            return $products;
-        }
-
-        /*
-         * Shopify nodes() supports multiple IDs.
-         *
-         * We deliberately process only a few IDs at a time
-         * to keep GraphQL query cost below Shopify's limit.
-         */
-        $inventoryChunks =
-            array_chunk(
-                $inventoryItemIds,
-                $this->graphqlBatchSize
-            );
-
-        $inventoryItems = [];
-
-        foreach ($inventoryChunks as $inventoryChunk) {
+            /*
+             * ------------------------------------------------------
+             * Get inventory levels for this inventory item.
+             * ------------------------------------------------------
+             */
             $query = <<<'GRAPHQL'
-query LoadInventoryLevels(
-    $ids: [ID!]!
-    $first: Int!
+query GetInventoryItemLevels(
+    $id: ID!
 ) {
-    nodes(ids: $ids) {
-        ... on InventoryItem {
-            id
+    inventoryItem(id: $id) {
+        id
 
-            inventoryLevels(
-                first: $first
-                includeInactive: true
-            ) {
-                nodes {
+        inventoryLevels(
+            first: 50
+            includeInactive: true
+        ) {
+            nodes {
+                id
+                isActive
+
+                location {
                     id
+                    name
                     isActive
-
-                    location {
-                        id
-                        name
-                        isActive
-                    }
-
-                    quantities(
-                        names: ["available"]
-                    ) {
-                        name
-                        quantity
-                    }
                 }
 
-                pageInfo {
-                    hasNextPage
-                    endCursor
+                quantities(
+                    names: ["available"]
+                ) {
+                    name
+                    quantity
                 }
+            }
+
+            pageInfo {
+                hasNextPage
+                endCursor
             }
         }
     }
@@ -1092,141 +1069,95 @@ GRAPHQL;
                 $shopifyToken,
                 $query,
                 [
-                    'ids' =>
-                        array_values(
-                            $inventoryChunk
-                        ),
-
-                    'first' =>
-                        $this->inventoryLevelsPerItem,
+                    'id' =>
+                        $inventoryItemId,
                 ]
             );
 
-            foreach (
-                ($data['nodes'] ?? [])
-                as $inventoryItem
-            ) {
-                if (! $inventoryItem) {
-                    continue;
-                }
+            $inventoryItem =
+                $data['inventoryItem']
+                ?? null;
 
-                $inventoryItemId =
-                    $inventoryItem['id']
-                    ?? null;
-
-                if (! $inventoryItemId) {
-                    continue;
-                }
-
-                $inventoryItems[$inventoryItemId] =
-                    $inventoryItem;
-            }
-        }
-
-        /*
-         * Attach inventory data back to variants.
-         */
-        foreach ($products as &$product) {
-            foreach (
-                ($product['variants']['nodes'] ?? [])
-                as &$variant
-            ) {
-                $inventoryItemId =
-                    $variant['inventoryItem']['id']
-                    ?? null;
-
-                if (
-                    ! $inventoryItemId
-                ) {
-                    continue;
-                }
-
-                if (
-                    isset(
-                        $inventoryItems[
-                            $inventoryItemId
-                        ]
-                    )
-                ) {
-                    $variant['inventoryItem'] =
-                        $inventoryItems[
-                            $inventoryItemId
-                        ];
-                } else {
-                    /*
-                     * Make sure the expected structure
-                     * exists even if Shopify returned no
-                     * inventory item data.
-                     */
-                    $variant['inventoryItem'] = [
-                        'id' =>
+            /*
+             * If Shopify did not return the inventory item,
+             * keep the existing ID but give us an empty
+             * inventoryLevels structure.
+             */
+            if (! $inventoryItem) {
+                Log::warning(
+                    'Shopify inventory item not returned.',
+                    [
+                        'inventory_item_id' =>
                             $inventoryItemId,
 
-                        'inventoryLevels' => [
-                            'nodes' => [],
-                        ],
-                    ];
-                }
+                        'sku' =>
+                            $variant['sku'] ?? null,
+
+                        'product_id' =>
+                            $product['id'] ?? null,
+                    ]
+                );
+
+                $variant['inventoryItem'] = [
+                    'id' =>
+                        $inventoryItemId,
+
+                    'inventoryLevels' => [
+                        'nodes' => [],
+                    ],
+                ];
+
+                continue;
             }
 
-            unset($variant);
-        }
+            /*
+             * Store the complete InventoryItem response.
+             */
+            $variant['inventoryItem'] =
+                $inventoryItem;
 
-        unset($product);
+            /*
+             * ------------------------------------------------------
+             * Handle additional inventory level pages.
+             * ------------------------------------------------------
+             */
+            $levelsConnection =
+                $inventoryItem['inventoryLevels']
+                ?? [];
 
-        /*
-         * Inventory levels are normally far fewer than 50.
-         *
-         * If an inventory item somehow has more than 50
-         * inventory levels, load the remaining pages.
-         */
-        foreach ($products as &$product) {
-            foreach (
-                ($product['variants']['nodes'] ?? [])
-                as &$variant
+            $allLevels =
+                $levelsConnection['nodes']
+                ?? [];
+
+            $pageInfo =
+                $levelsConnection['pageInfo']
+                ?? [];
+
+            $hasNextPage =
+                (bool) (
+                    $pageInfo['hasNextPage']
+                    ?? false
+                );
+
+            $cursor =
+                $pageInfo['endCursor']
+                ?? null;
+
+            while (
+                $hasNextPage
+                &&
+                $cursor
             ) {
-                $inventoryItem =
-                    $variant['inventoryItem']
-                    ?? null;
-
-                if (! $inventoryItem) {
-                    continue;
-                }
-
-                $inventoryLevels =
-                    $inventoryItem['inventoryLevels']
-                    ?? [];
-
-                $pageInfo =
-                    $inventoryLevels['pageInfo']
-                    ?? [];
-
-                if (
-                    ! ($pageInfo['hasNextPage'] ?? false)
-                ) {
-                    continue;
-                }
-
-                $allLevels =
-                    $inventoryLevels['nodes']
-                    ?? [];
-
-                $cursor =
-                    $pageInfo['endCursor']
-                    ?? null;
-
-                while ($cursor) {
-                    $query = <<<'GRAPHQL'
-query LoadMoreInventoryLevels(
+                $nextQuery = <<<'GRAPHQL'
+query GetMoreInventoryItemLevels(
     $id: ID!
-    $first: Int!
     $after: String
 ) {
     inventoryItem(id: $id) {
         id
 
         inventoryLevels(
-            first: $first
+            first: 50
             after: $after
             includeInactive: true
         ) {
@@ -1257,74 +1188,91 @@ query LoadMoreInventoryLevels(
 }
 GRAPHQL;
 
-                    $data = $this->execute(
-                        $shopifyToken,
-                        $query,
-                        [
-                            'id' =>
-                                $inventoryItem['id'],
+                $nextData = $this->execute(
+                    $shopifyToken,
+                    $nextQuery,
+                    [
+                        'id' =>
+                            $inventoryItemId,
 
-                            'first' =>
-                                $this->inventoryLevelsPerItem,
+                        'after' =>
+                            $cursor,
+                    ]
+                );
 
-                            'after' =>
-                                $cursor,
-                        ]
-                    );
+                $nextConnection =
+                    $nextData[
+                        'inventoryItem'
+                    ]['inventoryLevels']
+                    ?? [];
 
-                    $connection =
-                        $data[
-                            'inventoryItem'
-                        ]['inventoryLevels']
-                        ?? [];
-
-                    foreach (
-                        ($connection['nodes'] ?? [])
-                        as $level
-                    ) {
-                        $allLevels[] =
-                            $level;
-                    }
-
-                    $pageInfo =
-                        $connection['pageInfo']
-                        ?? [];
-
-                    if (
-                        ! (
-                            $pageInfo['hasNextPage']
-                            ?? false
-                        )
-                    ) {
-                        $cursor = null;
-                        break;
-                    }
-
-                    $cursor =
-                        $pageInfo['endCursor']
-                        ?? null;
+                foreach (
+                    ($nextConnection['nodes'] ?? [])
+                    as $level
+                ) {
+                    $allLevels[] =
+                        $level;
                 }
 
-                $variant['inventoryItem'][
-                    'inventoryLevels'
-                ] = [
-                    'nodes' =>
-                        $allLevels,
+                $nextPageInfo =
+                    $nextConnection['pageInfo']
+                    ?? [];
 
-                    'pageInfo' => [
-                        'hasNextPage' => false,
-                        'endCursor' => null,
-                    ],
-                ];
+                $hasNextPage =
+                    (bool) (
+                        $nextPageInfo['hasNextPage']
+                        ?? false
+                    );
+
+                $cursor =
+                    $nextPageInfo['endCursor']
+                    ?? null;
             }
 
-            unset($variant);
+            /*
+             * Put the complete inventory levels back
+             * onto the variant.
+             */
+            $variant['inventoryItem'][
+                'inventoryLevels'
+            ] = [
+                'nodes' =>
+                    $allLevels,
+
+                'pageInfo' => [
+                    'hasNextPage' => false,
+                    'endCursor' => null,
+                ],
+            ];
+
+            /*
+             * Helpful logging while we verify the integration.
+             */
+            Log::info(
+                'Shopify inventory levels loaded.',
+                [
+                    'inventory_item_id' =>
+                        $inventoryItemId,
+
+                    'sku' =>
+                        $variant['sku'] ?? null,
+
+                    'inventory_levels_count' =>
+                        count($allLevels),
+
+                    'inventory_levels' =>
+                        $allLevels,
+                ]
+            );
         }
 
-        unset($product);
-
-        return $products;
+        unset($variant);
     }
+
+    unset($product);
+
+    return $products;
+}
 
     /**
      * Get the "available" inventory quantity from
