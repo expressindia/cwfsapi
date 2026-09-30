@@ -8,19 +8,11 @@ use Throwable;
 
 class VendorInventoryController extends Controller
 {
-    /**
-     * Show vendor inventory page.
-     */
     public function index()
     {
-        return view(
-            'vendor-inventory.index'
-        );
+        return view('vendor-inventory.index');
     }
 
-    /**
-     * Preview vendor inventory.
-     */
     public function preview(
         Request $request,
         VendorInventoryMoveService $service
@@ -34,37 +26,26 @@ class VendorInventoryController extends Controller
         ]);
 
         try {
-
-            $preview =
-                $service->preview(
-                    $validated['vendor']
-                );
+            $preview = $service->preview(
+                $validated['vendor']
+            );
 
             return view(
                 'vendor-inventory.index',
                 [
-                    'vendor' =>
-                        $validated['vendor'],
-
-                    'preview' =>
-                        $preview,
+                    'vendor' => $validated['vendor'],
+                    'preview' => $preview,
                 ]
             );
-
         } catch (Throwable $e) {
-
             return back()
                 ->withInput()
                 ->withErrors([
-                    'vendor' =>
-                        $e->getMessage(),
+                    'vendor' => $e->getMessage(),
                 ]);
         }
     }
 
-    /**
-     * Move vendor inventory to FSWarehouse.
-     */
     public function move(
         Request $request,
         VendorInventoryMoveService $service
@@ -83,28 +64,19 @@ class VendorInventoryController extends Controller
         ]);
 
         try {
-
-            $result =
-                $service->move(
-                    $validated['vendor']
-                );
+            $result = $service->move(
+                $validated['vendor']
+            );
 
             return redirect()
-                ->route(
-                    'vendor-inventory.index'
-                )
-                ->with(
-                    'result',
-                    $result
-                );
+                ->route('vendor-inventory.index')
+                ->with('result', $result);
 
         } catch (Throwable $e) {
-
             return back()
                 ->withInput()
                 ->withErrors([
-                    'vendor' =>
-                        $e->getMessage(),
+                    'vendor' => $e->getMessage(),
                 ]);
         }
     }
