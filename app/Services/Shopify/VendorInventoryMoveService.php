@@ -226,6 +226,23 @@ class VendorInventoryMoveService
             'vendor' =>
                 $vendor,
 
+            /*
+            * Keep the original key expected by the Blade view.
+            */
+            'fs_warehouse' => [
+                'id' =>
+                    $targetLocation['id'],
+
+                'name' =>
+                    $targetLocation['name'],
+
+                'is_active' =>
+                    $targetLocation['isActive'] ?? true,
+            ],
+
+            /*
+            * Keep target_location as well for the newer service structure.
+            */
             'target_location' => [
                 'id' =>
                     $targetLocation['id'],
@@ -236,6 +253,15 @@ class VendorInventoryMoveService
                 'is_active' =>
                     $targetLocation['isActive'] ?? true,
             ],
+
+            /*
+            * Keep the top-level count expected by the existing Blade.
+            */
+            'variant_count' =>
+                count($variants),
+
+            'product_count' =>
+                count($products),
 
             'variants' =>
                 $variants,
