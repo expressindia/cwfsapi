@@ -223,75 +223,74 @@ class VendorInventoryMoveService
         }
 
         return [
-            'vendor' =>
-                $vendor,
+            'vendor' => $vendor,
 
             /*
-            * Keep the original key expected by the Blade view.
+            * Existing Blade expects this key.
             */
             'fs_warehouse' => [
-                'id' =>
-                    $targetLocation['id'],
-
-                'name' =>
-                    $targetLocation['name'],
-
-                'is_active' =>
-                    $targetLocation['isActive'] ?? true,
+                'id' => $targetLocation['id'],
+                'name' => $targetLocation['name'],
+                'is_active' => $targetLocation['isActive'] ?? true,
             ],
 
             /*
-            * Keep target_location as well for the newer service structure.
+            * Keep this newer structure as well.
             */
             'target_location' => [
-                'id' =>
-                    $targetLocation['id'],
-
-                'name' =>
-                    $targetLocation['name'],
-
-                'is_active' =>
-                    $targetLocation['isActive'] ?? true,
+                'id' => $targetLocation['id'],
+                'name' => $targetLocation['name'],
+                'is_active' => $targetLocation['isActive'] ?? true,
             ],
 
             /*
-            * Keep the top-level count expected by the existing Blade.
+            * Existing Blade expects these top-level values.
             */
-            'variant_count' =>
-                count($variants),
+            'product_count' => count($products),
 
-            'product_count' =>
-                count($products),
+            'variant_count' => count($variants),
 
-            'variants' =>
-                $variants,
+            'total_inventory' => collect($variants)
+                ->sum('total_quantity'),
 
+            'fswarehouse_current_inventory' => collect($variants)
+                ->sum('fs_quantity'),
+
+            'inventory_to_move' => collect($variants)
+                ->sum(
+                    fn (array $variant) => max(
+                        0,
+                        $variant['total_quantity']
+                        -
+                        $variant['fs_quantity']
+                    )
+                ),
+
+            'variants' => $variants,
+
+            /*
+            * Also keep the summary structure.
+            */
             'summary' => [
-                'products' =>
-                    count($products),
+                'products' => count($products),
 
-                'variants' =>
-                    count($variants),
+                'variants' => count($variants),
 
-                'total_inventory' =>
-                    collect($variants)
-                        ->sum('total_quantity'),
+                'total_inventory' => collect($variants)
+                    ->sum('total_quantity'),
 
-                'fswarehouse_current_inventory' =>
-                    collect($variants)
-                        ->sum('fs_quantity'),
+                'fswarehouse_current_inventory' => collect($variants)
+                    ->sum('fs_quantity'),
 
-                'inventory_to_move' =>
-                    collect($variants)
-                        ->sum(
-                            fn (array $variant) =>
-                                max(
-                                    0,
-                                    $variant['total_quantity']
-                                    -
-                                    $variant['fs_quantity']
-                                )
-                        ),
+                'inventory_to_move' => collect($variants)
+                    ->sum(
+                        fn (array $variant) => max(
+                            0,
+                            $variant['total_quantity']
+                            -
+                            $variant['fs_quantity']
+                        )
+                    ),
             ],
         ];
     }
