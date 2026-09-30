@@ -170,6 +170,70 @@ GRAPHQL;
     }
 
     /**
+     * Find Shopify product by handle.
+     */
+    public function findProductByHandle(
+        string $handle
+    ): ?array {
+
+        $query = <<<'GRAPHQL'
+query SearchProductByHandle($query: String!) {
+    products(
+        first: 10
+        query: $query
+    ) {
+        nodes {
+            id
+            title
+            handle
+            status
+            vendor
+            productType
+        }
+    }
+}
+GRAPHQL;
+
+        $data =
+            $this->graphql->execute(
+                $query,
+                [
+                    'query' =>
+                        'handle:"'
+                        . addslashes($handle)
+                        . '"',
+                ]
+            );
+
+        $products =
+            $data[
+                'products'
+            ]['nodes']
+            ?? [];
+
+        foreach ($products as $product) {
+
+            if (
+                trim(
+                    (string) (
+                        $product['handle']
+                        ?? ''
+                    )
+                )
+                === $handle
+            ) {
+
+                return [
+                    'product' =>
+                        $product,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Create or update Shopify product.
      */
     public function createOrUpdate(
@@ -177,8 +241,43 @@ GRAPHQL;
         ?string $shopifyProductId = null
     ): array {
 
+        /*
+        |--------------------------------------------------------------------------
+        | Get FSWarehouse
+        |--------------------------------------------------------------------------
+        */
+
         $fsWarehouseLocationId =
             $this->getFsWarehouseLocationId();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get existing Shopify product first
+        |--------------------------------------------------------------------------
+        */
+
+        $existingProduct = null;
+
+        if ($shopifyProductId) {
+
+            $existingProduct =
+                $this->getProduct(
+                    $shopifyProductId
+                );
+
+            if (!$existingProduct) {
+
+                throw new RuntimeException(
+                    "Shopify product {$shopifyProductId} was not found."
+                );
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ProductSet input
+        |--------------------------------------------------------------------------
+        */
 
         $input = [
             'title' =>
@@ -220,13 +319,23 @@ GRAPHQL;
         | Category
         |--------------------------------------------------------------------------
         |
-        | Intentionally NOT included.
+        | Intentionally omitted.
         |
-        | Shopify Category will remain blank.
+        | Shopify Category remains blank.
         |
         */
 
-        if (!empty($product['seo'])) {
+        /*
+        |--------------------------------------------------------------------------
+        | SEO
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !empty(
+                $product['seo']
+            )
+        ) {
 
             $input['seo'] = [
                 'title' =>
@@ -239,13 +348,52 @@ GRAPHQL;
             ];
         }
 
-        if (!empty($product['handle'])) {
+        /*
+        |--------------------------------------------------------------------------
+        | Handle
+        |--------------------------------------------------------------------------
+        |
+        | Existing product:
+        | preserve its existing Shopify handle.
+        |
+        | New product:
+        | use the generated Fullscript handle.
+        |
+        */
+
+        if ($existingProduct) {
+
+            if (
+                !empty(
+                    $existingProduct['handle']
+                )
+            ) {
+
+                $input['handle'] =
+                    $existingProduct['handle'];
+            }
+
+        } elseif (
+            !empty(
+                $product['handle']
+            )
+        ) {
 
             $input['handle'] =
                 $product['handle'];
         }
 
-        if (!empty($product['images'])) {
+        /*
+        |--------------------------------------------------------------------------
+        | Images
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !empty(
+                $product['images']
+            )
+        ) {
 
             $input['files'] = [];
 
@@ -254,7 +402,11 @@ GRAPHQL;
                 as $image
             ) {
 
-                if (empty($image['url'])) {
+                if (
+                    empty(
+                        $image['url']
+                    )
+                ) {
                     continue;
                 }
 
@@ -270,22 +422,6 @@ GRAPHQL;
                         'IMAGE',
                 ];
             }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Existing Shopify product
-        |--------------------------------------------------------------------------
-        */
-
-        $existingProduct = null;
-
-        if ($shopifyProductId) {
-
-            $existingProduct =
-                $this->getProduct(
-                    $shopifyProductId
-                );
         }
 
         /*
@@ -387,7 +523,11 @@ GRAPHQL;
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($product['variants'])) {
+        if (
+            !empty(
+                $product['variants']
+            )
+        ) {
 
             $input['variants'] = [];
 
@@ -405,6 +545,7 @@ GRAPHQL;
                     );
 
                 $variantInput = [
+
                     'sku' =>
                         $sku,
 
@@ -447,7 +588,7 @@ GRAPHQL;
 
                 /*
                 |--------------------------------------------------------------------------
-                | Existing variant
+                | Existing Shopify variant ID
                 |--------------------------------------------------------------------------
                 */
 
@@ -477,7 +618,9 @@ GRAPHQL;
                     )
                 ) {
 
-                    $variantInput['barcode'] =
+                    $variantInput[
+                        'barcode'
+                    ] =
                         (string) (
                             $variant['barcode']
                         );
@@ -535,20 +678,20 @@ GRAPHQL;
 
                 /*
                 |--------------------------------------------------------------------------
-                | Weight intentionally omitted
+                | Weight
                 |--------------------------------------------------------------------------
                 |
-                | Do NOT add:
+                | Intentionally NOT sent.
                 |
-                | measurement
-                | weight
-                | weightUnit
+                | No measurement.
+                | No weight.
+                | No weight unit.
                 |
                 */
 
                 /*
                 |--------------------------------------------------------------------------
-                | Inventory
+                | Inventory quantity
                 |--------------------------------------------------------------------------
                 */
 
@@ -577,7 +720,7 @@ GRAPHQL;
 
         /*
         |--------------------------------------------------------------------------
-        | ProductSet mutation
+        | Shopify ProductSet mutation
         |--------------------------------------------------------------------------
         */
 
@@ -651,6 +794,12 @@ mutation ProductSet(
 }
 GRAPHQL;
 
+        /*
+        |--------------------------------------------------------------------------
+        | Identifier
+        |--------------------------------------------------------------------------
+        */
+
         $identifier = null;
 
         if ($shopifyProductId) {
@@ -663,7 +812,7 @@ GRAPHQL;
 
         /*
         |--------------------------------------------------------------------------
-        | Execute Shopify
+        | Execute Shopify mutation
         |--------------------------------------------------------------------------
         */
 
@@ -710,6 +859,12 @@ GRAPHQL;
             );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Product result
+        |--------------------------------------------------------------------------
+        */
+
         if (
             empty(
                 $result['product']
@@ -726,7 +881,7 @@ GRAPHQL;
 
         /*
         |--------------------------------------------------------------------------
-        | Make FSWarehouse the only active inventory location.
+        | Make FSWarehouse the only active location
         |--------------------------------------------------------------------------
         */
 

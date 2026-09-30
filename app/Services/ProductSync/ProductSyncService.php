@@ -183,17 +183,56 @@ class ProductSyncService
         }
     }
 
-    protected function findExistingProduct( array $product ): ?array {
-        
+    protected function findExistingProduct(array $product): ?array
+    {
+        /*
+        |--------------------------------------------------------------------------
+        | First try SKU
+        |--------------------------------------------------------------------------
+        */
 
-        foreach ( $product['variants'] as $variant ) {
+        foreach ($product['variants'] as $variant) {
 
-            $sku = $variant['sku'];
+            $sku = trim(
+                (string) (
+                    $variant['sku'] ?? ''
+                )
+            );
 
-            $existing = $this->shopify->findProductBySku( $sku );
+            if ($sku === '') {
+                continue;
+            }
+
+            $existing = $this->shopify->findProductBySku(
+                $sku
+            );
 
             if ($existing) {
+                return $existing;
+            }
+        }
 
+        /*
+        |--------------------------------------------------------------------------
+        | If SKU was not found, try the generated handle.
+        |--------------------------------------------------------------------------
+        |
+        | This handles products that already exist in Shopify but whose
+        | SKU mapping was not found.
+        |
+        */
+
+        $handle =
+            $product['handle'] ?? null;
+
+        if ($handle) {
+
+            $existing =
+                $this->shopify->findProductByHandle(
+                    $handle
+                );
+
+            if ($existing) {
                 return $existing;
             }
         }
