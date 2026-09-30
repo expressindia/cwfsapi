@@ -27,35 +27,13 @@ class ProductTransformer
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Transform variants
-        |--------------------------------------------------------------------------
-        */
-
         $variants = $this->transformVariants(
             $product['variants'] ?? []
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Primary variant
-        |--------------------------------------------------------------------------
-        |
-        | Shopify SEO is product-level.
-        | Therefore SKU and price are taken from the primary variant.
-        |
-        */
-
         $primaryVariant = $this->getPrimaryVariant(
             $variants
         );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fullscript product status
-        |--------------------------------------------------------------------------
-        */
 
         $fullscriptStatus = strtolower(
             trim(
@@ -65,41 +43,17 @@ class ProductTransformer
             )
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Shopify product status
-        |--------------------------------------------------------------------------
-        */
-
         $shopifyStatus =
             $fullscriptStatus === 'available'
                 ? 'ACTIVE'
                 : 'ARCHIVED';
 
-        /*
-        |--------------------------------------------------------------------------
-        | Product
-        |--------------------------------------------------------------------------
-        */
-
         return [
-            /*
-            |--------------------------------------------------------------------------
-            | Fullscript identifiers
-            |--------------------------------------------------------------------------
-            */
-
             'fullscript_product_id' =>
                 $productId,
 
             'fullscript_status' =>
                 $fullscriptStatus,
-
-            /*
-            |--------------------------------------------------------------------------
-            | Shopify product
-            |--------------------------------------------------------------------------
-            */
 
             'title' =>
                 $name,
@@ -111,71 +65,20 @@ class ProductTransformer
                 $product['brand']['name']
                 ?? 'Fullscript',
 
-            /*
-            |--------------------------------------------------------------------------
-            | Product Type
-            |--------------------------------------------------------------------------
-            |
-            | Shopify Product Type:
-            | Vitamins & Supplements
-            |
-            */
-
             'product_type' =>
                 'Vitamins & Supplements',
-
-            /*
-            |--------------------------------------------------------------------------
-            | Product Status
-            |--------------------------------------------------------------------------
-            */
 
             'status' =>
                 $shopifyStatus,
 
-            /*
-            |--------------------------------------------------------------------------
-            | Gift Card
-            |--------------------------------------------------------------------------
-            */
-
             'gift_card' =>
                 false,
 
-            /*
-            |--------------------------------------------------------------------------
-            | Handle
-            |--------------------------------------------------------------------------
-            */
-
             'handle' =>
-                $this->generateHandle(
-                    $product
-                ),
-
-            /*
-            |--------------------------------------------------------------------------
-            | Product Tags
-            |--------------------------------------------------------------------------
-            |
-            | Exactly:
-            |
-            | 1. Product name
-            | 2. Brand name
-            | 3. Vitamins & Supplements
-            |
-            */
+                $this->generateHandle($product),
 
             'tags' =>
-                $this->transformTags(
-                    $product
-                ),
-
-            /*
-            |--------------------------------------------------------------------------
-            | Product Options
-            |--------------------------------------------------------------------------
-            */
+                $this->transformTags($product),
 
             'product_options' => [
                 [
@@ -192,37 +95,17 @@ class ProductTransformer
                 ],
             ],
 
-            /*
-            |--------------------------------------------------------------------------
-            | SEO
-            |--------------------------------------------------------------------------
-            */
-
             'seo' =>
                 $this->transformSeo(
                     $product,
                     $primaryVariant
                 ),
 
-            /*
-            |--------------------------------------------------------------------------
-            | Variants
-            |--------------------------------------------------------------------------
-            */
-
             'variants' =>
                 $variants,
 
-            /*
-            |--------------------------------------------------------------------------
-            | Images
-            |--------------------------------------------------------------------------
-            */
-
             'images' =>
-                $this->transformImages(
-                    $product
-                ),
+                $this->transformImages($product),
         ];
     }
 
@@ -245,17 +128,6 @@ class ProductTransformer
 
         $seenOptionValues = [];
 
-        /*
-        |--------------------------------------------------------------------------
-        | Fixed Shopify inventory
-        |--------------------------------------------------------------------------
-        |
-        | Config:
-        |
-        | FULLSCRIPT_DEFAULT_INVENTORY=88
-        |
-        */
-
         $defaultInventory = (int) config(
             'fullscript.default_inventory',
             88
@@ -263,20 +135,8 @@ class ProductTransformer
 
         foreach ($variants as $variant) {
 
-            /*
-            |--------------------------------------------------------------------------
-            | Fullscript Variant ID
-            |--------------------------------------------------------------------------
-            */
-
             $variantId =
                 $variant['id'] ?? null;
-
-            /*
-            |--------------------------------------------------------------------------
-            | SKU
-            |--------------------------------------------------------------------------
-            */
 
             $sku = trim(
                 (string) (
@@ -290,12 +150,6 @@ class ProductTransformer
                 );
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Duplicate SKU protection
-            |--------------------------------------------------------------------------
-            */
-
             if (isset($seenSkus[$sku])) {
                 throw new RuntimeException(
                     "Duplicate SKU {$sku} found in Fullscript product."
@@ -304,16 +158,8 @@ class ProductTransformer
 
             $seenSkus[$sku] = true;
 
-            /*
-            |--------------------------------------------------------------------------
-            | Option value
-            |--------------------------------------------------------------------------
-            */
-
             $optionValue =
-                $this->buildOptionValue(
-                    $variant
-                );
+                $this->buildOptionValue($variant);
 
             if (
                 isset(
@@ -331,12 +177,6 @@ class ProductTransformer
                 $optionValue
             ] = true;
 
-            /*
-            |--------------------------------------------------------------------------
-            | Availability
-            |--------------------------------------------------------------------------
-            */
-
             $availability = strtolower(
                 trim(
                     (string) (
@@ -346,50 +186,17 @@ class ProductTransformer
                 )
             );
 
-            /*
-            |--------------------------------------------------------------------------
-            | Inventory Quantity
-            |--------------------------------------------------------------------------
-            |
-            | Fullscript does not provide an exact inventory count.
-            |
-            | In Stock      = 88
-            | Backordered   = 0
-            | Unavailable   = 0
-            | Discontinued  = 0
-            |
-            */
-
             $quantity =
                 $availability === 'in stock'
                     ? $defaultInventory
                     : 0;
 
-            /*
-            |--------------------------------------------------------------------------
-            | Variant
-            |--------------------------------------------------------------------------
-            */
-
             $result[] = [
-
-                /*
-                |--------------------------------------------------------------------------
-                | Fullscript IDs
-                |--------------------------------------------------------------------------
-                */
-
                 'fullscript_variant_id' =>
                     $variantId,
 
                 'sku' =>
                     $sku,
-
-                /*
-                |--------------------------------------------------------------------------
-                | Price
-                |--------------------------------------------------------------------------
-                */
 
                 'price' =>
                     (string) (
@@ -397,50 +204,19 @@ class ProductTransformer
                         ?? '0.00'
                     ),
 
-                /*
-                |--------------------------------------------------------------------------
-                | Barcode
-                |--------------------------------------------------------------------------
-                |
-                | Fullscript UPC -> Shopify Barcode
-                |
-                */
-
                 'barcode' =>
-                    !empty(
-                        $variant['upc']
-                    )
-                        ? (string) (
-                            $variant['upc']
-                        )
+                    !empty($variant['upc'])
+                        ? (string) $variant['upc']
                         : null,
-
-                /*
-                |--------------------------------------------------------------------------
-                | Cost
-                |--------------------------------------------------------------------------
-                */
 
                 'cost' =>
-                    isset(
-                        $variant['cost']
-                    )
-                    &&
-                    $variant['cost'] !== ''
-                        ? (string) (
-                            $variant['cost']
-                        )
+                    isset($variant['cost'])
+                    && $variant['cost'] !== ''
+                        ? (string) $variant['cost']
                         : null,
 
-                /*
-                |--------------------------------------------------------------------------
-                | Fullscript variant information
-                |--------------------------------------------------------------------------
-                */
-
                 'units' =>
-                    $variant['units']
-                    ?? null,
+                    $variant['units'] ?? null,
 
                 'unit_of_measure' =>
                     $variant['unit_of_measure']
@@ -474,12 +250,6 @@ class ProductTransformer
                         ?? false
                     ),
 
-                /*
-                |--------------------------------------------------------------------------
-                | Shopify Inventory
-                |--------------------------------------------------------------------------
-                */
-
                 'quantity' =>
                     $quantity,
 
@@ -495,40 +265,14 @@ class ProductTransformer
                 'inventory_policy' =>
                     'DENY',
 
-                /*
-                |--------------------------------------------------------------------------
-                | Shopify Option
-                |--------------------------------------------------------------------------
-                */
-
                 'option_name' =>
                     'Size',
 
                 'option_value' =>
                     $optionValue,
 
-                /*
-                |--------------------------------------------------------------------------
-                | Weight
-                |--------------------------------------------------------------------------
-                |
-                | IMPORTANT:
-                |
-                | Weight is intentionally not imported.
-                |
-                */
-
                 'weight' =>
                     null,
-
-                /*
-                |--------------------------------------------------------------------------
-                | Variant Weight Unit
-                |--------------------------------------------------------------------------
-                |
-                | Keep blank.
-                |
-                */
 
                 'variant_weight_unit' =>
                     null,
@@ -547,11 +291,7 @@ class ProductTransformer
 
         foreach ($variants as $variant) {
 
-            if (
-                !empty(
-                    $variant['primary']
-                )
-            ) {
+            if (!empty($variant['primary'])) {
                 return $variant;
             }
         }
@@ -589,24 +329,12 @@ class ProductTransformer
 
     /**
      * Generate Shopify product tags.
-     *
-     * Tags:
-     *
-     * 1. Product name
-     * 2. Brand name
-     * 3. Vitamins & Supplements
      */
     protected function transformTags(
         array $product
     ): array {
 
         $tags = [];
-
-        /*
-        |--------------------------------------------------------------------------
-        | Product Name
-        |--------------------------------------------------------------------------
-        */
 
         $productName = trim(
             (string) (
@@ -617,12 +345,6 @@ class ProductTransformer
         if ($productName !== '') {
             $tags[] = $productName;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Brand Name
-        |--------------------------------------------------------------------------
-        */
 
         $brandName = trim(
             (string) (
@@ -635,26 +357,12 @@ class ProductTransformer
             $tags[] = $brandName;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Fixed Tag
-        |--------------------------------------------------------------------------
-        */
-
         $tags[] =
             'Vitamins & Supplements';
 
-        /*
-        |--------------------------------------------------------------------------
-        | Remove duplicates
-        |--------------------------------------------------------------------------
-        */
-
         return array_values(
             array_unique(
-                array_filter(
-                    $tags
-                )
+                array_filter($tags)
             )
         );
     }
@@ -667,30 +375,15 @@ class ProductTransformer
     ): string {
 
         $units =
-            $variant['units']
-            ?? null;
+            $variant['units'] ?? null;
 
         $unitOfMeasure =
             trim(
                 (string) (
-                    $variant[
-                        'unit_of_measure'
-                    ]
+                    $variant['unit_of_measure']
                     ?? ''
                 )
             );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Units + Unit of Measure
-        |--------------------------------------------------------------------------
-        |
-        | Example:
-        |
-        | 60 + capsules
-        | = 60 capsules
-        |
-        */
 
         if (
             $units !== null
@@ -701,19 +394,12 @@ class ProductTransformer
             &&
             $unitOfMeasure !== ''
         ) {
-
             return trim(
                 (string) $units
                 . ' '
                 . $unitOfMeasure
             );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Units only
-        |--------------------------------------------------------------------------
-        */
 
         if (
             $units !== null
@@ -722,15 +408,8 @@ class ProductTransformer
             &&
             (int) $units > 0
         ) {
-
             return (string) $units;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Unit of Measure only
-        |--------------------------------------------------------------------------
-        */
 
         if ($unitOfMeasure !== '') {
             return $unitOfMeasure;
@@ -760,11 +439,7 @@ class ProductTransformer
                 continue;
             }
 
-            if (
-                isset(
-                    $seen[$value]
-                )
-            ) {
+            if (isset($seen[$value])) {
                 continue;
             }
 
@@ -777,7 +452,6 @@ class ProductTransformer
         }
 
         if (empty($values)) {
-
             $values[] = [
                 'name' =>
                     'Default',
@@ -788,17 +462,7 @@ class ProductTransformer
     }
 
     /**
-     * Transform SEO fields.
-     *
-     * SEO Title:
-     *
-     * {{Product Name}} | {{SKU}} | {{Vendor Name}}
-     *
-     * SEO Description:
-     *
-     * Shop the best professional Vitamins and Supplements!
-     * Discover our {{Product Title}} ({{SKU}}) for {{Price}}
-     * – all at discounted prices from the most trusted brands.
+     * Transform SEO.
      */
     protected function transformSeo(
         array $product,
@@ -806,12 +470,10 @@ class ProductTransformer
     ): array {
 
         $productName =
-            $product['name']
-            ?? '';
+            $product['name'] ?? '';
 
         $sku =
-            $primaryVariant['sku']
-            ?? '';
+            $primaryVariant['sku'] ?? '';
 
         $vendor =
             $product['brand']['name']
@@ -821,24 +483,12 @@ class ProductTransformer
             $primaryVariant['price']
             ?? '0.00';
 
-        /*
-        |--------------------------------------------------------------------------
-        | SEO Title
-        |--------------------------------------------------------------------------
-        */
-
         $title =
             $productName
             . ' | '
             . $sku
             . ' | '
             . $vendor;
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEO Description
-        |--------------------------------------------------------------------------
-        */
 
         $description =
             'Shop the best professional Vitamins and Supplements! '
