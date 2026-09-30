@@ -3,9 +3,7 @@
 namespace App\Services\Shopify;
 
 use App\Models\ShopifyToken;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
-use Throwable;
 
 class ShopifyProductService
 {
@@ -17,8 +15,10 @@ class ShopifyProductService
     /**
      * Get a Shopify product by ID.
      */
-    public function getProduct(string $productId): ?array
-    {
+    public function getProduct(
+        string $productId
+    ): ?array {
+
         $query = <<<'GRAPHQL'
         query GetProduct($id: ID!) {
             product(id: $id) {
@@ -29,7 +29,8 @@ class ShopifyProductService
                 vendor
                 productType
                 descriptionHtml
-                giftCard
+                isGiftCard
+                tags
 
                 seo {
                     title
@@ -52,15 +53,10 @@ class ShopifyProductService
                             sku
                             tracked
                             requiresShipping
+
                             unitCost {
                                 amount
                                 currencyCode
-                            }
-                            measurement {
-                                weight {
-                                    value
-                                    unit
-                                }
                             }
 
                             inventoryLevels(
@@ -77,7 +73,9 @@ class ShopifyProductService
                                         isActive
                                     }
 
-                                    quantities(names: ["available"]) {
+                                    quantities(
+                                        names: ["available"]
+                                    ) {
                                         name
                                         quantity
                                     }
@@ -90,25 +88,30 @@ class ShopifyProductService
         }
         GRAPHQL;
 
-        $data = $this->graphql->execute(
-            $query,
-            [
-                'id' => $productId,
-            ]
-        );
+        $data =
+            $this->graphql->execute(
+                $query,
+                [
+                    'id' =>
+                        $productId,
+                ]
+            );
 
-        return $data['product'] ?? null;
+        return $data['product']
+            ?? null;
     }
 
     /**
      * Find Shopify product variant by SKU.
      */
-    public function findProductBySku(string $sku): ?array
-    {
+    public function findProductBySku(
+        string $sku
+    ): ?array {
+
         $query = <<<'GRAPHQL'
         query SearchVariants($query: String!) {
             productVariants(
-                first: 10,
+                first: 10
                 query: $query
             ) {
                 nodes {
@@ -131,19 +134,38 @@ class ShopifyProductService
         }
         GRAPHQL;
 
-        $data = $this->graphql->execute(
-            $query,
-            [
-                'query' => 'sku:"' . addslashes($sku) . '"',
-            ]
-        );
+        $data =
+            $this->graphql->execute(
+                $query,
+                [
+                    'query' =>
+                        'sku:"'
+                        . addslashes($sku)
+                        . '"',
+                ]
+            );
 
-        $variants = $data['productVariants']['nodes'] ?? [];
+        $variants =
+            $data[
+                'productVariants'
+            ]['nodes']
+            ?? [];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Exact SKU match
+        |--------------------------------------------------------------------------
+        */
 
         foreach ($variants as $variant) {
 
             if (
-                trim((string) ($variant['sku'] ?? ''))
+                trim(
+                    (string) (
+                        $variant['sku']
+                        ?? ''
+                    )
+                )
                 === $sku
             ) {
                 return $variant;
@@ -163,7 +185,7 @@ class ShopifyProductService
 
         /*
         |--------------------------------------------------------------------------
-        | FSWarehouse
+        | Get FSWarehouse dynamically
         |--------------------------------------------------------------------------
         */
 
@@ -172,32 +194,113 @@ class ShopifyProductService
 
         /*
         |--------------------------------------------------------------------------
-        | Product input
+        | ProductSet input
         |--------------------------------------------------------------------------
         */
 
         $input = [
+            /*
+            |--------------------------------------------------------------------------
+            | Product title
+            |--------------------------------------------------------------------------
+            */
 
-            'title' => $product['title'],
+            'title' =>
+                $product['title'],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Description
+            |--------------------------------------------------------------------------
+            */
 
             'descriptionHtml' =>
-                $product['description_html'] ?? '',
+                $product['description_html']
+                ?? '',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Vendor
+            |--------------------------------------------------------------------------
+            */
 
             'vendor' =>
-                $product['vendor'] ?? 'Fullscript',
+                $product['vendor']
+                ?? 'Fullscript',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Product Type
+            |--------------------------------------------------------------------------
+            |
+            | Vitamins & Supplements
+            |
+            */
 
             'productType' =>
-                $product['product_type'] ?? 'Supplement',
+                $product['product_type']
+                ?? 'Vitamins & Supplements',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Product Status
+            |--------------------------------------------------------------------------
+            */
 
             'status' =>
-                $product['status'] ?? 'ACTIVE',
+                $product['status']
+                ?? 'ACTIVE',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Gift Card
+            |--------------------------------------------------------------------------
+            |
+            | ProductSetInput uses giftCard.
+            |
+            */
 
             'giftCard' =>
-                (bool) ($product['gift_card'] ?? false),
+                (bool) (
+                    $product['gift_card']
+                    ?? false
+                ),
+
+            /*
+            |--------------------------------------------------------------------------
+            | Product Tags
+            |--------------------------------------------------------------------------
+            |
+            | Product name
+            | Brand name
+            | Vitamins & Supplements
+            |
+            */
+
+            'tags' =>
+                $product['tags']
+                ?? [],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Product Options
+            |--------------------------------------------------------------------------
+            */
 
             'productOptions' =>
-                $product['product_options'] ?? [],
+                $product['product_options']
+                ?? [],
         ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | IMPORTANT:
+        |
+        | Category is intentionally NOT included.
+        |
+        | Shopify Category will remain blank.
+        |--------------------------------------------------------------------------
+        */
 
         /*
         |--------------------------------------------------------------------------
@@ -205,15 +308,20 @@ class ShopifyProductService
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($product['seo'])) {
+        if (
+            !empty(
+                $product['seo']
+            )
+        ) {
 
             $input['seo'] = [
-
                 'title' =>
-                    $product['seo']['title'] ?? null,
+                    $product['seo']['title']
+                    ?? null,
 
                 'description' =>
-                    $product['seo']['description'] ?? null,
+                    $product['seo']['description']
+                    ?? null,
             ];
         }
 
@@ -223,7 +331,11 @@ class ShopifyProductService
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($product['handle'])) {
+        if (
+            !empty(
+                $product['handle']
+            )
+        ) {
 
             $input['handle'] =
                 $product['handle'];
@@ -235,18 +347,28 @@ class ShopifyProductService
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($product['images'])) {
+        if (
+            !empty(
+                $product['images']
+            )
+        ) {
 
             $input['files'] = [];
 
-            foreach ($product['images'] as $image) {
+            foreach (
+                $product['images']
+                as $image
+            ) {
 
-                if (empty($image['url'])) {
+                if (
+                    empty(
+                        $image['url']
+                    )
+                ) {
                     continue;
                 }
 
                 $input['files'][] = [
-
                     'originalSource' =>
                         $image['url'],
 
@@ -262,12 +384,8 @@ class ShopifyProductService
 
         /*
         |--------------------------------------------------------------------------
-        | Existing product
+        | Existing Shopify product
         |--------------------------------------------------------------------------
-        |
-        | ProductSet uses variant IDs when updating existing variants.
-        | We try to match existing variants by SKU.
-        |
         */
 
         $existingProduct = null;
@@ -280,72 +398,93 @@ class ShopifyProductService
                 );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Existing variants indexed by SKU
+        |--------------------------------------------------------------------------
+        */
+
         $existingVariantsBySku = [];
 
         if ($existingProduct) {
 
             foreach (
-                $existingProduct['variants']['nodes'] ?? []
+                $existingProduct[
+                    'variants'
+                ]['nodes'] ?? []
                 as $existingVariant
             ) {
 
-                $existingSku = trim(
-                    (string) (
-                        $existingVariant['sku'] ?? ''
-                    )
-                );
+                $existingSku =
+                    trim(
+                        (string) (
+                            $existingVariant[
+                                'sku'
+                            ] ?? ''
+                        )
+                    );
 
-                if ($existingSku === '') {
+                if (
+                    $existingSku === ''
+                ) {
                     continue;
                 }
 
-                $existingVariantsBySku[$existingSku] =
+                $existingVariantsBySku[
+                    $existingSku
+                ] =
                     $existingVariant;
             }
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Activate FSWarehouse before ProductSet for existing variants
+        | Activate FSWarehouse for existing variants
         |--------------------------------------------------------------------------
-        |
-        | Shopify ProductSet inventoryQuantities can only update an
-        | existing variant at locations where it is already stocked.
-        |
-        | Therefore, if an existing variant isn't stocked at FSWarehouse,
-        | activate it first.
-        |
         */
 
         if ($existingProduct) {
 
             foreach (
-                $product['variants'] ?? []
+                $product['variants']
+                ?? []
                 as $variant
             ) {
 
-                $sku = trim(
-                    (string) ($variant['sku'] ?? '')
-                );
+                $sku =
+                    trim(
+                        (string) (
+                            $variant['sku']
+                            ?? ''
+                        )
+                    );
 
                 if (
                     $sku === ''
-                    || !isset(
-                        $existingVariantsBySku[$sku]
+                    ||
+                    !isset(
+                        $existingVariantsBySku[
+                            $sku
+                        ]
                     )
                 ) {
                     continue;
                 }
 
                 $existingVariant =
-                    $existingVariantsBySku[$sku];
+                    $existingVariantsBySku[
+                        $sku
+                    ];
 
                 $inventoryItemId =
                     $existingVariant[
                         'inventoryItem'
-                    ]['id'] ?? null;
+                    ]['id']
+                    ?? null;
 
-                if (!$inventoryItemId) {
+                if (
+                    !$inventoryItemId
+                ) {
                     continue;
                 }
 
@@ -362,7 +501,11 @@ class ShopifyProductService
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($product['variants'])) {
+        if (
+            !empty(
+                $product['variants']
+            )
+        ) {
 
             $input['variants'] = [];
 
@@ -373,7 +516,10 @@ class ShopifyProductService
 
                 $sku =
                     trim(
-                        (string) $variant['sku']
+                        (string) (
+                            $variant['sku']
+                            ?? ''
+                        )
                     );
 
                 /*
@@ -384,16 +530,30 @@ class ShopifyProductService
 
                 $variantInput = [
 
-                    'sku' => $sku,
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SKU
+                    |--------------------------------------------------------------------------
+                    */
 
-                    'price' => (string) (
-                        $variant['price']
-                        ?? '0.00'
-                    ),
+                    'sku' =>
+                        $sku,
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Inventory policy
+                    | Price
+                    |--------------------------------------------------------------------------
+                    */
+
+                    'price' =>
+                        (string) (
+                            $variant['price']
+                            ?? '0.00'
+                        ),
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Inventory Policy
                     |--------------------------------------------------------------------------
                     */
 
@@ -406,48 +566,62 @@ class ShopifyProductService
                     |--------------------------------------------------------------------------
                     */
 
-                    'taxable' => true,
+                    'taxable' =>
+                        true,
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Inventory item
+                    | Inventory Item
                     |--------------------------------------------------------------------------
+                    |
+                    | No measurement.
+                    | No weight.
+                    | No weight unit.
+                    |
                     */
 
                     'inventoryItem' => [
+                        'tracked' =>
+                            true,
 
-                        'tracked' => true,
-
-                        'requiresShipping' => true,
+                        'requiresShipping' =>
+                            true,
                     ],
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Shopify option
+                    | Product Option
                     |--------------------------------------------------------------------------
                     */
 
                     'optionValues' => [
-
                         [
                             'optionName' =>
-                                $variant['option_name'],
+                                $variant[
+                                    'option_name'
+                                ]
+                                ?? 'Size',
 
                             'name' =>
-                                $variant['option_value'],
+                                $variant[
+                                    'option_value'
+                                ]
+                                ?? 'Default',
                         ],
                     ],
                 ];
 
                 /*
                 |--------------------------------------------------------------------------
-                | Existing variant ID
+                | Existing Variant ID
                 |--------------------------------------------------------------------------
                 */
 
                 if (
                     isset(
-                        $existingVariantsBySku[$sku]
+                        $existingVariantsBySku[
+                            $sku
+                        ]
                     )
                 ) {
 
@@ -469,13 +643,17 @@ class ShopifyProductService
                     )
                 ) {
 
-                    $variantInput['barcode'] =
-                        $variant['barcode'];
+                    $variantInput[
+                        'barcode'
+                    ] =
+                        (string) (
+                            $variant['barcode']
+                        );
                 }
 
                 /*
                 |--------------------------------------------------------------------------
-                | Compare-at price
+                | Compare At Price
                 |--------------------------------------------------------------------------
                 */
 
@@ -501,12 +679,14 @@ class ShopifyProductService
 
                 /*
                 |--------------------------------------------------------------------------
-                | Cost per item
+                | Cost Per Item
                 |--------------------------------------------------------------------------
                 */
 
                 if (
-                    isset($variant['cost'])
+                    isset(
+                        $variant['cost']
+                    )
                     &&
                     $variant['cost'] !== null
                     &&
@@ -516,61 +696,35 @@ class ShopifyProductService
                     $variantInput[
                         'inventoryItem'
                     ]['cost'] =
-                        (string) $variant['cost'];
+                        (string) (
+                            $variant['cost']
+                        );
                 }
 
                 /*
                 |--------------------------------------------------------------------------
-                | Weight
+                | WEIGHT
                 |--------------------------------------------------------------------------
+                |
+                | Intentionally omitted.
+                |
+                | We do NOT send:
+                |
+                | measurement
+                | weight
+                | weight_unit
+                |
                 */
 
-                if (
-                    isset($variant['weight'])
-                    &&
-                    $variant['weight'] !== null
-                    &&
-                    $variant['weight'] !== ''
-                    &&
-                    !empty(
-                        $variant['weight_unit']
-                    )
-                ) {
-
-                    $variantInput[
-                        'inventoryItem'
-                    ]['measurement'] = [
-
-                        'weight' => [
-
-                            'value' =>
-                                (float)
-                                $variant['weight'],
-
-                            'unit' =>
-                                $this->normalizeWeightUnit(
-                                    $variant[
-                                        'weight_unit'
-                                    ]
-                                ),
-                        ],
-                    ];
-                }
-
                 /*
                 |--------------------------------------------------------------------------
-                | Inventory quantity
+                | Inventory Quantity
                 |--------------------------------------------------------------------------
-                |
-                | We use the fixed Fullscript inventory
-                | calculated by ProductTransformer.
-                |
                 */
 
                 $variantInput[
                     'inventoryQuantities'
                 ] = [
-
                     [
                         'locationId' =>
                             $fsWarehouseLocationId,
@@ -593,7 +747,7 @@ class ShopifyProductService
 
         /*
         |--------------------------------------------------------------------------
-        | ProductSet mutation
+        | Shopify ProductSet Mutation
         |--------------------------------------------------------------------------
         */
 
@@ -602,30 +756,30 @@ class ShopifyProductService
             $input: ProductSetInput!,
             $identifier: ProductSetIdentifiers
         ) {
-
             productSet(
                 input: $input,
                 identifier: $identifier,
                 synchronous: true
             ) {
-
                 product {
-
                     id
-
                     title
-
                     handle
-
                     status
-
                     vendor
-
                     productType
-
                     descriptionHtml
 
-                    giftCard
+                    /*
+                     * Product output field is isGiftCard.
+                     * NOT giftCard.
+                     */
+                    isGiftCard
+
+                    /*
+                     * Shopify product tags.
+                     */
+                    tags
 
                     seo {
                         title
@@ -633,60 +787,34 @@ class ShopifyProductService
                     }
 
                     media(first: 10) {
-
                         nodes {
-
                             id
-
                             alt
-
                             mediaContentType
-
                             status
                         }
                     }
 
                     variants(first: 250) {
-
                         nodes {
-
                             id
-
                             title
-
                             sku
-
                             barcode
-
                             price
-
                             compareAtPrice
-
                             taxable
-
                             inventoryPolicy
 
                             inventoryItem {
-
                                 id
-
                                 sku
-
                                 tracked
-
                                 requiresShipping
 
                                 unitCost {
                                     amount
                                     currencyCode
-                                }
-
-                                measurement {
-
-                                    weight {
-                                        value
-                                        unit
-                                    }
                                 }
                             }
                         }
@@ -694,11 +822,8 @@ class ShopifyProductService
                 }
 
                 userErrors {
-
                     field
-
                     message
-
                     code
                 }
             }
@@ -716,7 +841,6 @@ class ShopifyProductService
         if ($shopifyProductId) {
 
             $identifier = [
-
                 'id' =>
                     $shopifyProductId,
             ];
@@ -724,26 +848,25 @@ class ShopifyProductService
 
         /*
         |--------------------------------------------------------------------------
-        | Execute
+        | Execute Shopify Mutation
         |--------------------------------------------------------------------------
         */
 
-        $data = $this->graphql->execute(
+        $data =
+            $this->graphql->execute(
+                $mutation,
+                [
+                    'input' =>
+                        $input,
 
-            $mutation,
-
-            [
-
-                'input' =>
-                    $input,
-
-                'identifier' =>
-                    $identifier,
-            ]
-        );
+                    'identifier' =>
+                        $identifier,
+                ]
+            );
 
         $result =
-            $data['productSet'] ?? null;
+            $data['productSet']
+            ?? null;
 
         if (!$result) {
 
@@ -754,11 +877,15 @@ class ShopifyProductService
 
         /*
         |--------------------------------------------------------------------------
-        | Shopify user errors
+        | Shopify User Errors
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($result['userErrors'])) {
+        if (
+            !empty(
+                $result['userErrors']
+            )
+        ) {
 
             throw new RuntimeException(
                 json_encode(
@@ -768,7 +895,17 @@ class ShopifyProductService
             );
         }
 
-        if (empty($result['product'])) {
+        /*
+        |--------------------------------------------------------------------------
+        | Product Result
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            empty(
+                $result['product']
+            )
+        ) {
 
             throw new RuntimeException(
                 'Shopify productSet did not return product.'
@@ -780,12 +917,8 @@ class ShopifyProductService
 
         /*
         |--------------------------------------------------------------------------
-        | Deactivate all other locations
+        | Make FSWarehouse the only active inventory location.
         |--------------------------------------------------------------------------
-        |
-        | After productSet succeeds, we make FSWarehouse the only
-        | active inventory location for these variants.
-        |
         */
 
         $this->makeFsWarehouseOnly(
@@ -797,7 +930,7 @@ class ShopifyProductService
     }
 
     /**
-     * Get the configured FSWarehouse location.
+     * Get FSWarehouse location ID dynamically.
      */
     protected function getFsWarehouseLocationId(): string
     {
@@ -823,33 +956,32 @@ class ShopifyProductService
 
         /*
         |--------------------------------------------------------------------------
-        | Verify location
+        | Verify Shopify location
         |--------------------------------------------------------------------------
         */
 
         $query = <<<'GRAPHQL'
         query GetLocation($id: ID!) {
-
             location(id: $id) {
-
                 id
-
                 name
-
                 isActive
             }
         }
         GRAPHQL;
 
-        $data = $this->graphql->execute(
-            $query,
-            [
-                'id' => $locationId,
-            ]
-        );
+        $data =
+            $this->graphql->execute(
+                $query,
+                [
+                    'id' =>
+                        $locationId,
+                ]
+            );
 
         $location =
-            $data['location'] ?? null;
+            $data['location']
+            ?? null;
 
         if (!$location) {
 
@@ -858,12 +990,21 @@ class ShopifyProductService
             );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Safety check
+        |--------------------------------------------------------------------------
+        */
+
         if (
             strtolower(
-                trim($location['name'] ?? '')
-            )
-            !==
-            'fswarehouse'
+                trim(
+                    (string) (
+                        $location['name']
+                        ?? ''
+                    )
+                )
+            ) !== 'fswarehouse'
         ) {
 
             throw new RuntimeException(
@@ -875,7 +1016,7 @@ class ShopifyProductService
     }
 
     /**
-     * Activate an inventory item at FSWarehouse.
+     * Activate inventory at FSWarehouse.
      */
     protected function activateInventoryLocation(
         string $inventoryItemId,
@@ -887,12 +1028,10 @@ class ShopifyProductService
             $inventoryItemId: ID!,
             $inventoryItemUpdates: [InventoryBulkToggleActivationInput!]!
         ) {
-
             inventoryBulkToggleActivation(
                 inventoryItemId: $inventoryItemId,
                 inventoryItemUpdates: $inventoryItemUpdates
             ) {
-
                 inventoryItem {
                     id
                 }
@@ -906,30 +1045,30 @@ class ShopifyProductService
         }
         GRAPHQL;
 
-        $data = $this->graphql->execute(
-            $mutation,
-            [
+        $data =
+            $this->graphql->execute(
+                $mutation,
+                [
+                    'inventoryItemId' =>
+                        $inventoryItemId,
 
-                'inventoryItemId' =>
-                    $inventoryItemId,
+                    'inventoryItemUpdates' => [
+                        [
+                            'locationId' =>
+                                $locationId,
 
-                'inventoryItemUpdates' => [
-
-                    [
-                        'locationId' =>
-                            $locationId,
-
-                        'activate' =>
-                            true,
+                            'activate' =>
+                                true,
+                        ],
                     ],
-                ],
-            ]
-        );
+                ]
+            );
 
         $errors =
             $data[
                 'inventoryBulkToggleActivation'
-            ]['userErrors'] ?? [];
+            ]['userErrors']
+            ?? [];
 
         if (!empty($errors)) {
 
@@ -945,7 +1084,7 @@ class ShopifyProductService
     }
 
     /**
-     * Make FSWarehouse the only active location.
+     * Make FSWarehouse the only active inventory location.
      */
     protected function makeFsWarehouseOnly(
         array $shopifyProduct,
@@ -953,15 +1092,17 @@ class ShopifyProductService
     ): void {
 
         foreach (
-            $shopifyProduct['variants']['nodes']
-            ?? []
+            $shopifyProduct[
+                'variants'
+            ]['nodes'] ?? []
             as $variant
         ) {
 
             $inventoryItemId =
                 $variant[
                     'inventoryItem'
-                ]['id'] ?? null;
+                ]['id']
+                ?? null;
 
             if (!$inventoryItemId) {
                 continue;
@@ -975,7 +1116,7 @@ class ShopifyProductService
     }
 
     /**
-     * Deactivate every active location except FSWarehouse.
+     * Deactivate all active locations except FSWarehouse.
      */
     protected function deactivateOtherLocations(
         string $inventoryItemId,
@@ -986,18 +1127,14 @@ class ShopifyProductService
         query GetInventoryLevels(
             $id: ID!
         ) {
-
             inventoryItem(id: $id) {
-
                 id
 
                 inventoryLevels(
                     first: 50
                     includeInactive: false
                 ) {
-
                     nodes {
-
                         location {
                             id
                             name
@@ -1010,12 +1147,14 @@ class ShopifyProductService
         }
         GRAPHQL;
 
-        $data = $this->graphql->execute(
-            $query,
-            [
-                'id' => $inventoryItemId,
-            ]
-        );
+        $data =
+            $this->graphql->execute(
+                $query,
+                [
+                    'id' =>
+                        $inventoryItemId,
+                ]
+            );
 
         $levels =
             $data[
@@ -1026,11 +1165,20 @@ class ShopifyProductService
         foreach ($levels as $level) {
 
             $locationId =
-                $level['location']['id'] ?? null;
+                $level[
+                    'location'
+                ]['id']
+                ?? null;
 
             if (!$locationId) {
                 continue;
             }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Keep FSWarehouse active.
+            |--------------------------------------------------------------------------
+            */
 
             if (
                 $locationId ===
@@ -1039,8 +1187,17 @@ class ShopifyProductService
                 continue;
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Skip inactive locations.
+            |--------------------------------------------------------------------------
+            */
+
             if (
-                !($level['isActive'] ?? false)
+                !(
+                    $level['isActive']
+                    ?? false
+                )
             ) {
                 continue;
             }
@@ -1053,7 +1210,7 @@ class ShopifyProductService
     }
 
     /**
-     * Deactivate inventory item at a location.
+     * Deactivate inventory at a location.
      */
     protected function deactivateInventoryLocation(
         string $inventoryItemId,
@@ -1065,12 +1222,10 @@ class ShopifyProductService
             $inventoryItemId: ID!,
             $inventoryItemUpdates: [InventoryBulkToggleActivationInput!]!
         ) {
-
             inventoryBulkToggleActivation(
                 inventoryItemId: $inventoryItemId,
                 inventoryItemUpdates: $inventoryItemUpdates
             ) {
-
                 inventoryItem {
                     id
                 }
@@ -1084,30 +1239,30 @@ class ShopifyProductService
         }
         GRAPHQL;
 
-        $data = $this->graphql->execute(
-            $mutation,
-            [
+        $data =
+            $this->graphql->execute(
+                $mutation,
+                [
+                    'inventoryItemId' =>
+                        $inventoryItemId,
 
-                'inventoryItemId' =>
-                    $inventoryItemId,
+                    'inventoryItemUpdates' => [
+                        [
+                            'locationId' =>
+                                $locationId,
 
-                'inventoryItemUpdates' => [
-
-                    [
-                        'locationId' =>
-                            $locationId,
-
-                        'activate' =>
-                            false,
+                            'activate' =>
+                                false,
+                        ],
                     ],
-                ],
-            ]
-        );
+                ]
+            );
 
         $errors =
             $data[
                 'inventoryBulkToggleActivation'
-            ]['userErrors'] ?? [];
+            ]['userErrors']
+            ?? [];
 
         if (!empty($errors)) {
 
@@ -1120,46 +1275,5 @@ class ShopifyProductService
                 )
             );
         }
-    }
-
-    /**
-     * Normalize Fullscript weight units to Shopify units.
-     */
-    protected function normalizeWeightUnit(
-        string $unit
-    ): string {
-
-        $unit = strtolower(
-            trim($unit)
-        );
-
-        return match ($unit) {
-
-            'g',
-            'gram',
-            'grams' =>
-                'GRAMS',
-
-            'kg',
-            'kilogram',
-            'kilograms' =>
-                'KILOGRAMS',
-
-            'oz',
-            'ounce',
-            'ounces' =>
-                'OUNCES',
-
-            'lb',
-            'lbs',
-            'pound',
-            'pounds' =>
-                'POUNDS',
-
-            default =>
-                throw new RuntimeException(
-                    "Unsupported weight unit: {$unit}"
-                ),
-        };
     }
 }
