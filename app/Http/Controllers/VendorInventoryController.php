@@ -8,11 +8,26 @@ use Throwable;
 
 class VendorInventoryController extends Controller
 {
-    public function index()
+    /**
+     * Display the Vendor Inventory page.
+     */
+    public function index(Request $request)
     {
-        return view('vendor-inventory.index');
+        return view('vendor-inventory.index', [
+            'vendor' => old(
+                'vendor',
+                $request->session()->get('vendor')
+            ),
+
+            'moveResult' => $request
+                ->session()
+                ->get('moveResult'),
+        ]);
     }
 
+    /**
+     * Preview vendor inventory.
+     */
     public function preview(
         Request $request,
         VendorInventoryMoveService $service
@@ -26,19 +41,29 @@ class VendorInventoryController extends Controller
         ]);
 
         try {
-            $preview = $service->preview(
+            $vendor = trim(
                 $validated['vendor']
+            );
+
+            $preview = $service->preview(
+                $vendor
             );
 
             return view(
                 'vendor-inventory.index',
                 [
-                    'vendor' => $validated['vendor'],
+                    'vendor' => $vendor,
                     'preview' => $preview,
+                    'moveResult' => null,
                 ]
             );
+
         } catch (Throwable $e) {
-            return back()
+
+            report($e);
+
+            return redirect()
+                ->route('vendor-inventory.index')
                 ->withInput()
                 ->withErrors([
                     'vendor' => $e->getMessage(),
@@ -46,6 +71,9 @@ class VendorInventoryController extends Controller
         }
     }
 
+    /**
+     * Move vendor inventory to FSWarehouse.
+     */
     public function move(
         Request $request,
         VendorInventoryMoveService $service
@@ -64,16 +92,29 @@ class VendorInventoryController extends Controller
         ]);
 
         try {
-            $result = $service->move(
+            $vendor = trim(
                 $validated['vendor']
+            );
+
+            $result = $service->move(
+                $vendor
             );
 
             return redirect()
                 ->route('vendor-inventory.index')
-                ->with('result', $result);
+                ->with([
+                    'moveResult' => $result,
+                    'vendor' => $vendor,
+                    'success' =>
+                        'Vendor inventory move completed.',
+                ]);
 
         } catch (Throwable $e) {
-            return back()
+
+            report($e);
+
+            return redirect()
+                ->route('vendor-inventory.index')
                 ->withInput()
                 ->withErrors([
                     'vendor' => $e->getMessage(),
