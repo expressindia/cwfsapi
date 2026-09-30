@@ -14,16 +14,13 @@ class VendorInventoryMoveService
     }
 
     /**
-     * Preview all inventory for a vendor.
+     * Preview a vendor's inventory.
      *
-     * This:
-     * - Dynamically finds FSWarehouse by name.
-     * - Finds products belonging to the supplied vendor.
-     * - Gets all variants.
-     * - Gets inventory quantities for all locations.
-     * - Calculates the total inventory.
+     * No inventory is changed by this method.
      *
-     * No inventory is changed here.
+     * The FSWarehouse location is obtained from:
+     *
+     * shopify_tokens.fulfillment_location_id
      */
     public function preview(string $vendor): array
     {
@@ -38,32 +35,15 @@ class VendorInventoryMoveService
         $shopifyToken = $this->getShopifyToken();
 
         /*
-         * Find FSWarehouse dynamically.
+         * Get FSWarehouse from the location ID already
+         * stored in the database.
          */
-        $locations = $this->getLocations(
+        $targetLocation = $this->getFswWarehouseLocation(
             $shopifyToken
         );
 
-        $targetLocation = $this->findFswWarehouse(
-            $locations
-        );
-
-        if (! $targetLocation) {
-            $availableLocations = collect($locations)
-                ->pluck('name')
-                ->filter()
-                ->values()
-                ->implode(', ');
-
-            throw new RuntimeException(
-                'FSWarehouse location was not found. ' .
-                'Available Shopify locations: ' .
-                ($availableLocations ?: 'none')
-            );
-        }
-
         /*
-         * Get products for the vendor.
+         * Get all products belonging to this vendor.
          */
         $products = $this->getVendorProducts(
             $shopifyToken,
@@ -73,115 +53,209 @@ class VendorInventoryMoveService
         $variants = [];
 
         foreach ($products as $product) {
-            foreach (($product['variants']['nodes'] ?? []) as $variant) {
-                $inventoryItem = $variant['inventoryItem'] ?? null;
+            foreach (
+                ($product['variants']['nodes'] ?? [])
+                as $variant
+            ) {
+                $inventoryItem =
+                    $variant['inventoryItem'] ?? null;
 
                 if (! $inventoryItem) {
                     continue;
                 }
 
-                $inventoryItemId = $inventoryItem['id'] ?? null;
+                $inventoryItemId =
+                    $inventoryItem['id'] ?? null;
 
                 if (! $inventoryItemId) {
                     continue;
                 }
 
-                $levels = $inventoryItem['inventoryLevels']['nodes'] ?? [];
+                $inventoryLevels =
+                    $inventoryItem['inventoryLevels']['nodes']
+                    ?? [];
 
-                $locationsInventory = [];
+                $locations = [];
 
                 $totalQuantity = 0;
+
                 $fsQuantity = 0;
 
-                foreach ($levels as $level) {
-                    $location = $level['location'] ?? null;
+                $fsInventoryLevelId = null;
+
+                foreach ($inventoryLevels as $level) {
+                    $location =
+                        $level['location'] ?? null;
 
                     if (! $location) {
                         continue;
                     }
 
-                    $locationId = $location['id'] ?? null;
-                    $locationName = $location['name'] ?? '';
+                    $locationId =
+                        $location['id'] ?? null;
 
-                    $quantity = (int) (
-                        $level['quantities'][0]['quantity']
-                        ?? 0
-                    );
+                    $locationName =
+                        $location['name'] ?? '';
+
+                    $inventoryLevelId =
+                        $level['id'] ?? null;
+
+                    $isActive =
+                        (bool) (
+                            $level['isActive']
+                            ?? true
+                        );
+
+                    $quantity =
+                        (int) (
+                            $level['quantities'][0]['quantity']
+                            ?? 0
+                        );
 
                     /*
-                     * Keep the quantity information for preview.
+                     * Store all locations for the preview.
                      */
-                    $locationsInventory[] = [
-                        'location_id' => $locationId,
-                        'location_name' => $locationName,
-                        'quantity' => $quantity,
+                    $locations[] = [
+                        'inventory_level_id' =>
+                            $inventoryLevelId,
+
+                        'location_id' =>
+                            $locationId,
+
+                        'location_name' =>
+                            $locationName,
+
+                        'is_active' =>
+                            $isActive,
+
+                        'quantity' =>
+                            $quantity,
                     ];
 
                     /*
-                     * Total all locations.
+                     * We are moving the available inventory.
                      */
                     $totalQuantity += $quantity;
 
                     /*
-                     * Detect FSWarehouse by normalized name.
+                     * Detect FSWarehouse using the actual
+                     * location ID stored in the database.
                      */
                     if (
-                        $this->normalizeLocationName($locationName)
-                        === $this->normalizeLocationName('FSWarehouse')
+                        $locationId ===
+                        $targetLocation['id']
                     ) {
-                        $fsQuantity = $quantity;
+                        $fsQuantity =
+                            $quantity;
+
+                        $fsInventoryLevelId =
+                            $inventoryLevelId;
                     }
                 }
 
                 $variants[] = [
-                    'product_id' => $product['id'] ?? null,
-                    'product_title' => $product['title'] ?? '',
-                    'variant_id' => $variant['id'] ?? null,
-                    'variant_title' => $variant['title'] ?? '',
-                    'sku' => $variant['sku'] ?? '',
-                    'inventory_item_id' => $inventoryItemId,
+                    'product_id' =>
+                        $product['id'] ?? null,
 
-                    'locations' => $locationsInventory,
+                    'product_title' =>
+                        $product['title'] ?? '',
 
-                    'fs_quantity' => $fsQuantity,
-                    'total_quantity' => $totalQuantity,
+                    'variant_id' =>
+                        $variant['id'] ?? null,
+
+                    'variant_title' =>
+                        $variant['title'] ?? '',
+
+                    'sku' =>
+                        $variant['sku'] ?? '',
+
+                    'inventory_item_id' =>
+                        $inventoryItemId,
+
+                    'locations' =>
+                        $locations,
+
+                    'fs_inventory_level_id' =>
+                        $fsInventoryLevelId,
+
+                    'fs_quantity' =>
+                        $fsQuantity,
+
+                    'total_quantity' =>
+                        $totalQuantity,
 
                     /*
-                     * This is what FSWarehouse should contain
-                     * after the move.
+                     * This is the quantity that will exist
+                     * at FSWarehouse after the move.
                      */
-                    'new_fs_quantity' => $totalQuantity,
+                    'new_fs_quantity' =>
+                        $totalQuantity,
                 ];
             }
         }
 
         return [
-            'vendor' => $vendor,
+            'vendor' =>
+                $vendor,
 
             'target_location' => [
-                'id' => $targetLocation['id'],
-                'name' => $targetLocation['name'],
+                'id' =>
+                    $targetLocation['id'],
+
+                'name' =>
+                    $targetLocation['name'],
+
+                'is_active' =>
+                    $targetLocation['isActive'] ?? true,
             ],
 
-            'locations' => $locations,
-
-            'variants' => $variants,
+            'variants' =>
+                $variants,
 
             'summary' => [
-                'products' => count($products),
-                'variants' => count($variants),
-                'total_inventory' => collect($variants)
-                    ->sum('total_quantity'),
+                'products' =>
+                    count($products),
+
+                'variants' =>
+                    count($variants),
+
+                'total_inventory' =>
+                    collect($variants)
+                        ->sum('total_quantity'),
+
+                'fswarehouse_current_inventory' =>
+                    collect($variants)
+                        ->sum('fs_quantity'),
+
+                'inventory_to_move' =>
+                    collect($variants)
+                        ->sum(
+                            fn (array $variant) =>
+                                max(
+                                    0,
+                                    $variant['total_quantity']
+                                    -
+                                    $variant['fs_quantity']
+                                )
+                        ),
             ],
         ];
     }
 
     /**
-     * Move the vendor inventory to FSWarehouse.
+     * Move all available inventory for a vendor to FSWarehouse.
      *
-     * FSWarehouse receives the combined inventory from all locations.
+     * For every variant:
      *
-     * All other active inventory levels are then deactivated.
+     * 1. Calculate total inventory across active locations.
+     * 2. Make FSWarehouse active.
+     * 3. Set FSWarehouse inventory to the total.
+     * 4. Deactivate every other inventory location.
+     *
+     * Result:
+     *
+     * FSWarehouse = total inventory
+     * Other locations = inactive
      */
     public function move(string $vendor): array
     {
@@ -196,55 +270,70 @@ class VendorInventoryMoveService
         $shopifyToken = $this->getShopifyToken();
 
         /*
-         * Find locations dynamically.
+         * Always get the FSWarehouse location from the
+         * database before performing the move.
          */
-        $locations = $this->getLocations(
-            $shopifyToken
-        );
-
-        $targetLocation = $this->findFswWarehouse(
-            $locations
-        );
-
-        if (! $targetLocation) {
-            $availableLocations = collect($locations)
-                ->pluck('name')
-                ->filter()
-                ->values()
-                ->implode(', ');
-
-            throw new RuntimeException(
-                'FSWarehouse location was not found. ' .
-                'Available Shopify locations: ' .
-                ($availableLocations ?: 'none')
+        $targetLocation =
+            $this->getFswWarehouseLocation(
+                $shopifyToken
             );
-        }
 
         /*
-         * Get a fresh preview immediately before moving.
-         *
-         * This prevents using stale quantities from an old preview.
+         * Get a fresh preview immediately before
+         * modifying inventory.
          */
-        $preview = $this->preview($vendor);
+        $preview = $this->preview(
+            $vendor
+        );
 
         $results = [];
 
-        foreach ($preview['variants'] as $variant) {
+        foreach (
+            $preview['variants']
+            as $variant
+        ) {
             $result = [
-                'sku' => $variant['sku'],
-                'product_title' => $variant['product_title'],
-                'variant_title' => $variant['variant_title'],
-                'inventory_item_id' => $variant['inventory_item_id'],
-                'old_total_quantity' => $variant['total_quantity'],
-                'new_fs_quantity' => $variant['new_fs_quantity'],
-                'success' => false,
-                'message' => null,
+                'product_id' =>
+                    $variant['product_id'],
+
+                'product_title' =>
+                    $variant['product_title'],
+
+                'variant_id' =>
+                    $variant['variant_id'],
+
+                'variant_title' =>
+                    $variant['variant_title'],
+
+                'sku' =>
+                    $variant['sku'],
+
+                'inventory_item_id' =>
+                    $variant['inventory_item_id'],
+
+                'old_total_quantity' =>
+                    $variant['total_quantity'],
+
+                'old_fs_quantity' =>
+                    $variant['fs_quantity'],
+
+                'new_fs_quantity' =>
+                    $variant['new_fs_quantity'],
+
+                'success' =>
+                    false,
+
+                'message' =>
+                    null,
             ];
 
             try {
                 /*
-                 * Make sure FSWarehouse is active for this
-                 * inventory item.
+                 * ------------------------------------------------------
+                 * STEP 1
+                 * ------------------------------------------------------
+                 *
+                 * Make FSWarehouse active.
                  */
                 $this->activateInventoryAtLocation(
                     $shopifyToken,
@@ -253,8 +342,11 @@ class VendorInventoryMoveService
                 );
 
                 /*
-                 * Set the complete inventory quantity at
-                 * FSWarehouse.
+                 * ------------------------------------------------------
+                 * STEP 2
+                 * ------------------------------------------------------
+                 *
+                 * Set the complete vendor inventory at FSWarehouse.
                  */
                 $this->setInventoryQuantity(
                     $shopifyToken,
@@ -264,56 +356,70 @@ class VendorInventoryMoveService
                 );
 
                 /*
-                 * Deactivate all other locations.
+                 * ------------------------------------------------------
+                 * STEP 3
+                 * ------------------------------------------------------
+                 *
+                 * Deactivate every other inventory location.
+                 *
+                 * This is what makes FSWarehouse the ONLY
+                 * active inventory location for this variant.
                  */
-                foreach ($variant['locations'] as $location) {
-                    $locationId = $location['location_id'];
-
-                    if (! $locationId) {
-                        continue;
-                    }
-
-                    if (
-                        $locationId === $targetLocation['id']
-                    ) {
-                        continue;
-                    }
-
-                    $this->deactivateInventoryAtLocation(
-                        $shopifyToken,
-                        $variant['inventory_item_id'],
-                        $locationId
-                    );
-                }
+                $this->deactivateOtherLocations(
+                    $shopifyToken,
+                    $variant['inventory_item_id'],
+                    $variant['locations'],
+                    $targetLocation['id']
+                );
 
                 $result['success'] = true;
+
                 $result['message'] =
                     'Inventory moved to FSWarehouse successfully.';
 
                 Log::info(
                     'Vendor inventory moved to FSWarehouse.',
                     [
-                        'vendor' => $vendor,
-                        'sku' => $variant['sku'],
+                        'vendor' =>
+                            $vendor,
+
+                        'sku' =>
+                            $variant['sku'],
+
                         'inventory_item_id' =>
                             $variant['inventory_item_id'],
-                        'fswarehouse_quantity' =>
+
+                        'old_total_quantity' =>
+                            $variant['total_quantity'],
+
+                        'old_fs_quantity' =>
+                            $variant['fs_quantity'],
+
+                        'new_fs_quantity' =>
                             $variant['new_fs_quantity'],
-                        'target_location_id' =>
+
+                        'fswarehouse_location_id' =>
                             $targetLocation['id'],
                     ]
                 );
             } catch (\Throwable $e) {
-                $result['message'] = $e->getMessage();
+                $result['message'] =
+                    $e->getMessage();
 
                 Log::error(
-                    'Failed to move vendor inventory.',
+                    'Vendor inventory move failed.',
                     [
-                        'vendor' => $vendor,
-                        'sku' => $variant['sku'],
+                        'vendor' =>
+                            $vendor,
+
+                        'sku' =>
+                            $variant['sku'],
+
                         'inventory_item_id' =>
                             $variant['inventory_item_id'],
-                        'exception' => $e,
+
+                        'exception' =>
+                            $e,
                     ]
                 );
             }
@@ -322,45 +428,67 @@ class VendorInventoryMoveService
         }
 
         return [
-            'vendor' => $vendor,
+            'vendor' =>
+                $vendor,
 
             'target_location' => [
-                'id' => $targetLocation['id'],
-                'name' => $targetLocation['name'],
+                'id' =>
+                    $targetLocation['id'],
+
+                'name' =>
+                    $targetLocation['name'],
             ],
 
-            'results' => $results,
+            'results' =>
+                $results,
 
             'summary' => [
-                'total' => count($results),
+                'total' =>
+                    count($results),
 
-                'successful' => collect($results)
-                    ->where('success', true)
-                    ->count(),
+                'successful' =>
+                    collect($results)
+                        ->where(
+                            'success',
+                            true
+                        )
+                        ->count(),
 
-                'failed' => collect($results)
-                    ->where('success', false)
-                    ->count(),
+                'failed' =>
+                    collect($results)
+                        ->where(
+                            'success',
+                            false
+                        )
+                        ->count(),
             ],
         ];
     }
 
     /**
-     * Get Shopify locations.
+     * Get FSWarehouse using the location ID already
+     * stored in shopify_tokens.fulfillment_location_id.
      */
-    protected function getLocations(
+    protected function getFswWarehouseLocation(
         ShopifyToken $shopifyToken
     ): array {
-        $query = <<<'GRAPHQL'
-query GetLocations(
-    $first: Int!
-) {
-    locations(first: $first) {
-        nodes {
-            id
-            name
-            isActive
+        $locationId =
+            $shopifyToken->fulfillment_location_id;
+
+        if (blank($locationId)) {
+            throw new RuntimeException(
+                'FSWarehouse fulfillment location ID is not configured.'
+            );
         }
+
+        $query = <<<'GRAPHQL'
+query GetFswWarehouseLocation(
+    $id: ID!
+) {
+    location(id: $id) {
+        id
+        name
+        isActive
     }
 }
 GRAPHQL;
@@ -369,57 +497,55 @@ GRAPHQL;
             $shopifyToken,
             $query,
             [
-                'first' => 250,
+                'id' =>
+                    $locationId,
             ]
         );
 
-        return $data['locations']['nodes'] ?? [];
-    }
+        $location =
+            $data['location'] ?? null;
 
-    /**
-     * Find FSWarehouse dynamically.
-     *
-     * Matching ignores:
-     * - spaces
-     * - hyphens
-     * - underscores
-     * - capitalization
-     */
-    protected function findFswWarehouse(
-        array $locations
-    ): ?array {
-        $expected = $this->normalizeLocationName(
-            'FSWarehouse'
-        );
-
-        foreach ($locations as $location) {
-            $name = $location['name'] ?? '';
-
-            if (
-                $this->normalizeLocationName($name)
-                === $expected
-            ) {
-                return $location;
-            }
+        if (! $location) {
+            throw new RuntimeException(
+                'The configured FSWarehouse location could not be found in Shopify. ' .
+                'Location ID: ' .
+                $locationId
+            );
         }
 
-        return null;
+        /*
+         * Safety check.
+         *
+         * Accept:
+         *
+         * FSWarehouse
+         * FS-Warehouse
+         * FS Warehouse
+         * FS_Warehouse
+         */
+        if (
+            $this->normalizeLocationName(
+                $location['name'] ?? ''
+            )
+            !==
+            $this->normalizeLocationName(
+                'FSWarehouse'
+            )
+        ) {
+            throw new RuntimeException(
+                'The configured fulfillment location is "' .
+                ($location['name'] ?? 'Unknown') .
+                '", not FSWarehouse. ' .
+                'Location ID: ' .
+                $locationId
+            );
+        }
+
+        return $location;
     }
 
     /**
-     * Normalize a Shopify location name.
-     *
-     * Examples:
-     *
-     * FSWarehouse
-     * FS-Warehouse
-     * FS Warehouse
-     * FS_Warehouse
-     * fswarehouse
-     *
-     * all become:
-     *
-     * fswarehouse
+     * Normalize location names for safety checks.
      */
     protected function normalizeLocationName(
         string $name
@@ -434,7 +560,10 @@ GRAPHQL;
     }
 
     /**
-     * Get products belonging to a vendor.
+     * Get all products for a vendor.
+     *
+     * We use Shopify's product search plus an additional
+     * exact vendor comparison.
      */
     protected function getVendorProducts(
         ShopifyToken $shopifyToken,
@@ -473,6 +602,7 @@ query GetVendorProducts(
                         inventoryLevels(first: 250) {
                             nodes {
                                 id
+                                isActive
 
                                 location {
                                     id
@@ -505,34 +635,43 @@ GRAPHQL;
                 $shopifyToken,
                 $query,
                 [
-                    'first' => 100,
-                    'after' => $cursor,
-                    'query' => 'vendor:"' . $vendor . '"',
+                    'first' =>
+                        100,
+
+                    'after' =>
+                        $cursor,
+
+                    'query' =>
+                        'vendor:"' .
+                        $vendor .
+                        '"',
                 ]
             );
 
             $connection =
-                $data['products']
-                ?? [];
+                $data['products'] ?? [];
 
             foreach (
                 ($connection['nodes'] ?? [])
                 as $product
             ) {
                 /*
-                 * Shopify's search query should filter this,
-                 * but also verify vendor exactly here.
+                 * Verify vendor exactly.
                  */
                 if (
                     strcasecmp(
-                        trim($product['vendor'] ?? ''),
+                        trim(
+                            $product['vendor']
+                            ?? ''
+                        ),
                         trim($vendor)
                     ) !== 0
                 ) {
                     continue;
                 }
 
-                $products[] = $product;
+                $products[] =
+                    $product;
             }
 
             $pageInfo =
@@ -558,7 +697,11 @@ GRAPHQL;
     }
 
     /**
-     * Activate an inventory item at a location.
+     * Activate FSWarehouse for an inventory item.
+     *
+     * Shopify's inventoryBulkToggleActivation mutation
+     * can activate/deactivate multiple locations for one
+     * inventory item. :chatgpt-content-reference{index="1"}
      */
     protected function activateInventoryAtLocation(
         ShopifyToken $shopifyToken,
@@ -566,26 +709,37 @@ GRAPHQL;
         string $locationId
     ): void {
         $mutation = <<<'GRAPHQL'
-mutation InventoryActivate(
+mutation InventoryBulkToggleActivation(
     $inventoryItemId: ID!
-    $locationId: ID!
+    $inventoryItemUpdates: [InventoryBulkToggleActivationInput!]!
 ) {
-    inventoryActivate(
+    inventoryBulkToggleActivation(
         inventoryItemId: $inventoryItemId
-        locationId: $locationId
-        available: 0
+        inventoryItemUpdates: $inventoryItemUpdates
     ) {
-        inventoryLevel {
+        inventoryItem {
             id
-            quantities(names: ["available"]) {
+        }
+
+        inventoryLevels {
+            id
+
+            quantities(
+                names: ["available"]
+            ) {
                 name
                 quantity
+            }
+
+            location {
+                id
             }
         }
 
         userErrors {
             field
             message
+            code
         }
     }
 }
@@ -595,40 +749,39 @@ GRAPHQL;
             $shopifyToken,
             $mutation,
             [
-                'inventoryItemId' => $inventoryItemId,
-                'locationId' => $locationId,
+                'inventoryItemId' =>
+                    $inventoryItemId,
+
+                'inventoryItemUpdates' => [
+                    [
+                        'locationId' =>
+                            $locationId,
+
+                        'activate' =>
+                            true,
+                    ],
+                ],
             ]
         );
 
         $errors =
-            $data['inventoryActivate']['userErrors']
+            $data[
+                'inventoryBulkToggleActivation'
+            ]['userErrors']
             ?? [];
 
         if (! empty($errors)) {
-            /*
-             * If Shopify says it is already active,
-             * that is okay.
-             */
-            $messages = collect($errors)
-                ->pluck('message')
-                ->implode('; ');
-
-            if (
-                stripos(
-                    $messages,
-                    'already'
-                ) === false
-            ) {
-                throw new RuntimeException(
-                    'Unable to activate inventory at FSWarehouse: ' .
-                    $messages
-                );
-            }
+            $this->throwUserErrors(
+                'Unable to activate FSWarehouse inventory',
+                $errors
+            );
         }
     }
 
     /**
-     * Set inventory quantity at a location.
+     * Set absolute available inventory quantity.
+     *
+     * Shopify requires write_inventory for this mutation. :chatgpt-content-reference{index="2"}
      */
     protected function setInventoryQuantity(
         ShopifyToken $shopifyToken,
@@ -637,7 +790,7 @@ GRAPHQL;
         int $quantity
     ): void {
         $mutation = <<<'GRAPHQL'
-mutation InventorySetQuantity(
+mutation InventorySetQuantities(
     $input: InventorySetQuantitiesInput!
 ) {
     inventorySetQuantities(
@@ -647,11 +800,18 @@ mutation InventorySetQuantity(
             createdAt
             reason
             referenceDocumentUri
+
+            changes {
+                name
+                delta
+                quantityAfterChange
+            }
         }
 
         userErrors {
             field
             message
+            code
         }
     }
 }
@@ -662,12 +822,21 @@ GRAPHQL;
             $mutation,
             [
                 'input' => [
-                    'name' => 'available',
+                    'name' =>
+                        'available',
 
-                    'reason' => 'correction',
+                    'reason' =>
+                        'correction',
 
                     'referenceDocumentUri' =>
                         'vendor-inventory-move',
+
+                    /*
+                     * We intentionally use the absolute quantity
+                     * calculated from the preview.
+                     */
+                    'ignoreCompareQuantity' =>
+                        true,
 
                     'quantities' => [
                         [
@@ -679,9 +848,6 @@ GRAPHQL;
 
                             'quantity' =>
                                 $quantity,
-
-                            'compareQuantity' =>
-                                null,
                         ],
                     ],
                 ],
@@ -689,54 +855,111 @@ GRAPHQL;
         );
 
         $errors =
-            $data['inventorySetQuantities']['userErrors']
+            $data[
+                'inventorySetQuantities'
+            ]['userErrors']
             ?? [];
 
         if (! empty($errors)) {
-            $messages = collect($errors)
-                ->pluck('message')
-                ->implode('; ');
-
-            throw new RuntimeException(
-                'Unable to set FSWarehouse inventory: ' .
-                $messages
+            $this->throwUserErrors(
+                'Unable to set FSWarehouse inventory',
+                $errors
             );
         }
     }
 
     /**
-     * Deactivate inventory at a non-FSWarehouse location.
+     * Deactivate all locations except FSWarehouse.
+     *
+     * We use inventoryBulkToggleActivation so Shopify removes
+     * the inventory level and disables inventory at the old
+     * location. :chatgpt-content-reference{index="3"}
      */
-    protected function deactivateInventoryAtLocation(
+    protected function deactivateOtherLocations(
         ShopifyToken $shopifyToken,
         string $inventoryItemId,
-        string $locationId
+        array $locations,
+        string $fsLocationId
     ): void {
-        /*
-         * First set the quantity to zero.
-         */
-        $this->setInventoryQuantity(
-            $shopifyToken,
-            $inventoryItemId,
-            $locationId,
-            0
-        );
+        $updates = [];
 
-        /*
-         * Then deactivate the inventory item at this location.
-         */
+        foreach ($locations as $location) {
+            $locationId =
+                $location['location_id']
+                ?? null;
+
+            if (! $locationId) {
+                continue;
+            }
+
+            /*
+             * Never deactivate FSWarehouse.
+             */
+            if (
+                $locationId ===
+                $fsLocationId
+            ) {
+                continue;
+            }
+
+            /*
+             * Only deactivate locations that are currently
+             * active.
+             */
+            if (
+                isset($location['is_active'])
+                &&
+                ! $location['is_active']
+            ) {
+                continue;
+            }
+
+            $updates[] = [
+                'locationId' =>
+                    $locationId,
+
+                'activate' =>
+                    false,
+            ];
+        }
+
+        if (empty($updates)) {
+            return;
+        }
+
         $mutation = <<<'GRAPHQL'
-mutation InventoryDeactivate(
+mutation InventoryBulkToggleActivation(
     $inventoryItemId: ID!
-    $locationId: ID!
+    $inventoryItemUpdates: [InventoryBulkToggleActivationInput!]!
 ) {
-    inventoryDeactivate(
+    inventoryBulkToggleActivation(
         inventoryItemId: $inventoryItemId
-        locationId: $locationId
+        inventoryItemUpdates: $inventoryItemUpdates
     ) {
+        inventoryItem {
+            id
+        }
+
+        inventoryLevels {
+            id
+
+            location {
+                id
+                name
+            }
+
+            quantities(
+                names: ["available"]
+            ) {
+                name
+                quantity
+            }
+        }
+
         userErrors {
             field
             message
+            code
         }
     }
 }
@@ -746,49 +969,106 @@ GRAPHQL;
             $shopifyToken,
             $mutation,
             [
-                'inventoryItemId' => $inventoryItemId,
-                'locationId' => $locationId,
+                'inventoryItemId' =>
+                    $inventoryItemId,
+
+                'inventoryItemUpdates' =>
+                    $updates,
             ]
         );
 
         $errors =
-            $data['inventoryDeactivate']['userErrors']
+            $data[
+                'inventoryBulkToggleActivation'
+            ]['userErrors']
             ?? [];
 
         if (! empty($errors)) {
-            $messages = collect($errors)
-                ->pluck('message')
-                ->implode('; ');
-
-            throw new RuntimeException(
-                'Unable to deactivate inventory location: ' .
-                $messages
+            $this->throwUserErrors(
+                'Unable to deactivate other inventory locations',
+                $errors
             );
         }
     }
 
     /**
-     * Execute GraphQL using the existing ShopifyGraphQLService.
+     * Convert Shopify user errors into a useful exception.
+     */
+    protected function throwUserErrors(
+        string $prefix,
+        array $errors
+    ): void {
+        $messages = [];
+
+        foreach ($errors as $error) {
+            $message =
+                $error['message']
+                ?? 'Unknown Shopify error';
+
+            $field =
+                $error['field']
+                ?? null;
+
+            $code =
+                $error['code']
+                ?? null;
+
+            $parts = [];
+
+            if ($field) {
+                $parts[] =
+                    'field: ' .
+                    implode('.', $field);
+            }
+
+            if ($code) {
+                $parts[] =
+                    'code: ' .
+                    $code;
+            }
+
+            $parts[] =
+                'message: ' .
+                $message;
+
+            $messages[] =
+                implode(', ', $parts);
+        }
+
+        throw new RuntimeException(
+            $prefix .
+            ': ' .
+            implode('; ', $messages)
+        );
+    }
+
+    /**
+     * Execute a Shopify GraphQL request using the
+     * existing ShopifyGraphQLService.
      */
     protected function execute(
         ShopifyToken $shopifyToken,
         string $query,
         array $variables = []
     ): array {
-        return $this->shopify->executeWithCredentials(
-            $shopifyToken->shop_domain,
-            $shopifyToken->access_token,
-            $query,
-            $variables
-        );
+        $data =
+            $this->shopify->executeWithCredentials(
+                $shopifyToken->shop_domain,
+                $shopifyToken->access_token,
+                $query,
+                $variables
+            );
+
+        return $data;
     }
 
     /**
-     * Get the configured Shopify connection.
+     * Get the Shopify token.
      */
     protected function getShopifyToken(): ShopifyToken
     {
-        $token = ShopifyToken::query()->first();
+        $token =
+            ShopifyToken::query()->first();
 
         if (! $token) {
             throw new RuntimeException(
@@ -796,15 +1076,33 @@ GRAPHQL;
             );
         }
 
-        if (blank($token->shop_domain)) {
+        if (
+            blank(
+                $token->shop_domain
+            )
+        ) {
             throw new RuntimeException(
                 'Shopify store domain is missing.'
             );
         }
 
-        if (blank($token->access_token)) {
+        if (
+            blank(
+                $token->access_token
+            )
+        ) {
             throw new RuntimeException(
                 'Shopify access token is missing.'
+            );
+        }
+
+        if (
+            blank(
+                $token->fulfillment_location_id
+            )
+        ) {
+            throw new RuntimeException(
+                'FSWarehouse fulfillment location ID is missing from the database.'
             );
         }
 
