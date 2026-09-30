@@ -8,6 +8,33 @@ use RuntimeException;
 
 class VendorInventoryMoveService
 {
+    /**
+     * Number of products to retrieve per Shopify request.
+     *
+     * This query is intentionally shallow.
+     */
+    protected const PRODUCT_PAGE_SIZE = 100;
+
+    /**
+     * Number of variants to retrieve per Shopify request.
+     */
+    protected const VARIANT_PAGE_SIZE = 100;
+
+    /**
+     * Number of inventory items to inspect in one request.
+     *
+     * Keeping this small prevents the nested inventoryLevels
+     * connection from becoming too expensive.
+     */
+    protected const INVENTORY_BATCH_SIZE = 5;
+
+    /**
+     * Maximum inventory levels requested for each inventory item.
+     *
+     * Most Shopify stores have far fewer locations than this.
+     */
+    protected const INVENTORY_LEVEL_PAGE_SIZE = 50;
+
     public function __construct(
         protected ShopifyGraphQLService $shopify
     ) {
@@ -44,6 +71,9 @@ class VendorInventoryMoveService
 
         /*
          * Get all products belonging to this vendor.
+         *
+         * This method now uses several small GraphQL requests
+         * instead of one deeply nested query.
          */
         $products = $this->getVendorProducts(
             $shopifyToken,
@@ -57,15 +87,13 @@ class VendorInventoryMoveService
                 ($product['variants']['nodes'] ?? [])
                 as $variant
             ) {
-                $inventoryItem =
-                    $variant['inventoryItem'] ?? null;
+                $inventoryItem = $variant['inventoryItem'] ?? null;
 
                 if (! $inventoryItem) {
                     continue;
                 }
 
-                $inventoryItemId =
-                    $inventoryItem['id'] ?? null;
+                $inventoryItemId = $inventoryItem['id'] ?? null;
 
                 if (! $inventoryItemId) {
                     continue;
@@ -362,8 +390,8 @@ class VendorInventoryMoveService
                  *
                  * Deactivate every other inventory location.
                  *
-                 * This is what makes FSWarehouse the ONLY
-                 * active inventory location for this variant.
+                 * This makes FSWarehouse the ONLY active
+                 * inventory location for this variant.
                  */
                 $this->deactivateOtherLocations(
                     $shopifyToken,
@@ -562,13 +590,35 @@ GRAPHQL;
     /**
      * Get all products for a vendor.
      *
-     * We use Shopify's product search plus an additional
-     * exact vendor comparison.
+     * IMPORTANT:
+     *
+     * We intentionally do NOT query:
+     *
+     * products
+     *   -> variants
+     *      -> inventoryLevels
+     *
+     * in one GraphQL request.
+     *
+     * Instead:
+     *
+     * 1. Get vendor products only.
+     * 2. Get variants for those products.
+     * 3. Get inventory levels in small batches.
+     *
+     * This prevents Shopify's MAX_COST_EXCEEDED error.
      */
     protected function getVendorProducts(
         ShopifyToken $shopifyToken,
         string $vendor
     ): array {
+        /*
+         * ----------------------------------------------------------
+         * STEP 1
+         * ----------------------------------------------------------
+         *
+         * Get vendor products without variants or inventory.
+         */
         $products = [];
 
         $cursor = null;
@@ -589,38 +639,6 @@ query GetVendorProducts(
             id
             title
             vendor
-
-            variants(first: 250) {
-                nodes {
-                    id
-                    title
-                    sku
-
-                    inventoryItem {
-                        id
-
-                        inventoryLevels(first: 250) {
-                            nodes {
-                                id
-                                isActive
-
-                                location {
-                                    id
-                                    name
-                                    isActive
-                                }
-
-                                quantities(
-                                    names: ["available"]
-                                ) {
-                                    name
-                                    quantity
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         pageInfo {
@@ -636,15 +654,15 @@ GRAPHQL;
                 $query,
                 [
                     'first' =>
-                        100,
+                        self::PRODUCT_PAGE_SIZE,
 
                     'after' =>
                         $cursor,
 
                     'query' =>
-                        'vendor:"' .
-                        $vendor .
-                        '"',
+                        $this->buildVendorSearchQuery(
+                            $vendor
+                        ),
                 ]
             );
 
@@ -670,8 +688,24 @@ GRAPHQL;
                     continue;
                 }
 
-                $products[] =
-                    $product;
+                $products[
+                    $product['id']
+                ] = [
+                    'id' =>
+                        $product['id'],
+
+                    'title' =>
+                        $product['title']
+                        ?? '',
+
+                    'vendor' =>
+                        $product['vendor']
+                        ?? '',
+
+                    'variants' => [
+                        'nodes' => [],
+                    ],
+                ];
             }
 
             $pageInfo =
@@ -693,7 +727,471 @@ GRAPHQL;
             $cursor
         );
 
-        return $products;
+        if (empty($products)) {
+            return [];
+        }
+
+        /*
+         * ----------------------------------------------------------
+         * STEP 2
+         * ----------------------------------------------------------
+         *
+         * Get variants for the vendor products.
+         *
+         * Shopify supports product_ids in the productVariants
+         * search query.
+         *
+         * We send product IDs in groups instead of requesting
+         * variants and inventory under every product.
+         */
+        $productIds = array_keys($products);
+
+        foreach (
+            array_chunk(
+                $productIds,
+                100
+            )
+            as $productIdBatch
+        ) {
+            $this->loadProductVariants(
+                $shopifyToken,
+                $products,
+                $productIdBatch
+            );
+        }
+
+        /*
+         * ----------------------------------------------------------
+         * STEP 3
+         * ----------------------------------------------------------
+         *
+         * Get inventory levels separately in very small batches.
+         */
+        $inventoryItems = [];
+
+        foreach ($products as $product) {
+            foreach (
+                ($product['variants']['nodes'] ?? [])
+                as $variant
+            ) {
+                $inventoryItem =
+                    $variant['inventoryItem']
+                    ?? null;
+
+                if (! $inventoryItem) {
+                    continue;
+                }
+
+                $inventoryItemId =
+                    $inventoryItem['id']
+                    ?? null;
+
+                if (! $inventoryItemId) {
+                    continue;
+                }
+
+                $inventoryItems[
+                    $inventoryItemId
+                ] = true;
+            }
+        }
+
+        $inventoryItemIds =
+            array_keys($inventoryItems);
+
+        foreach (
+            array_chunk(
+                $inventoryItemIds,
+                self::INVENTORY_BATCH_SIZE
+            )
+            as $inventoryItemBatch
+        ) {
+            $inventoryData =
+                $this->getInventoryLevelsForItems(
+                    $shopifyToken,
+                    $inventoryItemBatch
+                );
+
+            foreach (
+                $inventoryData
+                as $inventoryItemId => $inventoryLevels
+            ) {
+                foreach ($products as &$product) {
+                    foreach (
+                        ($product['variants']['nodes'] ?? [])
+                        as &$variant
+                    ) {
+                        if (
+                            ($variant['inventoryItem']['id'] ?? null)
+                            !==
+                            $inventoryItemId
+                        ) {
+                            continue;
+                        }
+
+                        $variant['inventoryItem'][
+                            'inventoryLevels'
+                        ] = [
+                            'nodes' =>
+                                $inventoryLevels,
+                        ];
+
+                        unset($variant);
+
+                        break;
+                    }
+
+                    unset($product);
+                }
+            }
+        }
+
+        unset($product);
+
+        return array_values($products);
+    }
+
+    /**
+     * Load product variants for a batch of product IDs.
+     */
+    protected function loadProductVariants(
+        ShopifyToken $shopifyToken,
+        array &$products,
+        array $productIds
+    ): void {
+        /*
+         * Convert Shopify GIDs into numeric IDs because
+         * Shopify's product_ids search filter expects IDs.
+         */
+        $numericProductIds = [];
+
+        foreach ($productIds as $productId) {
+            $numericId =
+                $this->extractShopifyNumericId(
+                    $productId
+                );
+
+            if ($numericId !== null) {
+                $numericProductIds[] =
+                    $numericId;
+            }
+        }
+
+        if (empty($numericProductIds)) {
+            return;
+        }
+
+        $searchQuery =
+            'product_ids:' .
+            implode(
+                ',',
+                $numericProductIds
+            );
+
+        $cursor = null;
+
+        do {
+            $query = <<<'GRAPHQL'
+query GetProductVariants(
+    $first: Int!
+    $after: String
+    $query: String!
+) {
+    productVariants(
+        first: $first
+        after: $after
+        query: $query
+    ) {
+        nodes {
+            id
+            title
+            sku
+
+            product {
+                id
+                title
+                vendor
+            }
+
+            inventoryItem {
+                id
+            }
+        }
+
+        pageInfo {
+            hasNextPage
+            endCursor
+        }
+    }
+}
+GRAPHQL;
+
+            $data = $this->execute(
+                $shopifyToken,
+                $query,
+                [
+                    'first' =>
+                        self::VARIANT_PAGE_SIZE,
+
+                    'after' =>
+                        $cursor,
+
+                    'query' =>
+                        $searchQuery,
+                ]
+            );
+
+            $connection =
+                $data['productVariants']
+                ?? [];
+
+            foreach (
+                ($connection['nodes'] ?? [])
+                as $variant
+            ) {
+                $product =
+                    $variant['product']
+                    ?? null;
+
+                if (! $product) {
+                    continue;
+                }
+
+                $productId =
+                    $product['id']
+                    ?? null;
+
+                if (! $productId) {
+                    continue;
+                }
+
+                /*
+                 * Extra safety check.
+                 */
+                if (
+                    strcasecmp(
+                        trim(
+                            $product['vendor']
+                            ?? ''
+                        ),
+                        trim(
+                            $products[$productId]['vendor']
+                            ?? ''
+                        )
+                    ) !== 0
+                ) {
+                    continue;
+                }
+
+                if (
+                    ! isset(
+                        $products[$productId]
+                    )
+                ) {
+                    continue;
+                }
+
+                $products[$productId][
+                    'variants'
+                ]['nodes'][] = [
+                    'id' =>
+                        $variant['id']
+                        ?? null,
+
+                    'title' =>
+                        $variant['title']
+                        ?? '',
+
+                    'sku' =>
+                        $variant['sku']
+                        ?? '',
+
+                    'inventoryItem' =>
+                        $variant['inventoryItem']
+                        ?? null,
+                ];
+            }
+
+            $pageInfo =
+                $connection['pageInfo']
+                ?? [];
+
+            $hasNextPage =
+                (bool) (
+                    $pageInfo['hasNextPage']
+                    ?? false
+                );
+
+            $cursor =
+                $pageInfo['endCursor']
+                ?? null;
+        } while (
+            $hasNextPage
+            &&
+            $cursor
+        );
+    }
+
+    /**
+     * Get inventory levels for a small batch of inventory items.
+     *
+     * We deliberately keep the batch small because inventoryLevels
+     * is a nested connection for every inventory item.
+     */
+    protected function getInventoryLevelsForItems(
+        ShopifyToken $shopifyToken,
+        array $inventoryItemIds
+    ): array {
+        if (empty($inventoryItemIds)) {
+            return [];
+        }
+
+        $query = <<<'GRAPHQL'
+query GetInventoryLevels(
+    $ids: [ID!]!
+    $first: Int!
+) {
+    nodes(ids: $ids) {
+        ... on InventoryItem {
+            id
+
+            inventoryLevels(first: $first) {
+                nodes {
+                    id
+                    isActive
+
+                    location {
+                        id
+                        name
+                        isActive
+                    }
+
+                    quantities(
+                        names: ["available"]
+                    ) {
+                        name
+                        quantity
+                    }
+                }
+
+                pageInfo {
+                    hasNextPage
+                    endCursor
+                }
+            }
+        }
+    }
+}
+GRAPHQL;
+
+        $data = $this->execute(
+            $shopifyToken,
+            $query,
+            [
+                'ids' =>
+                    array_values(
+                        $inventoryItemIds
+                    ),
+
+                'first' =>
+                    self::INVENTORY_LEVEL_PAGE_SIZE,
+            ]
+        );
+
+        $result = [];
+
+        foreach (
+            ($data['nodes'] ?? [])
+            as $node
+        ) {
+            if (
+                ! isset(
+                    $node['id']
+                )
+            ) {
+                continue;
+            }
+
+            $result[
+                $node['id']
+            ] =
+                $node[
+                    'inventoryLevels'
+                ]['nodes']
+                ?? [];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Build the Shopify vendor search query safely.
+     */
+    protected function buildVendorSearchQuery(
+        string $vendor
+    ): string {
+        /*
+         * Shopify search strings use double quotes around
+         * the vendor value.
+         *
+         * Escape backslashes and quotes so vendor names
+         * cannot break the search expression.
+         */
+        $vendor =
+            str_replace(
+                [
+                    '\\',
+                    '"',
+                ],
+                [
+                    '\\\\',
+                    '\\"',
+                ],
+                trim($vendor)
+            );
+
+        return 'vendor:"' .
+            $vendor .
+            '"';
+    }
+
+    /**
+     * Extract the numeric ID from a Shopify GID.
+     *
+     * Example:
+     *
+     * gid://shopify/Product/123456
+     *
+     * becomes:
+     *
+     * 123456
+     */
+    protected function extractShopifyNumericId(
+        string $gid
+    ): ?string {
+        if (
+            preg_match(
+                '/\/(\d+)$/',
+                $gid,
+                $matches
+            )
+        ) {
+            return $matches[1];
+        }
+
+        /*
+         * Also allow an already numeric ID.
+         */
+        if (
+            preg_match(
+                '/^\d+$/',
+                $gid
+            )
+        ) {
+            return $gid;
+        }
+
+        return null;
     }
 
     /**
@@ -701,7 +1199,7 @@ GRAPHQL;
      *
      * Shopify's inventoryBulkToggleActivation mutation
      * can activate/deactivate multiple locations for one
-     * inventory item. :chatgpt-content-reference{index="1"}
+     * inventory item.
      */
     protected function activateInventoryAtLocation(
         ShopifyToken $shopifyToken,
@@ -781,7 +1279,7 @@ GRAPHQL;
     /**
      * Set absolute available inventory quantity.
      *
-     * Shopify requires write_inventory for this mutation. :chatgpt-content-reference{index="2"}
+     * Shopify requires write_inventory for this mutation.
      */
     protected function setInventoryQuantity(
         ShopifyToken $shopifyToken,
@@ -873,7 +1371,7 @@ GRAPHQL;
      *
      * We use inventoryBulkToggleActivation so Shopify removes
      * the inventory level and disables inventory at the old
-     * location. :chatgpt-content-reference{index="3"}
+     * location.
      */
     protected function deactivateOtherLocations(
         ShopifyToken $shopifyToken,
@@ -1018,7 +1516,10 @@ GRAPHQL;
             if ($field) {
                 $parts[] =
                     'field: ' .
-                    implode('.', $field);
+                    implode(
+                        '.',
+                        $field
+                    );
             }
 
             if ($code) {
@@ -1032,13 +1533,19 @@ GRAPHQL;
                 $message;
 
             $messages[] =
-                implode(', ', $parts);
+                implode(
+                    ', ',
+                    $parts
+                );
         }
 
         throw new RuntimeException(
             $prefix .
             ': ' .
-            implode('; ', $messages)
+            implode(
+                '; ',
+                $messages
+            )
         );
     }
 
