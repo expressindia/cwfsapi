@@ -95,6 +95,12 @@
 
         </a>
 
+        <a
+        href="{{ route('vendor-inventory.index') }}" class="nav-link">
+            <i class="bi bi-box-seam"></i>
+            <span>Vendor Inventory</span>
+        </a>
+
     </nav>
 
 
