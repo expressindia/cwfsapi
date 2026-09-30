@@ -16,9 +16,12 @@ class FullscriptProductService
     /**
      * Get products from Fullscript.
      */
-    public function getProducts( int $page = 1, int $perPage = 100 ): array 
+    public function getProducts(int $page = 1, int $perPage = 100): array
     {
-        $baseUrl = rtrim( config('fullscript.api_base_url'), '/' );
+        $baseUrl = rtrim(
+            config('fullscript.api_base_url'),
+            '/'
+        );
 
         if (blank($baseUrl)) {
             throw new RuntimeException(
@@ -28,34 +31,58 @@ class FullscriptProductService
 
         /*
         |--------------------------------------------------------------------------
-        | Get valid access token
+        | Get access token
         |--------------------------------------------------------------------------
-        |
-        | This method gets the token from the database.
-        | It also refreshes the token automatically when required.
-        |
         */
 
-        $accessToken = $this->tokenService ->freshAccessToken();
+        logger()->info(
+            'Fullscript products sync: requesting access token.'
+        );
+
+        $accessToken = $this->tokenService->freshAccessToken();
+
+        logger()->info(
+            'Fullscript products sync: access token received.'
+        );
+
         /*
         |--------------------------------------------------------------------------
         | Fullscript API request
         |--------------------------------------------------------------------------
         */
 
-        $response = Http::withToken( $accessToken )
+        $url = $baseUrl . '/catalog/products';
+
+        logger()->info(
+            'Fullscript products sync: requesting products.',
+            [
+                'url' => $url,
+                'page' => $page,
+                'per_page' => $perPage,
+            ]
+        );
+
+        $response = Http::withToken($accessToken)
             ->acceptJson()
             ->timeout(60)
-            ->get( $baseUrl . '/catalog/products',
+            ->get(
+                $url,
                 [
                     'page[number]' => $page,
                     'page[size]' => $perPage,
                 ]
             );
 
+        logger()->info(
+            'Fullscript products sync: product API responded.',
+            [
+                'status' => $response->status(),
+            ]
+        );
+
         if ($response->failed()) {
             throw new RuntimeException(
-                $this->responseMessage( $response )
+                $this->responseMessage($response)
             );
         }
 
