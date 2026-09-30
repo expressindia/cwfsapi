@@ -6,7 +6,7 @@ return [
     'redirect_uri' => env('FULLSCRIPT_REDIRECT_URI', 'http://127.0.0.1:8000/callback'),
     'scope' => env('FULLSCRIPT_SCOPE', 'catalog:read'),
 
-    
+    'default_inventory' => env('FULLSCRIPT_DEFAULT_INVENTORY', 88),
     /*
     |--------------------------------------------------------------------------
     | OAuth

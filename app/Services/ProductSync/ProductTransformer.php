@@ -10,34 +10,122 @@ class ProductTransformer
     public function transform(array $product): array
     {
         $productId = $product['id'] ?? null;
-        $name = $product['name'] ?? null;
-        
+        $name = trim((string) ($product['name'] ?? ''));
+
         if (!$productId) {
             throw new RuntimeException(
                 'Fullscript product ID is missing.'
             );
         }
 
-        if (!$name) {
+        if ($name === '') {
             throw new RuntimeException(
                 "Product {$productId} has no name."
             );
         }
 
-        $variants = $this->transformVariants( $product['variants'] ?? [] );
+        $vendor = trim(
+            (string) ($product['brand']['name'] ?? 'Fullscript')
+        );
 
-        
+        $variants = $this->transformVariants(
+            $product['variants'] ?? []
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Primary variant
+        |--------------------------------------------------------------------------
+        |
+        | SEO is product-level in Shopify.
+        | Therefore use the Fullscript primary variant's SKU and price.
+        |
+        */
+
+        $primaryVariant = $this->getPrimaryVariant($variants);
+
+        $primarySku = $primaryVariant['sku'] ?? '';
+        $primaryPrice = $primaryVariant['price'] ?? '0.00';
+
         return [
+
             'fullscript_product_id' => $productId,
-            'title'                 => $name,
-            'description_html'      => $product['description_html'] ?? '',
-            'vendor'                => $product['brand']['name'] ?? 'Fullscript',
-            'product_type'          => 'Supplement',
 
-            // Do not automatically archive Shopify products.
-            'status' => ($product['status'] ?? '') === 'available' ? 'ACTIVE' : 'ARCHIVED',
+            /*
+            |--------------------------------------------------------------------------
+            | Product
+            |--------------------------------------------------------------------------
+            */
 
-            'handle'                => Str::slug(($product['brand']['name'] ?? 'fullscript') . '-' . $name . '-' . $productId ),
+            'title' => $name,
+
+            'description_html' => $product['description_html'] ?? '',
+
+            'vendor' => $vendor,
+
+            'product_type' => 'Supplement',
+
+            /*
+             * Keep the original Fullscript product status.
+             */
+            'fullscript_status' => $product['status'] ?? null,
+
+            /*
+             * Shopify product status.
+             *
+             * Available = ACTIVE
+             * Anything else = ARCHIVED
+             */
+            'status' => ($product['status'] ?? '') === 'available'
+                ? 'ACTIVE'
+                : 'ARCHIVED',
+
+            'handle' => Str::slug(
+                $vendor . '-' . $name . '-' . $productId
+            ),
+
+            /*
+            |--------------------------------------------------------------------------
+            | Gift card
+            |--------------------------------------------------------------------------
+            */
+
+            'gift_card' => false,
+
+            /*
+            |--------------------------------------------------------------------------
+            | SEO
+            |--------------------------------------------------------------------------
+            |
+            | SEO title:
+            | Product Name | SKU | Vendor
+            |
+            | SEO description:
+            | Shop the best professional Vitamins and Supplements!
+            | Discover our Product (SKU) for Price – all at discounted
+            | prices from the most trusted brands.
+            |
+            */
+
+            'seo' => [
+                'title' => $this->buildSeoTitle(
+                    $name,
+                    $primarySku,
+                    $vendor
+                ),
+
+                'description' => $this->buildSeoDescription(
+                    $name,
+                    $primarySku,
+                    $primaryPrice
+                ),
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Product options
+            |--------------------------------------------------------------------------
+            */
 
             'product_options' => [
                 [
@@ -47,16 +135,23 @@ class ProductTransformer
                 ],
             ],
 
-            'variants' => $variants,
             /*
-             * Fullscript provides small, medium and large images.
-             * We use the large image for Shopify.
-             */
+            |--------------------------------------------------------------------------
+            | Variants
+            |--------------------------------------------------------------------------
+            */
+
+            'variants' => $variants,
+
+            /*
+            |--------------------------------------------------------------------------
+            | Images
+            |--------------------------------------------------------------------------
+            */
+
             'images' => $this->transformImages($product),
-        ]; 
+        ];
     }
-
-
 
     /**
      * Transform Fullscript variants.
@@ -70,10 +165,13 @@ class ProductTransformer
         }
 
         $result = [];
+
         $seenSkus = [];
+
         $seenOptionValues = [];
 
         foreach ($variants as $variant) {
+
             $variantId = $variant['id'] ?? null;
 
             $sku = trim(
@@ -95,16 +193,11 @@ class ProductTransformer
             $seenSkus[$sku] = true;
 
             /*
-             * Fullscript "units" means package content,
-             * NOT inventory quantity.
-             *
-             * Example:
-             * units = 200
-             * unit_of_measure = Softgels
-             *
-             * Shopify option value:
-             * 200 Softgels
-             */
+            |--------------------------------------------------------------------------
+            | Package option
+            |--------------------------------------------------------------------------
+            */
+
             $optionValue = $this->buildOptionValue($variant);
 
             if (isset($seenOptionValues[$optionValue])) {
@@ -115,30 +208,133 @@ class ProductTransformer
 
             $seenOptionValues[$optionValue] = true;
 
+            /*
+            |--------------------------------------------------------------------------
+            | Availability
+            |--------------------------------------------------------------------------
+            */
+
+            $availability = strtolower(
+                trim(
+                    (string) ($variant['availability'] ?? '')
+                )
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Fixed Shopify inventory
+            |--------------------------------------------------------------------------
+            |
+            | Fullscript does NOT provide an exact inventory count.
+            |
+            | In Stock     -> 88
+            | Everything else -> 0
+            |
+            */
+
+            $quantity = $availability === 'in stock'
+                ? (int) config('fullscript.default_inventory', 88)
+                : 0;
+
+            /*
+            |--------------------------------------------------------------------------
+            | Optional cost / weight data
+            |--------------------------------------------------------------------------
+            |
+            | These fields are intentionally nullable until we confirm
+            | the exact Fullscript response field names.
+            |
+            */
+
+            $cost = $variant['cost'] ?? null;
+
+            $weight = $variant['weight'] ?? null;
+
+            $weightUnit = $variant['weight_unit']
+                ?? $variant['weightUnit']
+                ?? null;
+
             $result[] = [
+
                 'fullscript_variant_id' => $variantId,
 
                 'sku' => $sku,
+
+                /*
+                |--------------------------------------------------------------------------
+                | Price
+                |--------------------------------------------------------------------------
+                */
 
                 'price' => (string) (
                     $variant['msrp'] ?? '0.00'
                 ),
 
-                'barcode' => $variant['upc'] ?? null,
+                /*
+                |--------------------------------------------------------------------------
+                | Barcode
+                |--------------------------------------------------------------------------
+                */
+
+                'barcode' => !empty($variant['upc'])
+                    ? (string) $variant['upc']
+                    : null,
 
                 /*
-                 * Package information.
-                 *
-                 * IMPORTANT:
-                 * This is NOT inventory quantity.
-                 */
+                |--------------------------------------------------------------------------
+                | Cost
+                |--------------------------------------------------------------------------
+                */
+
+                'cost' => $cost !== null
+                    ? (string) $cost
+                    : null,
+
+                /*
+                |--------------------------------------------------------------------------
+                | Weight
+                |--------------------------------------------------------------------------
+                */
+
+                'weight' => $weight !== null
+                    ? (float) $weight
+                    : null,
+
+                'weight_unit' => $weightUnit,
+
+                /*
+                |--------------------------------------------------------------------------
+                | Package information
+                |--------------------------------------------------------------------------
+                */
+
                 'units' => $variant['units'] ?? null,
 
                 'unit_of_measure' => $variant['unit_of_measure'] ?? null,
 
+                /*
+                |--------------------------------------------------------------------------
+                | Fullscript status
+                |--------------------------------------------------------------------------
+                */
+
                 'availability' => $variant['availability'] ?? null,
 
                 'status' => $variant['status'] ?? null,
+
+                /*
+                |--------------------------------------------------------------------------
+                | Keep explicit Fullscript status
+                |--------------------------------------------------------------------------
+                */
+
+                'fullscript_status' => $variant['status'] ?? null,
+
+                /*
+                |--------------------------------------------------------------------------
+                | Other Fullscript data
+                |--------------------------------------------------------------------------
+                */
 
                 'supplier_sku' => $variant['supplier_sku'] ?? null,
 
@@ -147,15 +343,33 @@ class ProductTransformer
                 ),
 
                 /*
-                 * We currently do not have actual inventory
-                 * quantity from the Fullscript API.
-                 */
-                // Fullscript does not provide inventory quantity here.
-                'quantity' => ($variant['availability'] ?? '') === 'In Stock' ? 55 : 0,
+                |--------------------------------------------------------------------------
+                | Shopify inventory
+                |--------------------------------------------------------------------------
+                */
+
+                'quantity' => $quantity,
 
                 /*
-                 * Shopify option value.
-                 */
+                |--------------------------------------------------------------------------
+                | Shopify variant settings
+                |--------------------------------------------------------------------------
+                */
+
+                'inventory_tracker' => 'shopify',
+
+                'requires_shipping' => true,
+
+                'taxable' => true,
+
+                'inventory_policy' => 'DENY',
+
+                /*
+                |--------------------------------------------------------------------------
+                | Shopify option
+                |--------------------------------------------------------------------------
+                */
+
                 'option_name' => 'Size',
 
                 'option_value' => $optionValue,
@@ -165,66 +379,112 @@ class ProductTransformer
         return $result;
     }
 
+    /**
+     * Find the Fullscript primary variant.
+     */
+    protected function getPrimaryVariant(array $variants): array
+    {
+        foreach ($variants as $variant) {
+            if (!empty($variant['primary'])) {
+                return $variant;
+            }
+        }
+
+        /*
+         * Fallback to first variant.
+         */
+        return $variants[0] ?? [];
+    }
 
     /**
-     * Generate a unique Shopify handle.
-     *
-     * Example:
-     * physiologics-b-1-thiamine-hcl-250-mg-100-vtabs-{product-id}
+     * Build SEO title.
      */
-    protected function generateHandle(array $product): string
-    {
-        $brand = $product['brand']['name'] ?? 'Fullscript';
-        $name = $product['name'] ?? '';
-        $productId = $product['id'] ?? '';
-
-        return Str::slug(
-            $brand . '-' . $name . '-' . $productId
+    protected function buildSeoTitle(
+        string $productName,
+        string $sku,
+        string $vendor
+    ): string {
+        return trim(
+            $productName . ' | ' . $sku . ' | ' . $vendor
         );
     }
 
     /**
-     * Build the Shopify Size option value.
-     *
-     * Examples:
-     *
-     * 200 + Softgels => 200 Softgels
-     * 90 + Softgels  => 90 Softgels
-     * 50 + gels      => 50 gels
+     * Build SEO description.
+     */
+    protected function buildSeoDescription(
+        string $productName,
+        string $sku,
+        string $price
+    ): string {
+        return sprintf(
+            'Shop the best professional Vitamins and Supplements! Discover our %s (%s) for %s – all at discounted prices from the most trusted brands.',
+            $productName,
+            $sku,
+            $this->formatPrice($price)
+        );
+    }
+
+    /**
+     * Format price for SEO.
+     */
+    protected function formatPrice(string $price): string
+    {
+        if ($price === '') {
+            return '$0.00';
+        }
+
+        /*
+         * Fullscript price may already contain a currency symbol.
+         */
+        if (preg_match('/[$£€]/', $price)) {
+            return $price;
+        }
+
+        return '$' . number_format(
+            (float) $price,
+            2,
+            '.',
+            ''
+        );
+    }
+
+    /**
+     * Build Shopify Size option value.
      */
     protected function buildOptionValue(array $variant): string
-{
-    $units = $variant['units'] ?? null;
+    {
+        $units = $variant['units'] ?? null;
 
-    $unitOfMeasure = trim(
-        (string) ($variant['unit_of_measure'] ?? '')
-    );
-
-    if (
-        $units !== null &&
-        $units !== '' &&
-        (int) $units > 0 &&
-        $unitOfMeasure !== ''
-    ) {
-        return trim(
-            (string) $units . ' ' . $unitOfMeasure
+        $unitOfMeasure = trim(
+            (string) ($variant['unit_of_measure'] ?? '')
         );
-    }
 
-    if (
-        $units !== null &&
-        $units !== '' &&
-        (int) $units > 0
-    ) {
-        return (string) $units;
-    }
+        if (
+            $units !== null &&
+            $units !== '' &&
+            (int) $units > 0 &&
+            $unitOfMeasure !== ''
+        ) {
+            return trim(
+                (string) $units . ' ' . $unitOfMeasure
+            );
+        }
 
-    if ($unitOfMeasure !== '') {
-        return $unitOfMeasure;
-    }
+        if (
+            $units !== null &&
+            $units !== '' &&
+            (int) $units > 0
+        ) {
+            return (string) $units;
+        }
 
-    return 'Default';
-}
+        if ($unitOfMeasure !== '') {
+            return $unitOfMeasure;
+        }
+
+        return 'Default';
+    }
 
     /**
      * Build Shopify product option values.
@@ -233,9 +493,11 @@ class ProductTransformer
         array $variants
     ): array {
         $values = [];
+
         $seen = [];
 
         foreach ($variants as $variant) {
+
             $value = $variant['option_value'] ?? null;
 
             if (!$value) {
@@ -264,13 +526,6 @@ class ProductTransformer
 
     /**
      * Transform Fullscript product images.
-     *
-     * Fullscript provides:
-     * - image_url_small
-     * - image_url_medium
-     * - image_url_large
-     *
-     * We import the large image into Shopify.
      */
     protected function transformImages(array $product): array
     {
@@ -283,7 +538,9 @@ class ProductTransformer
         return [
             [
                 'url' => $imageUrl,
-                'alt' => $product['name'] ?? 'Fullscript product',
+
+                'alt' => $product['name']
+                    ?? 'Fullscript product',
             ],
         ];
     }
