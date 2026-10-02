@@ -79,7 +79,9 @@ class ProductsController extends Controller
         */
 
         try {
-            $response = $this->fullscript->getProducts(
+            $this->fullscript->searchProducts(
+                $brandId,
+                $search,
                 $page,
                 $perPage
             );

@@ -1,384 +1,53 @@
 @extends('layouts.app')
 
+@section('title', 'Products - CWFSAPI')
+
+@section('page-title', 'Products')
+
 @section('content')
-
-<style>
-    .products-page {
-        padding: 24px;
-    }
-
-    .products-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 20px;
-        margin-bottom: 24px;
-    }
-
-    .products-header h1 {
-        margin: 0;
-        font-size: 28px;
-        font-weight: 700;
-    }
-
-    .products-header p {
-        margin: 6px 0 0;
-        color: #6c757d;
-    }
-
-    .sync-info {
-        text-align: right;
-    }
-
-    .sync-info small {
-        display: block;
-        color: #6c757d;
-        margin-top: 6px;
-    }
-
-    .filter-card {
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        background: #fff;
-        padding: 18px;
-        margin-bottom: 18px;
-    }
-
-    .filter-label {
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 7px;
-    }
-
-    .brand-pills {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 16px;
-    }
-
-    .brand-pill {
-        border: 1px solid #dee2e6;
-        background: #fff;
-        color: #495057;
-        border-radius: 20px;
-        padding: 7px 14px;
-        font-size: 13px;
-        text-decoration: none;
-    }
-
-    .brand-pill:hover {
-        background: #f8f9fa;
-        color: #212529;
-    }
-
-    .brand-pill.active {
-        background: #212529;
-        border-color: #212529;
-        color: #fff;
-    }
-
-    .selection-bar {
-        display: none;
-        align-items: center;
-        justify-content: space-between;
-        gap: 15px;
-        background: #f1f5f9;
-        border: 1px solid #dbe3ec;
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 14px;
-    }
-
-    .selection-bar.show {
-        display: flex;
-    }
-
-    .selection-count {
-        font-weight: 600;
-        font-size: 14px;
-    }
-
-    .products-card {
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        background: #fff;
-        overflow: hidden;
-    }
-
-    .products-table {
-        margin: 0;
-    }
-
-    .products-table thead th {
-        background: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: .03em;
-        color: #6c757d;
-        white-space: nowrap;
-        padding: 13px 12px;
-    }
-
-    .products-table tbody td {
-        vertical-align: middle;
-        padding: 13px 12px;
-        border-bottom: 1px solid #edf0f2;
-    }
-
-    .product-image {
-        width: 52px;
-        height: 52px;
-        object-fit: contain;
-        border: 1px solid #e5e7eb;
-        border-radius: 7px;
-        background: #fff;
-    }
-
-    .product-image-placeholder {
-        width: 52px;
-        height: 52px;
-        border: 1px solid #e5e7eb;
-        border-radius: 7px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #adb5bd;
-        background: #f8f9fa;
-    }
-
-    .product-title {
-        font-weight: 600;
-        color: #212529;
-        max-width: 330px;
-    }
-
-    .product-title small {
-        display: block;
-        color: #8a9299;
-        font-weight: 400;
-        margin-top: 3px;
-    }
-
-    .sku {
-        font-family: monospace;
-        font-size: 13px;
-        color: #495057;
-    }
-
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 20px;
-        padding: 5px 9px;
-        font-size: 12px;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-
-    .availability-in-stock {
-        background: #e8f7ee;
-        color: #198754;
-    }
-
-    .availability-backordered {
-        background: #fff4d6;
-        color: #9a6700;
-    }
-
-    .availability-out {
-        background: #fdecec;
-        color: #dc3545;
-    }
-
-    .availability-default {
-        background: #f1f3f5;
-        color: #6c757d;
-    }
-
-    .shopify-exists {
-        background: #e8f7ee;
-        color: #198754;
-    }
-
-    .shopify-not-found {
-        background: #fff4d6;
-        color: #9a6700;
-    }
-
-    .shopify-error {
-        background: #fdecec;
-        color: #dc3545;
-    }
-
-    .shopify-not-checked,
-    .shopify-default {
-        background: #f1f3f5;
-        color: #6c757d;
-    }
-
-    .shopify-status-text {
-        font-size: 11px;
-        color: #8a9299;
-        margin-top: 3px;
-    }
-
-    .updated-text {
-        font-size: 12px;
-        color: #6c757d;
-        white-space: nowrap;
-    }
-
-    .action-cell {
-        min-width: 130px;
-    }
-
-    .push-btn {
-        min-width: 118px;
-    }
-
-    .push-btn .spinner-border {
-        display: none;
-    }
-
-    .push-btn.loading .button-text {
-        display: none;
-    }
-
-    .push-btn.loading .spinner-border {
-        display: inline-block;
-    }
-
-    .push-btn.loading {
-        pointer-events: none;
-    }
-
-    .bulk-btn .spinner-border {
-        display: none;
-    }
-
-    .bulk-btn.loading .button-text {
-        display: none;
-    }
-
-    .bulk-btn.loading .spinner-border {
-        display: inline-block;
-    }
-
-    .bulk-btn.loading {
-        pointer-events: none;
-    }
-
-    .empty-state {
-        padding: 60px 20px;
-        text-align: center;
-        color: #6c757d;
-    }
-
-    .empty-state i {
-        font-size: 38px;
-        margin-bottom: 12px;
-    }
-
-    .products-footer {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 15px 18px;
-        gap: 15px;
-    }
-
-    .results-count {
-        color: #6c757d;
-        font-size: 13px;
-    }
-
-    .sync-result {
-        display: none;
-        margin-bottom: 15px;
-    }
-
-    .sync-result.show {
-        display: block;
-    }
-
-    .bulk-progress {
-        display: none;
-        margin-bottom: 15px;
-    }
-
-    .bulk-progress.show {
-        display: block;
-    }
-
-    .bulk-progress-text {
-        display: flex;
-        justify-content: space-between;
-        font-size: 13px;
-        margin-bottom: 6px;
-    }
-
-    @media (max-width: 991px) {
-        .products-header {
-            flex-direction: column;
-        }
-
-        .sync-info {
-            text-align: left;
-        }
-
-        .products-table {
-            min-width: 1050px;
-        }
-
-        .products-card {
-            overflow-x: auto;
-        }
-
-        .products-footer {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-    }
-</style>
 
 <div class="products-page">
 
-    {{-- ============================================================
-         HEADER
-    ============================================================= --}}
+    {{-- ================================================================
+         PAGE HEADER
+    ================================================================= --}}
 
     <div class="products-header">
 
         <div>
-            <h1>Products</h1>
 
-            <p>
+            <h1 class="products-title">
+                Products
+            </h1>
+
+            <p class="products-subtitle">
                 Browse Fullscript products and push them to Shopify.
                 Existing products will be updated, new products will be created.
             </p>
+
         </div>
 
-        <div class="sync-info">
 
-            <a
-                href="{{ route('products.index', request()->except('page')) }}"
-                class="btn btn-outline-secondary btn-sm"
+        <div class="products-header-actions">
+
+            <button
+                type="button"
+                class="btn btn-primary products-sync-button"
+                id="syncLatestProducts"
             >
-                <i class="bi bi-arrow-clockwise me-1"></i>
+                <i class="bi bi-arrow-repeat me-1"></i>
                 Sync Latest Products
-            </a>
+            </button>
 
-            @if($lastSyncedAt)
-                <small>
+            @if(!empty($lastSyncedAt))
+
+                <div class="last-synced">
+
                     Last synced:
                     {{ $lastSyncedAt }}
-                </small>
-            @else
-                <small>
-                    Showing current Fullscript catalog data
-                </small>
+
+                </div>
+
             @endif
 
         </div>
@@ -386,259 +55,361 @@
     </div>
 
 
-    {{-- ============================================================
-         ERROR
-    ============================================================= --}}
+    {{-- ================================================================
+         ERROR MESSAGE
+    ================================================================= --}}
 
     @if(!empty($error))
 
-        <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle me-1"></i>
+        <div
+            class="alert alert-danger products-alert"
+            role="alert"
+        >
 
-            {{ $error }}
+            <div class="d-flex align-items-start">
+
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+
+                <div>
+
+                    <strong>
+                        Unable to load Fullscript products.
+                    </strong>
+
+                    <div class="mt-1">
+                        {{ $error }}
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
 
     @endif
 
 
-    {{-- ============================================================
-         AJAX RESULT
-    ============================================================= --}}
+    {{-- ================================================================
+         FILTER CARD
+    ================================================================= --}}
 
-    <div
-        id="syncResult"
-        class="sync-result"
-    ></div>
+    <div class="card products-filter-card">
+
+        <div class="card-body">
+
+            <form
+                method="GET"
+                action="{{ route('products.index') }}"
+                id="productSearchForm"
+            >
+
+                <div class="row g-3 align-items-end">
+
+                    {{-- ====================================================
+                         BRAND
+                    ===================================================== --}}
+
+                    <div class="col-lg-5">
+
+                        <label
+                            for="brandId"
+                            class="form-label products-form-label"
+                        >
+                            Brand / Vendor
+                        </label>
+
+                        <select
+                            name="brand_id"
+                            id="brandId"
+                            class="form-select products-search-input"
+                        >
+
+                            <option value="">
+                                All Brands
+                            </option>
+
+                            @php
+                                $currentBrandId = request(
+                                    'brand_id',
+                                    $brandId ?? ''
+                                );
+                            @endphp
 
 
-    {{-- ============================================================
-         FILTERS
-    ============================================================= --}}
+                            @foreach(($brands ?? []) as $brandOption)
 
-    <div class="filter-card">
+                                @php
 
-        <form
-            method="GET"
-            action="{{ route('products.index') }}"
-        >
+                                    /*
+                                     * Support several possible response
+                                     * structures from Fullscript.
+                                     */
 
-            <div class="row g-3 align-items-end">
+                                    $optionId =
+                                        $brandOption['id']
+                                        ?? $brandOption['brand_id']
+                                        ?? null;
 
-                {{-- Brand --}}
+                                    $optionName =
+                                        $brandOption['name']
+                                        ?? $brandOption['brand_name']
+                                        ?? 'Unknown Brand';
 
-                <div class="col-md-4">
+                                @endphp
 
-                    <label
-                        for="brand"
-                        class="filter-label"
-                    >
-                        Brand / Vendor
-                    </label>
 
-                    <select
-                        name="brand"
-                        id="brand"
-                        class="form-select"
-                    >
+                                @if($optionId)
 
-                        <option value="">
-                            All Brands
-                        </option>
+                                    <option
+                                        value="{{ $optionId }}"
+                                        @selected(
+                                            (string) $currentBrandId ===
+                                            (string) $optionId
+                                        )
+                                    >
+                                        {{ $optionName }}
+                                    </option>
 
-                        @foreach($brands as $brandOption)
+                                @endif
 
-                            @if($brandOption !== 'All Brands')
+                            @endforeach
+
+                        </select>
+
+                    </div>
+
+
+                    {{-- ====================================================
+                         PRODUCT / SKU SEARCH
+                    ===================================================== --}}
+
+                    <div class="col-lg-4">
+
+                        <label
+                            for="productSearch"
+                            class="form-label products-form-label"
+                        >
+                            Product Name / SKU
+                            <span class="text-muted">(optional)</span>
+                        </label>
+
+                        <div class="input-group">
+
+                            <input
+                                type="text"
+                                id="productSearch"
+                                name="search"
+                                class="form-control products-search-input"
+                                value="{{ $search ?? request('search', '') }}"
+                                placeholder="Search product name or SKU..."
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                            >
+                                <i class="bi bi-search"></i>
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- ====================================================
+                         PER PAGE
+                    ===================================================== --}}
+
+                    <div class="col-lg-2">
+
+                        <label
+                            for="perPage"
+                            class="form-label products-form-label"
+                        >
+                            Show per page
+                        </label>
+
+                        <select
+                            name="per_page"
+                            id="perPage"
+                            class="form-select products-search-input"
+                        >
+
+                            @foreach([25, 50, 100] as $size)
 
                                 <option
-                                    value="{{ $brandOption }}"
-                                    @selected($brand === $brandOption)
+                                    value="{{ $size }}"
+                                    @selected(
+                                        (int)($perPage ?? request('per_page', 25))
+                                        === $size
+                                    )
                                 >
-                                    {{ $brandOption }}
+                                    {{ $size }}
                                 </option>
+
+                            @endforeach
+
+                        </select>
+
+                    </div>
+
+
+                    {{-- ====================================================
+                         SEARCH BUTTON
+                    ===================================================== --}}
+
+                    <div class="col-lg-1">
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary products-filter-button"
+                            title="Search"
+                        >
+
+                            <i class="bi bi-search"></i>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                {{-- ========================================================
+                     QUICK BRAND FILTERS
+                ========================================================= --}}
+
+                @if(!empty($brands))
+
+                    <div class="quick-brand-filter">
+
+                        <span class="quick-filter-label">
+                            Quick Filters:
+                        </span>
+
+
+                        <a
+                            href="{{ route('products.index', array_merge(
+                                request()->except('page', 'brand_id'),
+                                []
+                            )) }}"
+                            class="brand-pill
+                                {{ empty($currentBrandId) ? 'active' : '' }}"
+                        >
+                            All Brands
+                        </a>
+
+
+                        @foreach(
+                            collect($brands)->take(6)
+                            as $quickBrand
+                        )
+
+                            @php
+
+                                $quickBrandId =
+                                    $quickBrand['id']
+                                    ?? $quickBrand['brand_id']
+                                    ?? null;
+
+                                $quickBrandName =
+                                    $quickBrand['name']
+                                    ?? $quickBrand['brand_name']
+                                    ?? 'Unknown Brand';
+
+                            @endphp
+
+
+                            @if($quickBrandId)
+
+                                <a
+                                    href="{{ route(
+                                        'products.index',
+                                        array_merge(
+                                            request()->except('page'),
+                                            [
+                                                'brand_id' => $quickBrandId
+                                            ]
+                                        )
+                                    ) }}"
+                                    class="brand-pill
+                                        {{ (string)$currentBrandId ===
+                                           (string)$quickBrandId
+                                            ? 'active'
+                                            : '' }}"
+                                >
+
+                                    {{ $quickBrandName }}
+
+                                </a>
 
                             @endif
 
                         @endforeach
 
-                    </select>
+                    </div>
 
-                </div>
+                @endif
 
+            </form>
 
-                {{-- Search --}}
-
-                <div class="col-md-5">
-
-                    <label
-                        for="search"
-                        class="filter-label"
-                    >
-                        Product Name / SKU
-                    </label>
-
-                    <input
-                        type="text"
-                        name="search"
-                        id="search"
-                        class="form-control"
-                        value="{{ $search }}"
-                        placeholder="Search product name or SKU..."
-                    >
-
-                </div>
-
-
-                {{-- Per page --}}
-
-                <div class="col-md-2">
-
-                    <label
-                        for="per_page"
-                        class="filter-label"
-                    >
-                        Show per page
-                    </label>
-
-                    <select
-                        name="per_page"
-                        id="per_page"
-                        class="form-select"
-                    >
-
-                        <option
-                            value="25"
-                            @selected($perPage == 25)
-                        >
-                            25
-                        </option>
-
-                        <option
-                            value="50"
-                            @selected($perPage == 50)
-                        >
-                            50
-                        </option>
-
-                        <option
-                            value="100"
-                            @selected($perPage == 100)
-                        >
-                            100
-                        </option>
-
-                    </select>
-
-                </div>
-
-
-                {{-- Submit --}}
-
-                <div class="col-md-1">
-
-                    <button
-                        type="submit"
-                        class="btn btn-dark w-100"
-                        title="Apply filters"
-                    >
-                        <i class="bi bi-search"></i>
-                    </button>
-
-                </div>
-
-            </div>
-
-
-            {{-- ====================================================
-                 QUICK BRAND FILTERS
-            ===================================================== --}}
-
-            <div class="brand-pills">
-
-                @foreach($brands as $brandOption)
-
-                    @if($brandOption === 'All Brands')
-
-                        <a
-                            href="{{ route('products.index', [
-                                'per_page' => $perPage,
-                            ]) }}"
-                            class="brand-pill {{ $brand === '' ? 'active' : '' }}"
-                        >
-                            All Brands
-                        </a>
-
-                    @else
-
-                        <a
-                            href="{{ route('products.index', [
-                                'brand' => $brandOption,
-                                'per_page' => $perPage,
-                            ]) }}"
-                            class="brand-pill {{ $brand === $brandOption ? 'active' : '' }}"
-                        >
-                            {{ $brandOption }}
-                        </a>
-
-                    @endif
-
-                @endforeach
-
-            </div>
-
-        </form>
+        </div>
 
     </div>
 
 
-    {{-- ============================================================
-         SELECTION BAR
-    ============================================================= --}}
+    {{-- ================================================================
+         SELECTION / BULK ACTION BAR
+    ================================================================= --}}
 
     <div
-        id="selectionBar"
-        class="selection-bar"
+        class="bulk-action-bar"
+        id="bulkActionBar"
+        style="display:none;"
     >
 
-        <div class="selection-count">
+        <div class="bulk-selection-info">
 
             <i class="bi bi-check2-square me-1"></i>
 
-            <span id="selectedCount">
-                0
-            </span>
+            <strong id="selectedCount">0</strong>
 
             products selected
 
             <span class="text-muted">
-                (of {{ $products->count() }} on this page)
+                (of {{ $paginator->count() }} on this page)
             </span>
 
         </div>
 
-        <div class="d-flex gap-2">
+
+        <div class="bulk-actions">
 
             <button
                 type="button"
-                id="pushSelectedBtn"
-                class="btn btn-dark btn-sm bulk-btn"
+                class="btn btn-primary btn-sm"
+                id="pushSelectedButton"
             >
 
-                <span class="spinner-border spinner-border-sm me-1"></span>
+                <i class="bi bi-cloud-arrow-up me-1"></i>
 
-                <span class="button-text">
-                    <i class="bi bi-cloud-arrow-up me-1"></i>
-                    Push Selected to Shopify
-                    (<span id="selectedCountButton">0</span>)
-                </span>
+                Push Selected to Shopify
+
+                (<span id="selectedButtonCount">0</span>)
 
             </button>
 
+
             <button
                 type="button"
-                id="clearSelectionBtn"
-                class="btn btn-outline-secondary btn-sm"
+                class="btn btn-light btn-sm"
+                id="clearSelectionButton"
             >
+
+                <i class="bi bi-x-lg me-1"></i>
+
                 Clear Selection
+
             </button>
 
         </div>
@@ -646,16 +417,17 @@
     </div>
 
 
-    {{-- ============================================================
+    {{-- ================================================================
          BULK PROGRESS
-    ============================================================= --}}
+    ================================================================= --}}
 
     <div
-        id="bulkProgress"
-        class="bulk-progress"
+        class="bulk-progress-card"
+        id="bulkProgressCard"
+        style="display:none;"
     >
 
-        <div class="bulk-progress-text">
+        <div class="bulk-progress-header">
 
             <span id="bulkProgressText">
                 Processing products...
@@ -668,97 +440,80 @@
         </div>
 
         <div class="progress">
+
             <div
-                id="bulkProgressBar"
                 class="progress-bar"
+                id="bulkProgressBar"
                 role="progressbar"
-                style="width: 0%"
+                style="width:0%;"
             ></div>
+
         </div>
 
     </div>
 
 
-    {{-- ============================================================
+    {{-- ================================================================
          PRODUCTS TABLE
-    ============================================================= --}}
+    ================================================================= --}}
 
-    <div class="products-card">
+    <div class="card products-table-card">
 
-        @if($products->count())
+        <div class="table-responsive">
 
-            <table class="table products-table">
+            <table class="table products-table mb-0">
 
                 <thead>
 
                     <tr>
 
-                        {{-- Select all --}}
-
-                        <th style="width: 42px;">
+                        <th class="checkbox-column">
 
                             <input
                                 type="checkbox"
                                 class="form-check-input"
                                 id="selectAll"
-                                title="Select all products on this page"
                             >
 
                         </th>
 
 
-                        {{-- Image --}}
-
-                        <th>
+                        <th class="image-column">
                             Image
                         </th>
 
 
-                        {{-- Product --}}
-
-                        <th>
+                        <th class="product-column">
                             Product
                         </th>
 
 
-                        {{-- Brand --}}
-
-                        <th>
+                        <th class="brand-column">
                             Brand
                         </th>
 
 
-                        {{-- SKU --}}
-
-                        <th>
+                        <th class="sku-column">
                             SKU
                         </th>
 
 
-                        {{-- Availability --}}
-
-                        <th>
+                        <th class="availability-column">
                             Availability
                         </th>
 
 
-                        {{-- Shopify --}}
-
-                        <th>
+                        <th class="shopify-column">
                             Shopify Status
                         </th>
 
 
-                        {{-- Updated --}}
-
-                        <th>
+                        <th class="updated-column">
                             Updated
                         </th>
 
 
-                        {{-- Action --}}
-
-                        <th>
+                        <th class="action-column">
                             Action
                         </th>
 
@@ -769,106 +524,215 @@
 
                 <tbody>
 
-                    @foreach($products as $product)
+                    @forelse($paginator as $product)
 
                         @php
 
                             $productId =
-                                $product['id'] ?? null;
+                                $product['id']
+                                ?? $product['product_id']
+                                ?? '';
 
-                            $shopifyStatus =
-                                $product['shopify_status']
-                                ?? 'Not Checked';
+                            $title =
+                                $product['title']
+                                ?? $product['name']
+                                ?? 'Untitled Product';
+
+                            $brandName =
+                                $product['brand']
+                                ?? $product['brand_name']
+                                ?? '—';
+
+                            /*
+                             * Brand may be returned as an object.
+                             */
+                            if (is_array($brandName)) {
+
+                                $brandName =
+                                    $brandName['name']
+                                    ?? '—';
+
+                            }
+
+
+                            $sku =
+                                $product['sku']
+                                ?? $product['primary_sku']
+                                ?? '—';
+
+
+                            $image =
+                                $product['image']
+                                ?? $product['image_url']
+                                ?? $product['image_url_small']
+                                ?? null;
+
 
                             $availability =
                                 $product['availability']
+                                ?? $product['status']
                                 ?? 'Unknown';
 
-                            $availabilityClass =
-                                match(
-                                    strtolower(
-                                        trim(
-                                            $availability
-                                        )
-                                    )
-                                ) {
 
-                                    'in stock' =>
-                                        'availability-in-stock',
+                            $availabilityLower =
+                                strtolower(
+                                    (string) $availability
+                                );
 
-                                    'backordered' =>
-                                        'availability-backordered',
 
-                                    'out of stock' =>
-                                        'availability-out',
+                            if (
+                                str_contains(
+                                    $availabilityLower,
+                                    'in stock'
+                                ) ||
+                                $availabilityLower === 'available'
+                            ) {
 
-                                    default =>
-                                        'availability-default',
-                                };
+                                $availabilityClass =
+                                    'availability-in-stock';
 
-                            $shopifyStatusClass =
-                                match(
-                                    strtolower(
-                                        trim(
-                                            $shopifyStatus
-                                        )
-                                    )
-                                ) {
+                            } elseif (
+                                str_contains(
+                                    $availabilityLower,
+                                    'backorder'
+                                )
+                            ) {
 
-                                    'exists' =>
-                                        'shopify-exists',
+                                $availabilityClass =
+                                    'availability-backordered';
 
-                                    'not found' =>
-                                        'shopify-not-found',
+                            } elseif (
+                                str_contains(
+                                    $availabilityLower,
+                                    'discontinued'
+                                )
+                            ) {
 
-                                    'error' =>
-                                        'shopify-error',
+                                $availabilityClass =
+                                    'availability-discontinued';
 
-                                    'not checked' =>
-                                        'shopify-not-checked',
+                            } elseif (
+                                str_contains(
+                                    $availabilityLower,
+                                    'out'
+                                ) ||
+                                str_contains(
+                                    $availabilityLower,
+                                    'unavailable'
+                                )
+                            ) {
 
-                                    default =>
-                                        'shopify-default',
-                                };
+                                $availabilityClass =
+                                    'availability-out-of-stock';
+
+                            } else {
+
+                                $availabilityClass =
+                                    'availability-default';
+
+                            }
+
+
+                            $shopifyStatus =
+                                $product['shopify_status']
+                                ?? $product['shopify']['status']
+                                ?? 'Not Checked';
+
+
+                            $shopifyStatusText =
+                                $product['shopify_status_text']
+                                ?? $product['shopify']['message']
+                                ?? '';
+
+
+                            $shopifyStatusLower =
+                                strtolower(
+                                    (string) $shopifyStatus
+                                );
+
+
+                            if (
+                                str_contains(
+                                    $shopifyStatusLower,
+                                    'exist'
+                                )
+                            ) {
+
+                                $shopifyClass =
+                                    'shopify-exists';
+
+                            } elseif (
+                                str_contains(
+                                    $shopifyStatusLower,
+                                    'not found'
+                                )
+                            ) {
+
+                                $shopifyClass =
+                                    'shopify-not-found';
+
+                            } elseif (
+                                str_contains(
+                                    $shopifyStatusLower,
+                                    'error'
+                                )
+                            ) {
+
+                                $shopifyClass =
+                                    'shopify-error';
+
+                            } else {
+
+                                $shopifyClass =
+                                    'shopify-not-checked';
+
+                            }
+
+
+                            $updatedAt =
+                                $product['updated_at']
+                                ?? null;
+
+                            $shopifyProductId =
+                                $product['shopify_product_id']
+                                ?? $product['shopify']['id']
+                                ?? null;
+
+
+                            $action =
+                                $product['action']
+                                ?? (
+                                    $shopifyProductId
+                                        ? 'update'
+                                        : 'create'
+                                );
 
                         @endphp
 
 
-                        <tr
-                            data-product-id="{{ $productId }}"
-                            data-product-sku="{{ $product['sku'] ?? '' }}"
-                        >
+                        <tr>
 
-                            {{-- =================================================
-                                 CHECKBOX
-                            ================================================== --}}
+                            {{-- Checkbox --}}
+                            <td class="checkbox-column">
 
-                            <td>
-
-                                @if($productId)
-
-                                    <input
-                                        type="checkbox"
-                                        class="form-check-input product-checkbox"
-                                        value="{{ $productId }}"
-                                    >
-
-                                @endif
+                                <input
+                                    type="checkbox"
+                                    class="form-check-input product-checkbox"
+                                    value="{{ $productId }}"
+                                    data-product-id="{{ $productId }}"
+                                >
 
                             </td>
 
 
-                            {{-- =================================================
-                                 IMAGE
-                            ================================================== --}}
+                            {{-- Image --}}
+                            <td class="image-column">
 
-                            <td>
-
-                                @if(!empty($product['image']))
+                                @if($image)
 
                                     <img
-                                        src="{{ $product['image'] }}"
-                                        alt="{{ $product['title'] ?? 'Product' }}"
+                                        src="{{ $image }}"
+                                        alt="{{ $title }}"
                                         class="product-image"
                                         loading="lazy"
                                     >
@@ -877,7 +741,7 @@
 
                                     <div class="product-image-placeholder">
 
-                                        <i class="bi bi-image"></i>
+                                        <i class="bi bi-box"></i>
 
                                     </div>
 
@@ -886,117 +750,24 @@
                             </td>
 
 
-                            {{-- =================================================
-                                 PRODUCT
-                            ================================================== --}}
+                            {{-- Product --}}
+                            <td class="product-column">
 
-                            <td>
+                                <div class="product-info">
 
-                                <div class="product-title">
+                                    <div class="product-name">
 
-                                    {{ $product['title'] ?? 'Untitled Product' }}
+                                        {{ $title }}
 
-                                    @if(!empty($product['id']))
+                                    </div>
 
-                                        <small>
+
+                                    @if($productId)
+
+                                        <div class="product-fullscript-id">
+
                                             Fullscript ID:
-                                            {{ $product['id'] }}
-                                        </small>
-
-                                    @endif
-
-                                </div>
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 BRAND
-                            ================================================== --}}
-
-                            <td>
-
-                                {{ $product['brand'] ?? '—' }}
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 SKU
-                            ================================================== --}}
-
-                            <td>
-
-                                @if(!empty($product['sku']))
-
-                                    <span class="sku">
-                                        {{ $product['sku'] }}
-                                    </span>
-
-                                @else
-
-                                    <span class="text-muted">
-                                        No SKU
-                                    </span>
-
-                                @endif
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 AVAILABILITY
-                            ================================================== --}}
-
-                            <td>
-
-                                <span
-                                    class="status-badge {{ $availabilityClass }}"
-                                >
-
-                                    {{ $availability }}
-
-                                </span>
-
-                            </td>
-
-
-                            {{-- =================================================
-                                 SHOPIFY STATUS
-                            ================================================== --}}
-
-                            <td>
-
-                                <div>
-
-                                    <span
-                                        class="status-badge {{ $shopifyStatusClass }}"
-                                    >
-
-                                        @if($shopifyStatus === 'Exists')
-
-                                            <i class="bi bi-check2-circle me-1"></i>
-
-                                        @elseif($shopifyStatus === 'Error')
-
-                                            <i class="bi bi-exclamation-circle me-1"></i>
-
-                                        @elseif($shopifyStatus === 'Not Found')
-
-                                            <i class="bi bi-dash-circle me-1"></i>
-
-                                        @endif
-
-                                        {{ $shopifyStatus }}
-
-                                    </span>
-
-
-                                    @if(!empty($product['shopify_status_text']))
-
-                                        <div class="shopify-status-text">
-
-                                            {{ $product['shopify_status_text'] }}
+                                            {{ $productId }}
 
                                         </div>
 
@@ -1007,23 +778,109 @@
                             </td>
 
 
-                            {{-- =================================================
-                                 UPDATED
-                            ================================================== --}}
+                            {{-- Brand --}}
+                            <td class="brand-column">
 
-                            <td>
+                                <span class="brand-name">
 
-                                @if(!empty($product['updated_at']))
+                                    {{ $brandName }}
 
-                                    <span class="updated-text">
+                                </span>
 
-                                        {{ $product['updated_at'] }}
+                            </td>
 
-                                    </span>
+
+                            {{-- SKU --}}
+                            <td class="sku-column">
+
+                                <span class="sku-text">
+
+                                    {{ $sku }}
+
+                                </span>
+
+                            </td>
+
+
+                            {{-- Availability --}}
+                            <td class="availability-column">
+
+                                <span
+                                    class="status-badge
+                                        {{ $availabilityClass }}"
+                                >
+
+                                    {{ $availability }}
+
+                                </span>
+
+                            </td>
+
+
+                            {{-- Shopify Status --}}
+                            <td class="shopify-column">
+
+                                <span
+                                    class="status-badge
+                                        {{ $shopifyClass }}"
+                                >
+
+                                    {{ $shopifyStatus }}
+
+                                </span>
+
+
+                                @if($shopifyStatusText)
+
+                                    <div class="shopify-status-text">
+
+                                        {{ $shopifyStatusText }}
+
+                                    </div>
+
+                                @elseif(
+                                    $shopifyProductId
+                                )
+
+                                    <div class="shopify-status-text">
+
+                                        Will update
+
+                                    </div>
 
                                 @else
 
-                                    <span class="text-muted">
+                                    <div class="shopify-status-text">
+
+                                        Will create
+
+                                    </div>
+
+                                @endif
+
+                            </td>
+
+
+                            {{-- Updated --}}
+                            <td class="updated-column">
+
+                                @if($updatedAt)
+
+                                    <span class="updated-text">
+
+                                        {{ \Illuminate\Support\Carbon::parse($updatedAt)->format('M d, Y') }}
+
+                                    </span>
+
+                                    <div class="updated-time">
+
+                                        {{ \Illuminate\Support\Carbon::parse($updatedAt)->format('h:i A') }}
+
+                                    </div>
+
+                                @else
+
+                                    <span class="updated-empty">
                                         —
                                     </span>
 
@@ -1032,51 +889,82 @@
                             </td>
 
 
-                            {{-- =================================================
-                                 ACTION
-                            ================================================== --}}
+                            {{-- Action --}}
+                            <td class="action-column">
 
-                            <td class="action-cell">
+                                <button
+                                    type="button"
+                                    class="btn
+                                        {{ $action === 'update'
+                                            ? 'btn-outline-primary'
+                                            : 'btn-primary' }}
+                                        btn-sm
+                                        product-action-button"
+                                    data-product-id="{{ $productId }}"
+                                    data-product-title="{{ $title }}"
+                                    data-action="{{ $action }}"
+                                >
 
-                                @if($productId)
+                                    @if($action === 'update')
 
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm {{ $shopifyStatus === 'Exists' ? 'btn-outline-primary' : 'btn-dark' }} push-btn"
-                                        data-product-id="{{ $productId }}"
-                                        data-product-title="{{ $product['title'] ?? 'Product' }}"
+                                        <i class="bi bi-arrow-repeat me-1"></i>
+
+                                        Update Shopify
+
+                                    @else
+
+                                        <i class="bi bi-cloud-arrow-up me-1"></i>
+
+                                        Push to Shopify
+
+                                    @endif
+
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                    @empty
+
+                        <tr>
+
+                            <td
+                                colspan="9"
+                                class="products-empty-state"
+                            >
+
+                                <div class="empty-state-icon">
+
+                                    <i class="bi bi-box-seam"></i>
+
+                                </div>
+
+
+                                <h5>
+                                    No products found
+                                </h5>
+
+
+                                <p>
+                                    No Fullscript products match your
+                                    current filters.
+                                </p>
+
+
+                                @if(
+                                    request()->filled('brand_id') ||
+                                    request()->filled('search')
+                                )
+
+                                    <a
+                                        href="{{ route('products.index') }}"
+                                        class="btn btn-outline-primary btn-sm"
                                     >
 
-                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                        Clear Search
 
-                                        <span class="button-text">
-
-                                            @if($shopifyStatus === 'Exists')
-
-                                                <i class="bi bi-arrow-repeat me-1"></i>
-                                                Update Shopify
-
-                                            @elseif($shopifyStatus === 'Error')
-
-                                                <i class="bi bi-arrow-clockwise me-1"></i>
-                                                Retry
-
-                                            @else
-
-                                                <i class="bi bi-cloud-arrow-up me-1"></i>
-                                                Push to Shopify
-
-                                            @endif
-
-                                        </span>
-
-                                    </button>
-
-                                @else
-
-                                    <span class="text-muted">
-                                        No ID
-                                    </span>
+                                    </a>
 
                                 @endif
 
@@ -1084,578 +972,1357 @@
 
                         </tr>
 
-                    @endforeach
+                    @endforelse
 
                 </tbody>
 
             </table>
 
-        @else
-
-            <div class="empty-state">
-
-                <i class="bi bi-box-seam d-block"></i>
-
-                <h5>
-                    No products found
-                </h5>
-
-                <p class="mb-0">
-                    Try changing your brand or search filters.
-                </p>
-
-            </div>
-
-        @endif
-
-
-        {{-- ============================================================
-             FOOTER / PAGINATION
-        ============================================================= --}}
-
-        <div class="products-footer">
-
-            <div class="results-count">
-
-                @if($products->total() > 0)
-
-                    Showing
-
-                    <strong>
-                        {{ $products->firstItem() }}
-                    </strong>
-
-                    to
-
-                    <strong>
-                        {{ $products->lastItem() }}
-                    </strong>
-
-                    of
-
-                    <strong>
-                        {{ number_format($products->total()) }}
-                    </strong>
-
-                    products
-
-                @else
-
-                    No products
-
-                @endif
-
-            </div>
-
-
-            <div>
-
-                {{ $products->onEachSide(1)->links() }}
-
-            </div>
-
         </div>
 
     </div>
 
+
+    {{-- ================================================================
+         PAGINATION
+    ================================================================= --}}
+
+    @if($paginator->total() > 0)
+
+        <div class="products-pagination">
+
+            {{-- Summary --}}
+            <div class="pagination-summary">
+
+                Showing
+
+                <strong>
+                    {{ $paginator->firstItem() }}
+                </strong>
+
+                to
+
+                <strong>
+                    {{ $paginator->lastItem() }}
+                </strong>
+
+                of
+
+                <strong>
+                    {{ number_format($paginator->total()) }}
+                </strong>
+
+                products
+
+            </div>
+
+
+            {{-- Pagination --}}
+            @if($paginator->hasPages())
+
+                <nav
+                    class="products-pagination-nav"
+                    aria-label="Products pagination"
+                >
+
+                    <ul class="pagination products-pagination-list mb-0">
+
+                        {{-- Previous --}}
+                        @if($paginator->onFirstPage())
+
+                            <li class="page-item disabled">
+
+                                <span class="page-link">
+
+                                    <i class="bi bi-chevron-left"></i>
+
+                                    <span>Previous</span>
+
+                                </span>
+
+                            </li>
+
+                        @else
+
+                            <li class="page-item">
+
+                                <a
+                                    class="page-link"
+                                    href="{{ $paginator->previousPageUrl() }}"
+                                >
+
+                                    <i class="bi bi-chevron-left"></i>
+
+                                    <span>Previous</span>
+
+                                </a>
+
+                            </li>
+
+                        @endif
+
+
+                        @php
+
+                            $startPage = max(
+                                1,
+                                $paginator->currentPage() - 2
+                            );
+
+                            $endPage = min(
+                                $paginator->lastPage(),
+                                $paginator->currentPage() + 2
+                            );
+
+                        @endphp
+
+
+                        {{-- First page --}}
+                        @if($startPage > 1)
+
+                            <li class="page-item">
+
+                                <a
+                                    class="page-link"
+                                    href="{{ $paginator->url(1) }}"
+                                >
+                                    1
+                                </a>
+
+                            </li>
+
+
+                            @if($startPage > 2)
+
+                                <li class="page-item disabled">
+
+                                    <span class="page-link">
+                                        ...
+                                    </span>
+
+                                </li>
+
+                            @endif
+
+                        @endif
+
+
+                        {{-- Page numbers --}}
+                        @foreach(
+                            $paginator->getUrlRange(
+                                $startPage,
+                                $endPage
+                            ) as $page => $url
+                        )
+
+                            <li
+                                class="page-item
+                                    {{ $page == $paginator->currentPage()
+                                        ? 'active'
+                                        : '' }}"
+                            >
+
+                                @if(
+                                    $page ==
+                                    $paginator->currentPage()
+                                )
+
+                                    <span class="page-link">
+
+                                        {{ $page }}
+
+                                    </span>
+
+                                @else
+
+                                    <a
+                                        class="page-link"
+                                        href="{{ $url }}"
+                                    >
+
+                                        {{ $page }}
+
+                                    </a>
+
+                                @endif
+
+                            </li>
+
+                        @endforeach
+
+
+                        {{-- Last page --}}
+                        @if(
+                            $endPage <
+                            $paginator->lastPage()
+                        )
+
+                            @if(
+                                $endPage <
+                                $paginator->lastPage() - 1
+                            )
+
+                                <li class="page-item disabled">
+
+                                    <span class="page-link">
+                                        ...
+                                    </span>
+
+                                </li>
+
+                            @endif
+
+
+                            <li class="page-item">
+
+                                <a
+                                    class="page-link"
+                                    href="{{ $paginator->url(
+                                        $paginator->lastPage()
+                                    ) }}"
+                                >
+
+                                    {{ $paginator->lastPage() }}
+
+                                </a>
+
+                            </li>
+
+                        @endif
+
+
+                        {{-- Next --}}
+                        @if($paginator->hasMorePages())
+
+                            <li class="page-item">
+
+                                <a
+                                    class="page-link"
+                                    href="{{ $paginator->nextPageUrl() }}"
+                                >
+
+                                    <span>Next</span>
+
+                                    <i class="bi bi-chevron-right"></i>
+
+                                </a>
+
+                            </li>
+
+                        @else
+
+                            <li class="page-item disabled">
+
+                                <span class="page-link">
+
+                                    <span>Next</span>
+
+                                    <i class="bi bi-chevron-right"></i>
+
+                                </span>
+
+                            </li>
+
+                        @endif
+
+                    </ul>
+
+                </nav>
+
+            @endif
+
+        </div>
+
+    @endif
+
 </div>
 
 
-{{-- ================================================================
-     JAVASCRIPT
-================================================================= --}}
+{{-- =====================================================================
+     PAGE STYLES
+===================================================================== --}}
+
+<style>
+
+    /* ================================================================
+       PAGE
+    ================================================================= */
+
+    .products-page {
+        width: 100%;
+        max-width: 100%;
+    }
+
+
+    /* ================================================================
+       HEADER
+    ================================================================= */
+
+    .products-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+
+        margin-bottom: 18px;
+    }
+
+    .products-title {
+        margin: 0;
+
+        font-size: 28px;
+        font-weight: 600;
+
+        color: #1f2937;
+        letter-spacing: -0.4px;
+    }
+
+    .products-subtitle {
+        margin: 4px 0 0;
+
+        color: #6b7280;
+        font-size: 13px;
+    }
+
+    .products-header-actions {
+        text-align: right;
+    }
+
+    .products-sync-button {
+        height: 36px;
+
+        padding: 0 14px;
+
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .last-synced {
+        margin-top: 4px;
+
+        color: #8a919a;
+        font-size: 10px;
+    }
+
+
+    /* ================================================================
+       ALERT
+    ================================================================= */
+
+    .products-alert {
+        margin-bottom: 14px;
+
+        padding: 10px 13px;
+
+        font-size: 12px;
+    }
+
+
+    /* ================================================================
+       FILTER CARD
+    ================================================================= */
+
+    .products-filter-card {
+        margin-bottom: 12px;
+
+        border: 1px solid #e2e6ea;
+        border-radius: 7px;
+
+        box-shadow: none;
+    }
+
+    .products-filter-card .card-body {
+        padding: 13px 14px;
+    }
+
+    .products-form-label {
+        margin-bottom: 5px;
+
+        color: #374151;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .products-search-input {
+        height: 34px;
+
+        border-color: #d8dde3;
+
+        font-size: 12px;
+    }
+
+    .products-filter-button {
+        width: 100%;
+        height: 34px;
+
+        padding: 0;
+
+        font-size: 12px;
+    }
+
+
+    /* ================================================================
+       QUICK BRAND FILTERS
+    ================================================================= */
+
+    .quick-brand-filter {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+
+        gap: 5px;
+
+        margin-top: 12px;
+    }
+
+    .quick-filter-label {
+        margin-right: 3px;
+
+        color: #6b7280;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .brand-pill {
+        display: inline-flex;
+        align-items: center;
+
+        height: 25px;
+
+        padding: 0 9px;
+
+        border: 1px solid #e0e4e8;
+        border-radius: 20px;
+
+        background: #ffffff;
+
+        color: #59636e;
+
+        font-size: 10px;
+        text-decoration: none;
+
+        transition: all 0.15s ease;
+    }
+
+    .brand-pill:hover {
+        background: #f3f6f9;
+
+        color: #0d6efd;
+
+        border-color: #b8d0f0;
+    }
+
+    .brand-pill.active {
+        background: #1f2937;
+
+        color: #ffffff;
+
+        border-color: #1f2937;
+    }
+
+
+    /* ================================================================
+       BULK ACTION BAR
+    ================================================================= */
+
+    .bulk-action-bar {
+        display: flex;
+
+        align-items: center;
+        justify-content: space-between;
+
+        min-height: 44px;
+
+        margin-bottom: 10px;
+
+        padding: 7px 10px;
+
+        border: 1px solid #cfe2ff;
+        border-radius: 6px;
+
+        background: #f1f7ff;
+    }
+
+    .bulk-selection-info {
+        color: #374151;
+
+        font-size: 12px;
+    }
+
+    .bulk-actions {
+        display: flex;
+
+        gap: 6px;
+    }
+
+    .bulk-actions .btn {
+        font-size: 11px;
+    }
+
+
+    /* ================================================================
+       PROGRESS
+    ================================================================= */
+
+    .bulk-progress-card {
+        margin-bottom: 10px;
+
+        padding: 10px;
+
+        border: 1px solid #dce3ea;
+        border-radius: 6px;
+
+        background: #ffffff;
+    }
+
+    .bulk-progress-header {
+        display: flex;
+        justify-content: space-between;
+
+        margin-bottom: 6px;
+
+        color: #4b5563;
+        font-size: 11px;
+    }
+
+    .bulk-progress-card .progress {
+        height: 6px;
+    }
+
+
+    /* ================================================================
+       TABLE CARD
+    ================================================================= */
+
+    .products-table-card {
+        width: 100%;
+
+        border: 1px solid #e1e5ea;
+        border-radius: 7px;
+
+        overflow: hidden;
+
+        box-shadow: none;
+    }
+
+    .products-table-card .table-responsive {
+        width: 100%;
+
+        overflow-x: auto;
+    }
+
+
+    /* ================================================================
+       TABLE
+    ================================================================= */
+
+    .products-table {
+        width: 100%;
+
+        min-width: 1080px;
+
+        margin: 0;
+
+        table-layout: auto;
+
+        font-size: 11px;
+    }
+
+    .products-table thead th {
+        height: 34px;
+
+        padding: 7px 8px;
+
+        border-bottom: 1px solid #e1e5ea;
+
+        background: #f8fafc;
+
+        color: #6b7280;
+
+        font-size: 9px;
+        font-weight: 700;
+
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+
+        white-space: nowrap;
+    }
+
+    .products-table tbody td {
+        padding: 7px 8px;
+
+        border-bottom: 1px solid #edf0f2;
+
+        vertical-align: middle;
+
+        color: #374151;
+    }
+
+    .products-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .products-table tbody tr:hover {
+        background: #fafcff;
+    }
+
+
+    /* ================================================================
+       COLUMNS
+    ================================================================= */
+
+    .checkbox-column {
+        width: 36px;
+
+        text-align: center;
+    }
+
+    .image-column {
+        width: 52px;
+    }
+
+    .product-column {
+        min-width: 260px;
+    }
+
+    .brand-column {
+        min-width: 145px;
+    }
+
+    .sku-column {
+        min-width: 100px;
+    }
+
+    .availability-column {
+        min-width: 105px;
+    }
+
+    .shopify-column {
+        min-width: 125px;
+    }
+
+    .updated-column {
+        min-width: 105px;
+    }
+
+    .action-column {
+        width: 145px;
+
+        text-align: right;
+    }
+
+
+    /* ================================================================
+       PRODUCT IMAGE
+    ================================================================= */
+
+    .product-image {
+        width: 34px;
+        height: 34px;
+
+        object-fit: contain;
+
+        display: block;
+
+        border: 1px solid #e5e7eb;
+        border-radius: 5px;
+
+        background: #ffffff;
+    }
+
+    .product-image-placeholder {
+        width: 34px;
+        height: 34px;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        border: 1px solid #e5e7eb;
+        border-radius: 5px;
+
+        background: #f8fafc;
+
+        color: #9ca3af;
+
+        font-size: 15px;
+    }
+
+
+    /* ================================================================
+       PRODUCT
+    ================================================================= */
+
+    .product-info {
+        max-width: 330px;
+    }
+
+    .product-name {
+        color: #1f2937;
+
+        font-size: 11px;
+        font-weight: 600;
+
+        line-height: 1.35;
+    }
+
+    .product-fullscript-id {
+        max-width: 300px;
+
+        margin-top: 2px;
+
+        overflow: hidden;
+
+        color: #9ca3af;
+
+        font-family: monospace;
+        font-size: 8px;
+
+        text-overflow: ellipsis;
+
+        white-space: nowrap;
+    }
+
+    .brand-name {
+        color: #4b5563;
+
+        font-size: 10px;
+
+        white-space: nowrap;
+    }
+
+    .sku-text {
+        color: #4b5563;
+
+        font-family: monospace;
+        font-size: 10px;
+
+        white-space: nowrap;
+    }
+
+
+    /* ================================================================
+       STATUS BADGES
+    ================================================================= */
+
+    .status-badge {
+        display: inline-flex;
+
+        align-items: center;
+
+        min-height: 22px;
+
+        padding: 3px 7px;
+
+        border-radius: 12px;
+
+        font-size: 9px;
+        font-weight: 600;
+
+        line-height: 1;
+
+        white-space: nowrap;
+    }
+
+
+    /* Availability */
+
+    .availability-in-stock {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .availability-backordered {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .availability-out-of-stock {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .availability-discontinued {
+        background: #ede9fe;
+        color: #5b21b6;
+    }
+
+    .availability-default {
+        background: #f1f3f5;
+        color: #59636e;
+    }
+
+
+    /* Shopify */
+
+    .shopify-exists {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .shopify-not-found {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .shopify-error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .shopify-not-checked {
+        background: #f1f3f5;
+        color: #59636e;
+    }
+
+    .shopify-status-text {
+        margin-top: 2px;
+
+        color: #9ca3af;
+
+        font-size: 8px;
+    }
+
+
+    /* ================================================================
+       UPDATED
+    ================================================================= */
+
+    .updated-text {
+        color: #4b5563;
+
+        font-size: 10px;
+
+        white-space: nowrap;
+    }
+
+    .updated-time {
+        margin-top: 1px;
+
+        color: #9ca3af;
+
+        font-size: 8px;
+
+        white-space: nowrap;
+    }
+
+    .updated-empty {
+        color: #9ca3af;
+
+        font-size: 12px;
+    }
+
+
+    /* ================================================================
+       ACTION
+    ================================================================= */
+
+    .product-action-button {
+        min-width: 125px;
+        height: 29px;
+
+        padding: 0 8px;
+
+        font-size: 10px;
+        font-weight: 500;
+
+        white-space: nowrap;
+    }
+
+
+    /* ================================================================
+       EMPTY STATE
+    ================================================================= */
+
+    .products-empty-state {
+        padding: 55px 20px !important;
+
+        text-align: center;
+
+        color: #6b7280;
+    }
+
+    .empty-state-icon {
+        width: 50px;
+        height: 50px;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        margin: 0 auto 12px;
+
+        border-radius: 10px;
+
+        background: #f3f4f6;
+
+        color: #9ca3af;
+
+        font-size: 22px;
+    }
+
+    .products-empty-state h5 {
+        margin-bottom: 5px;
+
+        color: #374151;
+    }
+
+    .products-empty-state p {
+        margin-bottom: 14px;
+
+        font-size: 12px;
+    }
+
+
+    /* ================================================================
+       PAGINATION
+    ================================================================= */
+
+    .products-pagination {
+        width: 100%;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: space-between;
+
+        gap: 20px;
+
+        margin-top: 10px;
+
+        padding: 4px 1px 2px;
+
+        min-height: 42px;
+    }
+
+    .pagination-summary {
+        flex: 0 0 auto;
+
+        color: #6b7280;
+
+        font-size: 11px;
+    }
+
+    .pagination-summary strong {
+        color: #374151;
+
+        font-weight: 600;
+    }
+
+    .products-pagination-nav {
+        flex: 0 0 auto;
+    }
+
+    .products-pagination-list {
+        display: flex;
+
+        align-items: center;
+
+        margin: 0;
+        padding: 0;
+    }
+
+    .products-pagination-list .page-link {
+        width: 32px;
+        min-width: 32px;
+        height: 32px;
+
+        display: inline-flex;
+
+        align-items: center;
+        justify-content: center;
+
+        padding: 0 7px;
+
+        border: 1px solid #dee2e6;
+
+        background: #ffffff;
+
+        color: #4b5563;
+
+        font-size: 11px;
+
+        text-decoration: none;
+
+        box-shadow: none !important;
+    }
+
+    .products-pagination-list
+        .page-item:not(:first-child)
+        .page-link {
+
+        border-left: 0;
+    }
+
+    .products-pagination-list
+        .page-item:first-child
+        .page-link {
+
+        border-radius: 5px 0 0 5px;
+    }
+
+    .products-pagination-list
+        .page-item:last-child
+        .page-link {
+
+        border-radius: 0 5px 5px 0;
+    }
+
+    .products-pagination-list
+        .page-item.active
+        .page-link {
+
+        background: #0d6efd;
+
+        border-color: #0d6efd;
+
+        color: #ffffff;
+    }
+
+    .products-pagination-list
+        .page-item:not(.active):not(.disabled)
+        .page-link:hover {
+
+        background: #f5f7fa;
+
+        color: #0d6efd;
+    }
+
+    .products-pagination-list
+        .page-item.disabled
+        .page-link {
+
+        background: #ffffff;
+
+        color: #adb5bd;
+
+        cursor: default;
+    }
+
+    .products-pagination-list
+        .page-link i {
+
+        font-size: 10px !important;
+
+        line-height: 1 !important;
+    }
+
+
+    /* ================================================================
+       RESPONSIVE
+    ================================================================= */
+
+    @media (max-width: 992px) {
+
+        .products-header {
+            flex-direction: column;
+
+            gap: 12px;
+        }
+
+        .products-header-actions {
+            width: 100%;
+
+            text-align: left;
+        }
+
+        .products-pagination {
+            flex-direction: column;
+
+            align-items: flex-start;
+
+            gap: 8px;
+        }
+
+        .products-pagination-nav {
+            width: 100%;
+
+            overflow-x: auto;
+        }
+
+        .products-pagination-list {
+            width: max-content;
+        }
+
+    }
+
+
+    @media (max-width: 576px) {
+
+        .products-title {
+            font-size: 24px;
+        }
+
+        .products-subtitle {
+            font-size: 12px;
+        }
+
+        .products-sync-button {
+            width: 100%;
+        }
+
+        .bulk-action-bar {
+            flex-direction: column;
+
+            align-items: flex-start;
+
+            gap: 8px;
+        }
+
+        .bulk-actions {
+            width: 100%;
+        }
+
+        .bulk-actions .btn {
+            flex: 1;
+        }
+
+    }
+
+</style>
+
+
+{{-- =====================================================================
+     PAGE JAVASCRIPT
+===================================================================== --}}
+
+@push('scripts')
 
 <script>
 
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
+document.addEventListener('DOMContentLoaded', function () {
 
-        /*
-        |--------------------------------------------------------------------------
-        | Elements
-        |--------------------------------------------------------------------------
-        */
+    /* ================================================================
+       ELEMENTS
+    ================================================================= */
 
-        const selectAll =
-            document.getElementById(
-                'selectAll'
-            );
+    const selectAll =
+        document.getElementById('selectAll');
 
-        const checkboxes =
-            Array.from(
-                document.querySelectorAll(
-                    '.product-checkbox'
-                )
-            );
+    const productCheckboxes =
+        document.querySelectorAll(
+            '.product-checkbox'
+        );
 
-        const selectionBar =
-            document.getElementById(
-                'selectionBar'
-            );
+    const selectedCount =
+        document.getElementById(
+            'selectedCount'
+        );
 
-        const selectedCount =
-            document.getElementById(
-                'selectedCount'
-            );
+    const selectedButtonCount =
+        document.getElementById(
+            'selectedButtonCount'
+        );
 
-        const selectedCountButton =
-            document.getElementById(
-                'selectedCountButton'
-            );
+    const clearSelectionButton =
+        document.getElementById(
+            'clearSelectionButton'
+        );
 
-        const clearSelectionBtn =
-            document.getElementById(
-                'clearSelectionBtn'
-            );
+    const bulkActionBar =
+        document.getElementById(
+            'bulkActionBar'
+        );
 
-        const pushSelectedBtn =
-            document.getElementById(
-                'pushSelectedBtn'
-            );
+    const pushSelectedButton =
+        document.getElementById(
+            'pushSelectedButton'
+        );
 
-        const syncResult =
-            document.getElementById(
-                'syncResult'
-            );
+    const bulkProgressCard =
+        document.getElementById(
+            'bulkProgressCard'
+        );
 
-        const bulkProgress =
-            document.getElementById(
-                'bulkProgress'
-            );
+    const bulkProgressBar =
+        document.getElementById(
+            'bulkProgressBar'
+        );
 
-        const bulkProgressText =
-            document.getElementById(
-                'bulkProgressText'
-            );
+    const bulkProgressText =
+        document.getElementById(
+            'bulkProgressText'
+        );
 
-        const bulkProgressPercent =
-            document.getElementById(
-                'bulkProgressPercent'
-            );
-
-        const bulkProgressBar =
-            document.getElementById(
-                'bulkProgressBar'
-            );
+    const bulkProgressPercent =
+        document.getElementById(
+            'bulkProgressPercent'
+        );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | CSRF
-        |--------------------------------------------------------------------------
-        */
+    /* ================================================================
+       CSRF
+    ================================================================= */
 
-        const csrfToken =
-            document.querySelector(
-                'meta[name="csrf-token"]'
-            )?.getAttribute(
-                'content'
-            );
+    const csrfToken =
+        document.querySelector(
+            'meta[name="csrf-token"]'
+        )?.getAttribute('content');
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | Get selected product IDs
-        |--------------------------------------------------------------------------
-        */
+    /* ================================================================
+       SELECTION COUNT
+    ================================================================= */
 
-        function getSelectedProductIds() {
+    function updateSelectionCount() {
 
-            return checkboxes
-                .filter(
-                    checkbox =>
-                        checkbox.checked
-                )
-                .map(
-                    checkbox =>
-                        checkbox.value
-                );
-
-        }
+        const checked =
+            document.querySelectorAll(
+                '.product-checkbox:checked'
+            ).length;
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | Update selection UI
-        |--------------------------------------------------------------------------
-        */
-
-        function updateSelectionUI() {
-
-            const selected =
-                getSelectedProductIds();
-
-            const count =
-                selected.length;
+        if (selectedCount) {
 
             selectedCount.textContent =
-                count;
-
-            selectedCountButton.textContent =
-                count;
-
-            if (count > 0) {
-
-                selectionBar.classList.add(
-                    'show'
-                );
-
-            } else {
-
-                selectionBar.classList.remove(
-                    'show'
-                );
-
-            }
-
-
-            /*
-            |--------------------------------------------------------------
-            | Update select-all state
-            |--------------------------------------------------------------
-            */
-
-            if (selectAll) {
-
-                if (
-                    count > 0 &&
-                    count === checkboxes.length
-                ) {
-
-                    selectAll.checked = true;
-
-                    selectAll.indeterminate =
-                        false;
-
-                } else if (count > 0) {
-
-                    selectAll.checked = false;
-
-                    selectAll.indeterminate =
-                        true;
-
-                } else {
-
-                    selectAll.checked = false;
-
-                    selectAll.indeterminate =
-                        false;
-
-                }
-
-            }
+                checked;
 
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | Select all
-        |--------------------------------------------------------------------------
-        */
+        if (selectedButtonCount) {
+
+            selectedButtonCount.textContent =
+                checked;
+
+        }
+
+
+        if (bulkActionBar) {
+
+            bulkActionBar.style.display =
+                checked > 0
+                    ? 'flex'
+                    : 'none';
+
+        }
+
 
         if (selectAll) {
 
-            selectAll.addEventListener(
-                'change',
-                function () {
+            selectAll.checked =
+                checked > 0 &&
+                checked ===
+                productCheckboxes.length;
 
-                    checkboxes.forEach(
-                        checkbox => {
-
-                            checkbox.checked =
-                                selectAll.checked;
-
-                        }
-                    );
-
-                    updateSelectionUI();
-
-                }
-            );
+            selectAll.indeterminate =
+                checked > 0 &&
+                checked <
+                productCheckboxes.length;
 
         }
 
+    }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Individual checkbox
-        |--------------------------------------------------------------------------
-        */
 
-        checkboxes.forEach(
-            checkbox => {
+    /* ================================================================
+       SELECT ALL
+    ================================================================= */
 
-                checkbox.addEventListener(
-                    'change',
-                    updateSelectionUI
+    if (selectAll) {
+
+        selectAll.addEventListener(
+            'change',
+            function () {
+
+                productCheckboxes.forEach(
+                    function (checkbox) {
+
+                        checkbox.checked =
+                            selectAll.checked;
+
+                    }
                 );
+
+                updateSelectionCount();
 
             }
         );
 
+    }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Clear selection
-        |--------------------------------------------------------------------------
-        */
 
-        if (clearSelectionBtn) {
+    /* ================================================================
+       INDIVIDUAL CHECKBOX
+    ================================================================= */
 
-            clearSelectionBtn.addEventListener(
-                'click',
+    productCheckboxes.forEach(
+        function (checkbox) {
+
+            checkbox.addEventListener(
+                'change',
                 function () {
 
-                    checkboxes.forEach(
-                        checkbox => {
+                    updateSelectionCount();
 
-                            checkbox.checked =
-                                false;
+                }
+            );
 
-                        }
-                    );
+        }
+    );
 
-                    if (selectAll) {
 
-                        selectAll.checked =
-                            false;
+    /* ================================================================
+       CLEAR SELECTION
+    ================================================================= */
 
-                        selectAll.indeterminate =
+    if (clearSelectionButton) {
+
+        clearSelectionButton.addEventListener(
+            'click',
+            function () {
+
+                productCheckboxes.forEach(
+                    function (checkbox) {
+
+                        checkbox.checked =
                             false;
 
                     }
+                );
 
-                    updateSelectionUI();
+                if (selectAll) {
 
-                }
-            );
+                    selectAll.checked =
+                        false;
 
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Show result
-        |--------------------------------------------------------------------------
-        */
-
-        function showResult(
-            type,
-            message
-        ) {
-
-            syncResult.className =
-                'sync-result alert alert-' +
-                type +
-                ' show';
-
-            syncResult.innerHTML =
-                message;
-
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Individual Push / Update
-        |--------------------------------------------------------------------------
-        */
-
-        document
-            .querySelectorAll(
-                '.push-btn'
-            )
-            .forEach(
-                button => {
-
-                    button.addEventListener(
-                        'click',
-                        async function () {
-
-                            const productId =
-                                button.dataset.productId;
-
-                            const productTitle =
-                                button.dataset.productTitle
-                                || 'Product';
-
-                            if (!productId) {
-                                return;
-                            }
-
-
-                            /*
-                            |--------------------------------------------------
-                            | Confirm
-                            |--------------------------------------------------
-                            */
-
-                            const confirmed =
-                                window.confirm(
-                                    'Push "' +
-                                    productTitle +
-                                    '" to Shopify?'
-                                );
-
-                            if (!confirmed) {
-                                return;
-                            }
-
-
-                            /*
-                            |--------------------------------------------------
-                            | Loading
-                            |--------------------------------------------------
-                            */
-
-                            button.classList.add(
-                                'loading'
-                            );
-
-                            button.disabled =
-                                true;
-
-
-                            try {
-
-                                const url =
-                                    "{{ route('products.push', ['productId' => '__PRODUCT_ID__']) }}"
-                                    .replace(
-                                        '__PRODUCT_ID__',
-                                        encodeURIComponent(
-                                            productId
-                                        )
-                                    );
-
-
-                                const response =
-                                    await fetch(
-                                        url,
-                                        {
-                                            method: 'POST',
-
-                                            headers: {
-                                                'Content-Type':
-                                                    'application/json',
-
-                                                'Accept':
-                                                    'application/json',
-
-                                                'X-CSRF-TOKEN':
-                                                    csrfToken,
-
-                                                'X-Requested-With':
-                                                    'XMLHttpRequest',
-                                            },
-
-                                            body:
-                                                JSON.stringify({})
-                                        }
-                                    );
-
-
-                                const data =
-                                    await response.json();
-
-
-                                if (!response.ok || !data.success) {
-
-                                    throw new Error(
-                                        data.message
-                                        || 'Unable to sync product.'
-                                    );
-
-                                }
-
-
-                                /*
-                                |----------------------------------------------
-                                | Success
-                                |----------------------------------------------
-                                */
-
-                                showResult(
-                                    'success',
-                                    '<i class="bi bi-check-circle me-1"></i>' +
-                                    escapeHtml(
-                                        data.message
-                                        || 'Product synced successfully.'
-                                    )
-                                );
-
-
-                                /*
-                                |----------------------------------------------
-                                | Reload after success
-                                |----------------------------------------------
-                                */
-
-                                setTimeout(
-                                    function () {
-
-                                        window.location.reload();
-
-                                    },
-                                    1000
-                                );
-
-
-                            } catch (error) {
-
-                                showResult(
-                                    'danger',
-                                    '<i class="bi bi-exclamation-triangle me-1"></i>' +
-                                    escapeHtml(
-                                        error.message
-                                        || 'Product sync failed.'
-                                    )
-                                );
-
-
-                                button.classList.remove(
-                                    'loading'
-                                );
-
-                                button.disabled =
-                                    false;
-
-                            }
-
-                        }
-                    );
+                    selectAll.indeterminate =
+                        false;
 
                 }
-            );
+
+                updateSelectionCount();
+
+            }
+        );
+
+    }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | Bulk Push
-        |--------------------------------------------------------------------------
-        */
+    /* ================================================================
+       INDIVIDUAL PUSH / UPDATE
+    ================================================================= */
 
-        if (pushSelectedBtn) {
+    document.querySelectorAll(
+        '.product-action-button'
+    ).forEach(
+        function (button) {
 
-            pushSelectedBtn.addEventListener(
+            button.addEventListener(
                 'click',
                 async function () {
 
-                    const productIds =
-                        getSelectedProductIds();
+                    const productId =
+                        button.dataset.productId;
 
+                    const productTitle =
+                        button.dataset.productTitle;
 
-                    if (!productIds.length) {
+                    if (!productId) {
 
-                        showResult(
-                            'warning',
-                            'Please select at least one product.'
+                        alert(
+                            'Product ID is missing.'
                         );
 
                         return;
@@ -1663,57 +2330,46 @@ document.addEventListener(
                     }
 
 
-                    /*
-                    |--------------------------------------------------------------
-                    | Confirm
-                    |--------------------------------------------------------------
-                    */
-
                     const confirmed =
-                        window.confirm(
-                            'Push ' +
-                            productIds.length +
-                            ' selected product(s) to Shopify?'
+                        confirm(
+                            'Push "' +
+                            productTitle +
+                            '" to Shopify?\n\n' +
+                            'If the product already exists, it will be updated.'
                         );
 
                     if (!confirmed) {
+
                         return;
+
                     }
 
 
-                    /*
-                    |--------------------------------------------------------------
-                    | Loading
-                    |--------------------------------------------------------------
-                    */
+                    const originalHtml =
+                        button.innerHTML;
 
-                    pushSelectedBtn.classList.add(
-                        'loading'
-                    );
 
-                    pushSelectedBtn.disabled =
+                    button.disabled =
                         true;
 
-                    bulkProgress.classList.add(
-                        'show'
-                    );
-
-                    bulkProgressBar.style.width =
-                        '10%';
-
-                    bulkProgressPercent.textContent =
+                    button.innerHTML =
+                        '<span class="spinner-border spinner-border-sm me-1"></span>' +
                         'Processing...';
-
-                    bulkProgressText.textContent =
-                        'Syncing ' +
-                        productIds.length +
-                        ' product(s)...';
 
 
                     try {
 
                         const url =
-                            "{{ route('products.push-selected') }}";
+                            "{{ route(
+                                'products.push',
+                                ['productId' => '__PRODUCT_ID__']
+                            ) }}"
+                            .replace(
+                                '__PRODUCT_ID__',
+                                encodeURIComponent(
+                                    productId
+                                )
+                            );
 
 
                         const response =
@@ -1730,17 +2386,13 @@ document.addEventListener(
                                             'application/json',
 
                                         'X-CSRF-TOKEN':
-                                            csrfToken,
-
-                                        'X-Requested-With':
-                                            'XMLHttpRequest',
+                                            csrfToken
                                     },
 
-                                    body:
-                                        JSON.stringify({
-                                            product_ids:
-                                                productIds
-                                        })
+                                    body: JSON.stringify({
+                                        product_id:
+                                            productId
+                                    })
                                 }
                             );
 
@@ -1749,185 +2401,37 @@ document.addEventListener(
                             await response.json();
 
 
-                        if (
-                            !response.ok &&
-                            response.status !== 207
-                        ) {
+                        if (!response.ok) {
 
                             throw new Error(
-                                data.message
-                                || 'Bulk sync failed.'
+                                data.message ||
+                                'Unable to sync product.'
                             );
 
                         }
 
 
-                        /*
-                        |----------------------------------------------------------
-                        | Summary
-                        |----------------------------------------------------------
-                        */
-
-                        const summary =
-                            data.summary
-                            || {};
-
-                        const total =
-                            summary.total
-                            || productIds.length;
-
-                        const created =
-                            summary.created
-                            || 0;
-
-                        const updated =
-                            summary.updated
-                            || 0;
-
-                        const failed =
-                            summary.failed
-                            || 0;
-
-
-                        bulkProgressBar.style.width =
-                            '100%';
-
-                        bulkProgressPercent.textContent =
-                            '100%';
-
-                        bulkProgressText.textContent =
-                            'Sync completed';
-
-
-                        /*
-                        |----------------------------------------------------------
-                        | Message
-                        |----------------------------------------------------------
-                        */
-
-                        let alertType =
-                            failed > 0
-                                ? 'warning'
-                                : 'success';
-
-
-                        let message =
-                            '<strong>Sync completed.</strong> ' +
-                            total +
-                            ' product(s) processed. ' +
-                            created +
-                            ' created, ' +
-                            updated +
-                            ' updated, ' +
-                            failed +
-                            ' failed.';
-
-
-                        /*
-                        |----------------------------------------------------------
-                        | Failed products
-                        |----------------------------------------------------------
-                        */
-
-                        if (
-                            failed > 0 &&
-                            Array.isArray(
-                                data.results
-                            )
-                        ) {
-
-                            const failedResults =
-                                data.results.filter(
-                                    result =>
-                                        !result.success
-                                );
-
-
-                            if (
-                                failedResults.length
-                            ) {
-
-                                message +=
-                                    '<hr class="my-2">';
-
-                                message +=
-                                    '<strong>Failed products:</strong>';
-
-                                message +=
-                                    '<ul class="mb-0 mt-1">';
-
-                                failedResults.forEach(
-                                    result => {
-
-                                        message +=
-                                            '<li>' +
-                                            escapeHtml(
-                                                result.message
-                                                || 'Unknown error'
-                                            ) +
-                                            '</li>';
-
-                                    }
-                                );
-
-                                message +=
-                                    '</ul>';
-
-                            }
-
-                        }
-
-
-                        showResult(
-                            alertType,
-                            message
+                        alert(
+                            data.message ||
+                            'Product synced successfully.'
                         );
 
 
-                        /*
-                        |----------------------------------------------------------
-                        | Reload after short delay
-                        |----------------------------------------------------------
-                        */
-
-                        setTimeout(
-                            function () {
-
-                                window.location.reload();
-
-                            },
-                            1800
-                        );
-
+                        window.location.reload();
 
                     } catch (error) {
 
-                        bulkProgressBar.style.width =
-                            '100%';
-
-                        bulkProgressPercent.textContent =
-                            'Failed';
-
-                        bulkProgressText.textContent =
-                            'Bulk sync failed';
-
-
-                        showResult(
-                            'danger',
-                            '<i class="bi bi-exclamation-triangle me-1"></i>' +
-                            escapeHtml(
-                                error.message
-                                || 'Bulk sync failed.'
-                            )
+                        alert(
+                            error.message ||
+                            'An error occurred while syncing the product.'
                         );
 
 
-                        pushSelectedBtn.classList.remove(
-                            'loading'
-                        );
-
-                        pushSelectedBtn.disabled =
+                        button.disabled =
                             false;
+
+                        button.innerHTML =
+                            originalHtml;
 
                     }
 
@@ -1935,42 +2439,214 @@ document.addEventListener(
             );
 
         }
+    );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | Escape HTML
-        |--------------------------------------------------------------------------
-        */
+    /* ================================================================
+       BULK PUSH
+    ================================================================= */
 
-        function escapeHtml(
-            value
-        ) {
+    if (pushSelectedButton) {
 
-            const div =
-                document.createElement(
-                    'div'
-                );
+        pushSelectedButton.addEventListener(
+            'click',
+            async function () {
 
-            div.textContent =
-                value ?? '';
-
-            return div.innerHTML;
-
-        }
+                const selected =
+                    Array.from(
+                        document.querySelectorAll(
+                            '.product-checkbox:checked'
+                        )
+                    ).map(
+                        checkbox =>
+                            checkbox.value
+                    );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | Initial state
-        |--------------------------------------------------------------------------
-        */
+                if (!selected.length) {
 
-        updateSelectionUI();
+                    alert(
+                        'Please select at least one product.'
+                    );
+
+                    return;
+
+                }
+
+
+                const confirmed =
+                    confirm(
+                        'Push ' +
+                        selected.length +
+                        ' selected product(s) to Shopify?\n\n' +
+                        'Existing products will be updated and new products will be created.'
+                    );
+
+
+                if (!confirmed) {
+
+                    return;
+
+                }
+
+
+                pushSelectedButton.disabled =
+                    true;
+
+
+                if (bulkProgressCard) {
+
+                    bulkProgressCard.style.display =
+                        'block';
+
+                }
+
+
+                if (bulkProgressText) {
+
+                    bulkProgressText.textContent =
+                        'Processing selected products...';
+
+                }
+
+
+                if (bulkProgressPercent) {
+
+                    bulkProgressPercent.textContent =
+                        '0%';
+
+                }
+
+
+                if (bulkProgressBar) {
+
+                    bulkProgressBar.style.width =
+                        '0%';
+
+                }
+
+
+                try {
+
+                    const response =
+                        await fetch(
+                            "{{ route('products.push-selected') }}",
+                            {
+                                method: 'POST',
+
+                                headers: {
+                                    'Content-Type':
+                                        'application/json',
+
+                                    'Accept':
+                                        'application/json',
+
+                                    'X-CSRF-TOKEN':
+                                        csrfToken
+                                },
+
+                                body: JSON.stringify({
+                                    product_ids:
+                                        selected
+                                })
+                            }
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            data.message ||
+                            'Bulk sync failed.'
+                        );
+
+                    }
+
+
+                    if (bulkProgressBar) {
+
+                        bulkProgressBar.style.width =
+                            '100%';
+
+                    }
+
+
+                    if (bulkProgressPercent) {
+
+                        bulkProgressPercent.textContent =
+                            '100%';
+
+                    }
+
+
+                    if (bulkProgressText) {
+
+                        bulkProgressText.textContent =
+                            'Sync completed.';
+
+                    }
+
+
+                    let message =
+                        data.message ||
+                        'Selected products synced successfully.';
+
+
+                    if (data.success_count !== undefined) {
+
+                        message +=
+                            '\n\nSuccessful: ' +
+                            data.success_count;
+
+                    }
+
+
+                    if (data.failed_count !== undefined) {
+
+                        message +=
+                            '\nFailed: ' +
+                            data.failed_count;
+
+                    }
+
+
+                    alert(message);
+
+                    window.location.reload();
+
+                } catch (error) {
+
+                    alert(
+                        error.message ||
+                        'An error occurred while syncing the selected products.'
+                    );
+
+
+                    pushSelectedButton.disabled =
+                        false;
+
+                }
+
+            }
+        );
 
     }
-);
+
+
+    /* ================================================================
+       INITIAL STATE
+    ================================================================= */
+
+    updateSelectionCount();
+
+});
 
 </script>
+
+@endpush
 
 @endsection

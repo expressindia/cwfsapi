@@ -125,4 +125,115 @@ class FullscriptProductService
                 $response->body()
             );
     }
+
+    /**
+ * Get Fullscript brands.
+ */
+public function getBrands(): array
+{
+    $baseUrl = rtrim(
+        config('fullscript.api_base_url'),
+        '/'
+    );
+
+    if (blank($baseUrl)) {
+        throw new RuntimeException(
+            'FULLSCRIPT_API_BASE_URL is not configured.'
+        );
+    }
+
+    $accessToken =
+        $this->tokenService->freshAccessToken();
+
+    $response = Http::withToken($accessToken)
+        ->acceptJson()
+        ->timeout(60)
+        ->get(
+            $baseUrl . '/catalog/brands'
+        );
+
+    if ($response->failed()) {
+        throw new RuntimeException(
+            $this->responseMessage($response)
+        );
+    }
+
+    return $response->json();
+}
+
+
+    /**
+     * Search Fullscript products.
+     */
+    public function searchProducts(
+        ?string $brandId = null,
+        ?string $search = null,
+        int $page = 1,
+        int $perPage = 25
+    ): array {
+
+        $baseUrl = rtrim(
+            config('fullscript.api_base_url'),
+            '/'
+        );
+
+        if (blank($baseUrl)) {
+            throw new RuntimeException(
+                'FULLSCRIPT_API_BASE_URL is not configured.'
+            );
+        }
+
+        $accessToken =
+            $this->tokenService->freshAccessToken();
+
+
+        $query = [
+            'page[number]' => $page,
+            'page[size]'   => $perPage,
+        ];
+
+
+        if (!empty($brandId)) {
+
+            $query['brand_id'] =
+                $brandId;
+
+        }
+
+
+        /*
+        * Only add the search parameter if the
+        * Fullscript search endpoint accepts it.
+        *
+        * We can adjust the exact parameter after
+        * seeing the actual API response/request.
+        */
+        if (!empty($search)) {
+
+            $query['search'] =
+                $search;
+
+        }
+
+
+        $response = Http::withToken($accessToken)
+            ->acceptJson()
+            ->timeout(60)
+            ->get(
+                $baseUrl . '/catalog/search/products',
+                $query
+            );
+
+
+        if ($response->failed()) {
+
+            throw new RuntimeException(
+                $this->responseMessage($response)
+            );
+
+        }
+
+
+        return $response->json();
+    }
 }
