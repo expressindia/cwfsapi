@@ -135,7 +135,7 @@
                         </div>
 
 
-                        <div class="col-md-3">
+                        <div class="col-md-2 d-flex align-items-start">
 
                             <button
                                 type="submit"
