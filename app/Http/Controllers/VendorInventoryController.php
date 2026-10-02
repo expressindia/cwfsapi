@@ -8,6 +8,9 @@ use Throwable;
 
 class VendorInventoryController extends Controller
 {
+    /**
+     * Display vendor inventory page.
+     */
     public function index(Request $request)
     {
         return view('vendor-inventory.index', [
@@ -32,6 +35,11 @@ class VendorInventoryController extends Controller
         ]);
     }
 
+    /**
+     * Preview vendor inventory.
+     *
+     * This does not make any changes in Shopify.
+     */
     public function preview(
         Request $request,
         VendorInventoryMoveService $service
@@ -51,9 +59,13 @@ class VendorInventoryController extends Controller
 
             return view('vendor-inventory.index', [
                 'vendor' => $vendor,
+
                 'preview' => $preview,
+
                 'activationResult' => null,
+
                 'activationVerification' => null,
+
                 'deactivationResult' => null,
             ]);
         } catch (Throwable $e) {
@@ -68,6 +80,15 @@ class VendorInventoryController extends Controller
         }
     }
 
+    /**
+     * Activate FSWarehouse for the selected vendor.
+     *
+     * IMPORTANT:
+     *
+     * - Does not change inventory quantities.
+     * - Does not deactivate Headquarters.
+     * - Only activates FSWarehouse.
+     */
     public function activate(
         Request $request,
         VendorInventoryMoveService $service
@@ -103,6 +124,11 @@ class VendorInventoryController extends Controller
         }
     }
 
+    /**
+     * Verify FSWarehouse activation.
+     *
+     * This does not make any changes in Shopify.
+     */
     public function verifyActivation(
         Request $request,
         VendorInventoryMoveService $service
@@ -138,6 +164,11 @@ class VendorInventoryController extends Controller
         }
     }
 
+    /**
+     * Deactivate Headquarters.
+     *
+     * FSWarehouse is always protected.
+     */
     public function deactivate(
         Request $request,
         VendorInventoryMoveService $service

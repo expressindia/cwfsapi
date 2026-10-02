@@ -57,11 +57,41 @@ Route::post( '/orders/{orderId}/fulfillments/{fulfillmentId}/tracking', [OrderCo
 // Route::post( '/vendor-inventory/move', [VendorInventoryController::class, 'move'])->middleware('shopify.standalone')->name('vendor-inventory.move');
 
 
-Route::get('/vendor-inventory',[VendorInventoryController::class, 'index'])->middleware('shopify.standalone')->name('vendor-inventory.index');
-Route::post('/vendor-inventory/preview',[VendorInventoryController::class, 'preview'])->middleware('shopify.standalone')->name('vendor-inventory.preview');
-Route::post('/vendor-inventory/activate',[VendorInventoryController::class, 'activate'])->middleware('shopify.standalone')->name('vendor-inventory.activate');
-Route::post('/vendor-inventory/verify-activation',[VendorInventoryController::class, 'verifyActivation'])->middleware('shopify.standalone')->name('vendor-inventory.verify-activation');
-Route::post('/vendor-inventory/deactivate',[VendorInventoryController::class, 'deactivate'])->middleware('shopify.standalone')->name('vendor-inventory.deactivate');
+
+Route::get(
+    '/vendor-inventory',
+    [VendorInventoryController::class, 'index']
+)
+    ->middleware('shopify.standalone')
+    ->name('vendor-inventory.index');
+
+Route::post(
+    '/vendor-inventory/preview',
+    [VendorInventoryController::class, 'preview']
+)
+    ->middleware('shopify.standalone')
+    ->name('vendor-inventory.preview');
+
+Route::post(
+    '/vendor-inventory/activate',
+    [VendorInventoryController::class, 'activate']
+)
+    ->middleware('shopify.standalone')
+    ->name('vendor-inventory.activate');
+
+Route::post(
+    '/vendor-inventory/verify-activation',
+    [VendorInventoryController::class, 'verifyActivation']
+)
+    ->middleware('shopify.standalone')
+    ->name('vendor-inventory.verify-activation');
+
+Route::post(
+    '/vendor-inventory/deactivate',
+    [VendorInventoryController::class, 'deactivate']
+)
+    ->middleware('shopify.standalone')
+    ->name('vendor-inventory.deactivate');
 /*
 |--------------------------------------------------------------------------
 | Fullscript OAuth
