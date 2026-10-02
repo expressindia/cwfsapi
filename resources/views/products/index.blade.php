@@ -15,6 +15,7 @@
     <div class="products-header">
 
         <div>
+
             <h1 class="products-title">
                 Products
             </h1>
@@ -23,7 +24,9 @@
                 Browse Fullscript products and push them to Shopify.
                 Existing products will be updated, new products will be created.
             </p>
+
         </div>
+
 
         <div class="products-header-actions">
 
@@ -38,16 +41,53 @@
 
             </button>
 
-            <div class="last-synced">
+            @if(!empty($lastSyncedAt))
 
-                Last synced:
-                {{ $lastSyncedAt }}
+                <div class="last-synced">
+
+                    Last synced:
+                    {{ $lastSyncedAt }}
+
+                </div>
+
+            @endif
+
+        </div>
+
+    </div>
+
+
+    {{-- ================================================================
+         ERROR MESSAGE
+    ================================================================= --}}
+
+    @if(!empty($error))
+
+        <div
+            class="alert alert-danger products-alert"
+            role="alert">
+
+            <div class="d-flex align-items-start">
+
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+
+                <div>
+
+                    <strong>
+                        Unable to load Fullscript products.
+                    </strong>
+
+                    <div class="mt-1">
+                        {{ $error }}
+                    </div>
+
+                </div>
 
             </div>
 
         </div>
 
-    </div>
+    @endif
 
 
     {{-- ================================================================
@@ -58,103 +98,146 @@
 
         <div class="card-body">
 
-            <div class="row g-3 align-items-end">
+            <form
+                method="GET"
+                action="{{ route('products.index') }}"
+                id="productSearchForm">
 
-                {{-- Brand --}}
-                <div class="col-lg-5">
+                <div class="row g-3 align-items-end">
 
-                    <label
-                        for="brandSearch"
-                        class="form-label products-form-label">
+                    {{-- ====================================================
+                         BRAND
+                    ===================================================== --}}
 
-                        Brand / Vendor
+                    <div class="col-lg-5">
 
-                    </label>
+                        <label
+                            for="brandSearch"
+                            class="form-label products-form-label">
 
-                    <div class="input-group">
+                            Brand / Vendor
 
-                        <input
-                            type="text"
-                            id="brandSearch"
-                            class="form-control products-search-input"
-                            placeholder="Search brand..."
-                            value="Designs for Health">
+                        </label>
 
-                        <button
-                            type="button"
-                            class="btn btn-primary">
+                        <div class="input-group">
 
-                            <i class="bi bi-search me-1"></i>
+                            <input
+                                type="text"
+                                id="brandSearch"
+                                name="brand"
+                                class="form-control products-search-input"
+                                placeholder="Search brand..."
+                                value="{{ $brand ?? '' }}">
 
-                            Search
+                            <button
+                                type="submit"
+                                class="btn btn-primary">
 
-                        </button>
+                                <i class="bi bi-search me-1"></i>
+
+                                Search
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- ====================================================
+                         PRODUCT / SKU
+                    ===================================================== --}}
+
+                    <div class="col-lg-4">
+
+                        <label
+                            for="productSearch"
+                            class="form-label products-form-label">
+
+                            Product Name / SKU
+                            <span class="text-muted">(optional)</span>
+
+                        </label>
+
+                        <div class="input-group">
+
+                            <input
+                                type="text"
+                                id="productSearch"
+                                name="search"
+                                class="form-control products-search-input"
+                                placeholder="Enter product name or SKU"
+                                value="{{ $search ?? '' }}">
+
+                            <button
+                                type="submit"
+                                class="btn btn-light products-search-icon">
+
+                                <i class="bi bi-search"></i>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- ====================================================
+                         PER PAGE
+                    ===================================================== --}}
+
+                    <div class="col-lg-3">
+
+                        <label
+                            for="perPage"
+                            class="form-label products-form-label">
+
+                            Show per page
+
+                        </label>
+
+                        <select
+                            id="perPage"
+                            name="per_page"
+                            class="form-select products-search-input"
+                            onchange="this.form.submit()">
+
+                            <option
+                                value="25"
+                                {{ ($perPage ?? 25) == 25 ? 'selected' : '' }}>
+
+                                25
+
+                            </option>
+
+                            <option
+                                value="50"
+                                {{ ($perPage ?? 25) == 50 ? 'selected' : '' }}>
+
+                                50
+
+                            </option>
+
+                            <option
+                                value="100"
+                                {{ ($perPage ?? 25) == 100 ? 'selected' : '' }}>
+
+                                100
+
+                            </option>
+
+                        </select>
 
                     </div>
 
                 </div>
 
-
-                {{-- Product / SKU --}}
-                <div class="col-lg-4">
-
-                    <label
-                        for="productSearch"
-                        class="form-label products-form-label">
-
-                        Product Name / SKU
-                        <span class="text-muted">(optional)</span>
-
-                    </label>
-
-                    <div class="input-group">
-
-                        <input
-                            type="text"
-                            id="productSearch"
-                            class="form-control products-search-input"
-                            placeholder="Enter product name or SKU">
-
-                        <button
-                            type="button"
-                            class="btn btn-light products-search-icon">
-
-                            <i class="bi bi-search"></i>
-
-                        </button>
-
-                    </div>
-
-                </div>
+            </form>
 
 
-                {{-- Per Page --}}
-                <div class="col-lg-3">
-
-                    <label
-                        for="perPage"
-                        class="form-label products-form-label">
-
-                        Show per page
-
-                    </label>
-
-                    <select
-                        id="perPage"
-                        class="form-select products-search-input">
-
-                        <option value="25" selected>25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-
-                    </select>
-
-                </div>
-
-            </div>
-
-
-            {{-- Quick Filters --}}
+            {{-- ============================================================
+                 QUICK FILTERS
+            ============================================================= --}}
 
             <div class="quick-filters">
 
@@ -162,15 +245,37 @@
                     Quick Filters:
                 </span>
 
-                @foreach($brands as $brand)
 
-                    <button
-                        type="button"
-                        class="brand-chip {{ $loop->first ? 'active' : '' }}">
+                @foreach($brands ?? [] as $quickBrand)
 
-                        {{ $brand }}
+                    @if($loop->first)
 
-                    </button>
+                        <a
+                            href="{{ route('products.index', [
+                                'per_page' => $perPage ?? 25
+                            ]) }}"
+                            class="brand-chip
+                                {{ blank($brand ?? '') ? 'active' : '' }}">
+
+                            {{ $quickBrand }}
+
+                        </a>
+
+                    @else
+
+                        <a
+                            href="{{ route('products.index', [
+                                'brand' => $quickBrand,
+                                'per_page' => $perPage ?? 25
+                            ]) }}"
+                            class="brand-chip
+                                {{ ($brand ?? '') === $quickBrand ? 'active' : '' }}">
+
+                            {{ $quickBrand }}
+
+                        </a>
+
+                    @endif
 
                 @endforeach
 
@@ -187,7 +292,8 @@
 
     <div
         class="bulk-action-bar"
-        id="bulkActionBar">
+        id="bulkActionBar"
+        style="display: none;">
 
         <div class="bulk-selection">
 
@@ -198,13 +304,17 @@
             </div>
 
             <strong id="selectedCount">
-                {{ $selectedCount }}
+                0
             </strong>
 
             products selected
 
             <span class="bulk-page-count">
-                (of {{ $perPage }} on this page)
+
+                (of
+                {{ $paginator->count() }}
+                on this page)
+
             </span>
 
         </div>
@@ -220,9 +330,10 @@
                 <i class="bi bi-cloud-arrow-up me-2"></i>
 
                 Push Selected to Shopify
-                (<span id="selectedButtonCount">{{ $selectedCount }}</span>)
+                (<span id="selectedButtonCount">0</span>)
 
             </button>
+
 
             <button
                 type="button"
@@ -254,6 +365,7 @@
 
                     <tr>
 
+                        {{-- Select --}}
                         <th class="checkbox-column">
 
                             <input
@@ -263,44 +375,80 @@
 
                         </th>
 
+
+                        {{-- Image --}}
                         <th class="image-column">
                             Image
                         </th>
 
+
+                        {{-- Product --}}
                         <th>
+
                             Product
+
                             <i class="bi bi-chevron-expand sort-icon"></i>
+
                         </th>
 
+
+                        {{-- Brand --}}
                         <th>
+
                             Brand
+
                             <i class="bi bi-chevron-expand sort-icon"></i>
+
                         </th>
 
+
+                        {{-- SKU --}}
                         <th>
+
                             SKU
+
                             <i class="bi bi-chevron-expand sort-icon"></i>
+
                         </th>
 
+
+                        {{-- Availability --}}
                         <th>
+
                             Availability
+
                             <i class="bi bi-chevron-expand sort-icon"></i>
+
                         </th>
 
+
+                        {{-- Shopify --}}
                         <th>
+
                             Shopify Status
+
                             <i class="bi bi-chevron-expand sort-icon"></i>
+
                         </th>
 
+
+                        {{-- Updated --}}
                         <th>
+
                             Updated
+
                             <i class="bi bi-chevron-expand sort-icon"></i>
+
                         </th>
 
+
+                        {{-- Action --}}
                         <th class="action-column">
                             Action
                         </th>
 
+
+                        {{-- Menu --}}
                         <th class="menu-column"></th>
 
                     </tr>
@@ -310,23 +458,29 @@
 
                 <tbody>
 
-                    @foreach($products as $product)
+                    @forelse($products as $product)
 
                         <tr>
 
-                            {{-- Checkbox --}}
+                            {{-- =================================================
+                                 CHECKBOX
+                            ================================================== --}}
+
                             <td>
 
                                 <input
                                     type="checkbox"
                                     class="form-check-input product-checkbox"
-                                    value="{{ $product['id'] }}"
-                                    {{ in_array($loop->index, [0, 1, 3]) ? 'checked' : '' }}>
+                                    value="{{ $product['id'] ?? '' }}"
+                                    data-sku="{{ $product['sku'] ?? '' }}">
 
                             </td>
 
 
-                            {{-- Image --}}
+                            {{-- =================================================
+                                 IMAGE
+                            ================================================== --}}
+
                             <td>
 
                                 <div class="product-image">
@@ -335,7 +489,8 @@
 
                                         <img
                                             src="{{ $product['image'] }}"
-                                            alt="{{ $product['title'] }}">
+                                            alt="{{ $product['title'] ?? 'Product' }}"
+                                            loading="lazy">
 
                                     @else
 
@@ -352,134 +507,49 @@
                             </td>
 
 
-                            {{-- Product --}}
+                            {{-- =================================================
+                                 PRODUCT
+                            ================================================== --}}
+
                             <td>
 
                                 <a
                                     href="#"
                                     class="product-name">
 
-                                    {{ $product['title'] }}
+                                    {{ $product['title'] ?? 'Untitled Product' }}
 
                                 </a>
 
                             </td>
 
 
-                            {{-- Brand --}}
+                            {{-- =================================================
+                                 BRAND
+                            ================================================== --}}
+
                             <td>
 
                                 <span class="brand-name">
 
-                                    {{ $product['brand'] }}
+                                    {{ $product['brand'] ?? '—' }}
 
                                 </span>
 
                             </td>
 
 
-                            {{-- SKU --}}
+                            {{-- =================================================
+                                 SKU
+                            ================================================== --}}
+
                             <td>
 
-                                <span class="sku-text">
+                                @if(!empty($product['sku']))
 
-                                    {{ $product['sku'] }}
+                                    <span class="sku-text">
 
-                                </span>
-
-                            </td>
-
-
-                            {{-- Availability --}}
-                            <td>
-
-                                @php
-                                    $availabilityClass = match(
-                                        strtolower($product['availability'])
-                                    ) {
-                                        'in stock' => 'availability-in-stock',
-                                        'backordered' => 'availability-backordered',
-                                        'out of stock' => 'availability-out-of-stock',
-                                        default => 'availability-default',
-                                    };
-                                @endphp
-
-                                <span
-                                    class="status-badge {{ $availabilityClass }}">
-
-                                    {{ $product['availability'] }}
-
-                                </span>
-
-                            </td>
-
-
-                            {{-- Shopify Status --}}
-                            <td>
-
-                                @php
-                                    $shopifyClass = match(
-                                        strtolower($product['shopify_status'])
-                                    ) {
-                                        'exists' => 'shopify-exists',
-                                        'not found' => 'shopify-not-found',
-                                        'error' => 'shopify-error',
-                                        default => 'shopify-default',
-                                    };
-                                @endphp
-
-                                <div>
-
-                                    <span
-                                        class="status-badge {{ $shopifyClass }}">
-
-                                        @if($product['shopify_status'] === 'Exists')
-
-                                            <i class="bi bi-check2-circle me-1"></i>
-
-                                        @elseif($product['shopify_status'] === 'Error')
-
-                                            <i class="bi bi-exclamation-circle me-1"></i>
-
-                                        @endif
-
-                                        {{ $product['shopify_status'] }}
-
-                                    </span>
-
-                                    <div class="shopify-status-text">
-
-                                        {{ $product['shopify_status_text'] }}
-
-                                    </div>
-
-                                </div>
-
-                            </td>
-
-
-                            {{-- Updated --}}
-                            <td>
-
-                                @if($product['updated_at'])
-
-                                    <span class="updated-text">
-
-                                        {{ \Illuminate\Support\Str::before(
-                                            $product['updated_at'],
-                                            ' '
-                                        ) }}
-
-                                    </span>
-
-                                    <br>
-
-                                    <span class="updated-time">
-
-                                        {{ \Illuminate\Support\Str::after(
-                                            $product['updated_at'],
-                                            ' '
-                                        ) }}
+                                        {{ $product['sku'] }}
 
                                     </span>
 
@@ -494,18 +564,240 @@
                             </td>
 
 
-                            {{-- Action --}}
+                            {{-- =================================================
+                                 AVAILABILITY
+                            ================================================== --}}
+
                             <td>
 
-                                @switch($product['action'])
+                                @php
+
+                                    $availability =
+                                        strtolower(
+                                            trim(
+                                                (string) (
+                                                    $product['availability']
+                                                    ?? 'Unknown'
+                                                )
+                                            )
+                                        );
+
+                                    $availabilityClass = match(
+                                        $availability
+                                    ) {
+
+                                        'in stock' =>
+                                            'availability-in-stock',
+
+                                        'backordered' =>
+                                            'availability-backordered',
+
+                                        'out of stock' =>
+                                            'availability-out-of-stock',
+
+                                        'discontinued' =>
+                                            'availability-discontinued',
+
+                                        default =>
+                                            'availability-default',
+                                    };
+
+                                @endphp
+
+
+                                <span
+                                    class="status-badge {{ $availabilityClass }}">
+
+                                    {{ $product['availability'] ?? 'Unknown' }}
+
+                                </span>
+
+                            </td>
+
+
+                            {{-- =================================================
+                                 SHOPIFY STATUS
+                            ================================================== --}}
+
+                            <td>
+
+                                @php
+
+                                    $shopifyStatus =
+                                        $product['shopify_status']
+                                        ?? 'Not Checked';
+
+                                    $shopifyStatusClass =
+                                        match(
+                                            strtolower(
+                                                trim(
+                                                    $shopifyStatus
+                                                )
+                                            )
+                                        ) {
+
+                                            'exists' =>
+                                                'shopify-exists',
+
+                                            'not found' =>
+                                                'shopify-not-found',
+
+                                            'error' =>
+                                                'shopify-error',
+
+                                            'not checked' =>
+                                                'shopify-not-checked',
+
+                                            default =>
+                                                'shopify-default',
+                                        };
+
+                                @endphp
+
+
+                                <div>
+
+                                    <span
+                                        class="status-badge {{ $shopifyStatusClass }}">
+
+                                        @if($shopifyStatus === 'Exists')
+
+                                            <i
+                                                class="bi bi-check2-circle me-1">
+                                            </i>
+
+                                        @elseif($shopifyStatus === 'Error')
+
+                                            <i
+                                                class="bi bi-exclamation-circle me-1">
+                                            </i>
+
+                                        @elseif($shopifyStatus === 'Not Found')
+
+                                            <i
+                                                class="bi bi-dash-circle me-1">
+                                            </i>
+
+                                        @endif
+
+                                        {{ $shopifyStatus }}
+
+                                    </span>
+
+
+                                    @if(!empty($product['shopify_status_text']))
+
+                                        <div class="shopify-status-text">
+
+                                            {{ $product['shopify_status_text'] }}
+
+                                        </div>
+
+                                    @endif
+
+                                </div>
+
+                            </td>
+
+
+                            {{-- =================================================
+                                 UPDATED
+                            ================================================== --}}
+
+                            <td>
+
+                                @if(!empty($product['updated_at']))
+
+                                    @php
+
+                                        try {
+
+                                            $updatedDate =
+                                                \Illuminate\Support\Carbon::parse(
+                                                    $product['updated_at']
+                                                );
+
+                                        } catch (
+                                            \Throwable $e
+                                        ) {
+
+                                            $updatedDate = null;
+
+                                        }
+
+                                    @endphp
+
+
+                                    @if($updatedDate)
+
+                                        <span class="updated-text">
+
+                                            {{ $updatedDate->format('M d, Y') }}
+
+                                        </span>
+
+                                        <br>
+
+                                        <span class="updated-time">
+
+                                            {{ $updatedDate->format('h:i A') }}
+
+                                        </span>
+
+                                    @else
+
+                                        <span class="updated-text">
+
+                                            {{ $product['updated_at'] }}
+
+                                        </span>
+
+                                    @endif
+
+                                @else
+
+                                    <span class="updated-empty">
+                                        —
+                                    </span>
+
+                                @endif
+
+                            </td>
+
+
+                            {{-- =================================================
+                                 ACTION
+                            ================================================== --}}
+
+                            <td>
+
+                                @php
+
+                                    $action =
+                                        $product['action']
+                                        ?? 'push';
+
+                                @endphp
+
+
+                                @switch($action)
+
+                                    {{-- ======================================
+                                         PUSH
+                                    ======================================= --}}
 
                                     @case('push')
 
                                         <button
                                             type="button"
-                                            class="btn btn-primary btn-sm product-action-button">
+                                            class="btn btn-primary btn-sm product-action-button"
+                                            data-product-id="{{ $product['id'] ?? '' }}"
+                                            data-product-sku="{{ $product['sku'] ?? '' }}"
+                                            data-action="push">
 
-                                            <i class="bi bi-cloud-arrow-up me-1"></i>
+                                            <i
+                                                class="bi bi-cloud-arrow-up me-1">
+                                            </i>
 
                                             Push to Shopify
 
@@ -514,13 +806,23 @@
                                         @break
 
 
+                                    {{-- ======================================
+                                         UPDATE
+                                    ======================================= --}}
+
                                     @case('update')
 
                                         <button
                                             type="button"
-                                            class="btn btn-outline-primary btn-sm product-action-button">
+                                            class="btn btn-outline-primary btn-sm product-action-button"
+                                            data-product-id="{{ $product['id'] ?? '' }}"
+                                            data-product-sku="{{ $product['sku'] ?? '' }}"
+                                            data-shopify-product-id="{{ $product['shopify_product_id'] ?? '' }}"
+                                            data-action="update">
 
-                                            <i class="bi bi-arrow-repeat me-1"></i>
+                                            <i
+                                                class="bi bi-arrow-repeat me-1">
+                                            </i>
 
                                             Update in Shopify
 
@@ -529,13 +831,23 @@
                                         @break
 
 
+                                    {{-- ======================================
+                                         VIEW
+                                    ======================================= --}}
+
                                     @case('view')
 
                                         <button
                                             type="button"
-                                            class="btn btn-outline-secondary btn-sm product-action-button">
+                                            class="btn btn-outline-secondary btn-sm product-action-button"
+                                            data-product-id="{{ $product['id'] ?? '' }}"
+                                            data-product-sku="{{ $product['sku'] ?? '' }}"
+                                            data-shopify-product-id="{{ $product['shopify_product_id'] ?? '' }}"
+                                            data-action="view">
 
-                                            <i class="bi bi-eye me-1"></i>
+                                            <i
+                                                class="bi bi-eye me-1">
+                                            </i>
 
                                             View in Shopify
 
@@ -544,13 +856,22 @@
                                         @break
 
 
+                                    {{-- ======================================
+                                         RETRY
+                                    ======================================= --}}
+
                                     @case('retry')
 
                                         <button
                                             type="button"
-                                            class="btn btn-outline-secondary btn-sm product-action-button">
+                                            class="btn btn-outline-secondary btn-sm product-action-button"
+                                            data-product-id="{{ $product['id'] ?? '' }}"
+                                            data-product-sku="{{ $product['sku'] ?? '' }}"
+                                            data-action="retry">
 
-                                            <i class="bi bi-arrow-repeat me-1"></i>
+                                            <i
+                                                class="bi bi-arrow-repeat me-1">
+                                            </i>
 
                                             Retry Sync
 
@@ -558,19 +879,41 @@
 
                                         @break
 
+
+                                    {{-- ======================================
+                                         DEFAULT
+                                    ======================================= --}}
+
+                                    @default
+
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary btn-sm product-action-button"
+                                            disabled>
+
+                                            No Action
+
+                                        </button>
+
                                 @endswitch
 
                             </td>
 
 
-                            {{-- Menu --}}
+                            {{-- =================================================
+                                 THREE DOT MENU
+                            ================================================== --}}
+
                             <td>
 
                                 <button
                                     type="button"
-                                    class="btn btn-sm product-menu-button">
+                                    class="btn btn-sm product-menu-button"
+                                    title="More actions">
 
-                                    <i class="bi bi-three-dots-vertical"></i>
+                                    <i
+                                        class="bi bi-three-dots-vertical">
+                                    </i>
 
                                 </button>
 
@@ -578,7 +921,51 @@
 
                         </tr>
 
-                    @endforeach
+                    @empty
+
+                        {{-- =================================================
+                             EMPTY STATE
+                        ================================================== --}}
+
+                        <tr>
+
+                            <td
+                                colspan="10"
+                                class="products-empty-state">
+
+                                <div class="empty-state-icon">
+
+                                    <i class="bi bi-box-seam"></i>
+
+                                </div>
+
+                                <h5>
+                                    No products found
+                                </h5>
+
+                                <p>
+                                    No Fullscript products matched your search.
+                                </p>
+
+                                @if(!empty($brand) || !empty($search))
+
+                                    <a
+                                        href="{{ route('products.index', [
+                                            'per_page' => $perPage ?? 25
+                                        ]) }}"
+                                        class="btn btn-outline-primary btn-sm">
+
+                                        Clear Search
+
+                                    </a>
+
+                                @endif
+
+                            </td>
+
+                        </tr>
+
+                    @endforelse
 
                 </tbody>
 
@@ -597,101 +984,201 @@
 
         <div class="pagination-summary">
 
-            Showing
-            <strong>1</strong>
-            to
-            <strong>25</strong>
-            of
-            <strong>{{ number_format($totalProducts) }}</strong>
-            products
+            @if($paginator->total() > 0)
+
+                Showing
+
+                <strong>
+                    {{ $paginator->firstItem() }}
+                </strong>
+
+                to
+
+                <strong>
+                    {{ $paginator->lastItem() }}
+                </strong>
+
+                of
+
+                <strong>
+                    {{ number_format($paginator->total()) }}
+                </strong>
+
+                products
+
+            @else
+
+                No products found
+
+            @endif
 
         </div>
 
 
-        <nav>
+        @if($paginator->hasPages())
 
-            <ul class="pagination mb-0">
+            <nav
+                aria-label="Products pagination">
 
-                <li class="page-item disabled">
+                <ul class="pagination mb-0">
 
-                    <a class="page-link" href="#">
-                        <i class="bi bi-chevron-left"></i>
-                        Previous
-                    </a>
+                    {{-- Previous --}}
+                    @if($paginator->onFirstPage())
 
-                </li>
+                        <li class="page-item disabled">
 
-                <li class="page-item active">
+                            <span class="page-link">
 
-                    <a class="page-link" href="#">
-                        1
-                    </a>
+                                <i
+                                    class="bi bi-chevron-left">
+                                </i>
 
-                </li>
+                                Previous
 
-                <li class="page-item">
+                            </span>
 
-                    <a class="page-link" href="#">
-                        2
-                    </a>
+                        </li>
 
-                </li>
+                    @else
 
-                <li class="page-item">
+                        <li class="page-item">
 
-                    <a class="page-link" href="#">
-                        3
-                    </a>
+                            <a
+                                class="page-link"
+                                href="{{ $paginator->previousPageUrl() }}">
 
-                </li>
+                                <i
+                                    class="bi bi-chevron-left">
+                                </i>
 
-                <li class="page-item">
+                                Previous
 
-                    <a class="page-link" href="#">
-                        4
-                    </a>
+                            </a>
 
-                </li>
+                        </li>
 
-                <li class="page-item">
+                    @endif
 
-                    <a class="page-link" href="#">
-                        5
-                    </a>
 
-                </li>
+                    {{-- Page Numbers --}}
+                    @foreach(
+                        $paginator->getUrlRange(
+                            max(1, $paginator->currentPage() - 2),
+                            min(
+                                $paginator->lastPage(),
+                                $paginator->currentPage() + 2
+                            )
+                        ) as $page => $url
+                    )
 
-                <li class="page-item disabled">
+                        <li
+                            class="page-item
+                                {{ $page == $paginator->currentPage()
+                                    ? 'active'
+                                    : '' }}">
 
-                    <span class="page-link">
-                        ...
-                    </span>
+                            @if(
+                                $page ==
+                                $paginator->currentPage()
+                            )
 
-                </li>
+                                <span class="page-link">
 
-                <li class="page-item">
+                                    {{ $page }}
 
-                    <a class="page-link" href="#">
-                        50
-                    </a>
+                                </span>
 
-                </li>
+                            @else
 
-                <li class="page-item">
+                                <a
+                                    class="page-link"
+                                    href="{{ $url }}">
 
-                    <a class="page-link" href="#">
+                                    {{ $page }}
 
-                        Next
+                                </a>
 
-                        <i class="bi bi-chevron-right ms-1"></i>
+                            @endif
 
-                    </a>
+                        </li>
 
-                </li>
+                    @endforeach
 
-            </ul>
 
-        </nav>
+                    {{-- Last page --}}
+                    @if(
+                        $paginator->lastPage() > 5 &&
+                        $paginator->currentPage() <
+                        $paginator->lastPage() - 2
+                    )
+
+                        <li class="page-item disabled">
+
+                            <span class="page-link">
+                                ...
+                            </span>
+
+                        </li>
+
+                        <li class="page-item">
+
+                            <a
+                                class="page-link"
+                                href="{{ $paginator->url(
+                                    $paginator->lastPage()
+                                ) }}">
+
+                                {{ $paginator->lastPage() }}
+
+                            </a>
+
+                        </li>
+
+                    @endif
+
+
+                    {{-- Next --}}
+                    @if($paginator->hasMorePages())
+
+                        <li class="page-item">
+
+                            <a
+                                class="page-link"
+                                href="{{ $paginator->nextPageUrl() }}">
+
+                                Next
+
+                                <i
+                                    class="bi bi-chevron-right ms-1">
+                                </i>
+
+                            </a>
+
+                        </li>
+
+                    @else
+
+                        <li class="page-item disabled">
+
+                            <span class="page-link">
+
+                                Next
+
+                                <i
+                                    class="bi bi-chevron-right ms-1">
+                                </i>
+
+                            </span>
+
+                        </li>
+
+                    @endif
+
+                </ul>
+
+            </nav>
+
+        @endif
 
     </div>
 
@@ -757,6 +1244,19 @@
         margin-top: 7px;
         font-size: 13px;
         color: #6b7280;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Error
+    |--------------------------------------------------------------------------
+    */
+
+    .products-alert {
+        border-radius: 7px;
+        margin-bottom: 18px;
+        font-size: 14px;
     }
 
 
@@ -835,11 +1335,13 @@
         border-radius: 20px;
         padding: 5px 13px;
         font-size: 13px;
+        text-decoration: none;
         transition: all .15s ease;
     }
 
     .brand-chip:hover {
         background: #e9edf2;
+        color: #374151;
     }
 
     .brand-chip.active {
@@ -862,7 +1364,6 @@
         border-radius: 7px;
         background: #eaf5ff;
         border: 1px solid #cce7ff;
-        display: flex;
         align-items: center;
         justify-content: space-between;
     }
@@ -1004,6 +1505,42 @@
 
     /*
     |--------------------------------------------------------------------------
+    | Empty State
+    |--------------------------------------------------------------------------
+    */
+
+    .products-empty-state {
+        text-align: center;
+        padding: 60px 20px !important;
+        color: #6b7280;
+    }
+
+    .empty-state-icon {
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 15px;
+        border-radius: 10px;
+        background: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 25px;
+        color: #9ca3af;
+    }
+
+    .products-empty-state h5 {
+        color: #374151;
+        margin-bottom: 5px;
+    }
+
+    .products-empty-state p {
+        margin-bottom: 15px;
+        font-size: 14px;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
     | Product Information
     |--------------------------------------------------------------------------
     */
@@ -1065,10 +1602,22 @@
         color: #b4232c;
     }
 
+    .availability-discontinued {
+        background: #e9dff7;
+        color: #6941a5;
+    }
+
     .availability-default {
         background: #eef0f2;
         color: #59636e;
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Shopify Status
+    |--------------------------------------------------------------------------
+    */
 
     .shopify-exists {
         background: #dcecff;
@@ -1083,6 +1632,11 @@
     .shopify-error {
         background: #fde0e3;
         color: #b4232c;
+    }
+
+    .shopify-not-checked {
+        background: #eef0f2;
+        color: #59636e;
     }
 
     .shopify-default {
@@ -1164,6 +1718,10 @@
         font-size: 13px;
     }
 
+    .products-pagination .pagination {
+        margin-bottom: 0;
+    }
+
     .products-pagination .page-link {
         color: #4b5563;
         border-color: #dee2e6;
@@ -1192,6 +1750,15 @@
     |--------------------------------------------------------------------------
     */
 
+    @media (max-width: 1200px) {
+
+        .products-table {
+            min-width: 1150px;
+        }
+
+    }
+
+
     @media (max-width: 992px) {
 
         .products-header {
@@ -1217,6 +1784,36 @@
 
     }
 
+
+    @media (max-width: 576px) {
+
+        .products-title {
+            font-size: 26px;
+        }
+
+        .products-subtitle {
+            font-size: 13px;
+        }
+
+        .products-sync-button {
+            width: 100%;
+        }
+
+        .products-header-actions {
+            width: 100%;
+        }
+
+        .bulk-actions {
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .bulk-actions .btn {
+            width: 100%;
+        }
+
+    }
+
 </style>
 
 
@@ -1232,7 +1829,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Product checkboxes
+    | Elements
     |--------------------------------------------------------------------------
     */
 
@@ -1240,17 +1837,41 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('selectAll');
 
     const productCheckboxes =
-        document.querySelectorAll('.product-checkbox');
+        document.querySelectorAll(
+            '.product-checkbox'
+        );
 
     const selectedCount =
-        document.getElementById('selectedCount');
+        document.getElementById(
+            'selectedCount'
+        );
 
     const selectedButtonCount =
-        document.getElementById('selectedButtonCount');
+        document.getElementById(
+            'selectedButtonCount'
+        );
 
     const clearSelectionButton =
-        document.getElementById('clearSelectionButton');
+        document.getElementById(
+            'clearSelectionButton'
+        );
 
+    const bulkActionBar =
+        document.getElementById(
+            'bulkActionBar'
+        );
+
+    const pushSelectedButton =
+        document.getElementById(
+            'pushSelectedButton'
+        );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update selection
+    |--------------------------------------------------------------------------
+    */
 
     function updateSelectionCount() {
 
@@ -1259,20 +1880,61 @@ document.addEventListener('DOMContentLoaded', function () {
                 '.product-checkbox:checked'
             ).length;
 
-        selectedCount.textContent =
-            checked;
 
-        selectedButtonCount.textContent =
-            checked;
+        /*
+        |--------------------------------------------------------------------------
+        | Counts
+        |--------------------------------------------------------------------------
+        */
+
+        if (selectedCount) {
+
+            selectedCount.textContent =
+                checked;
+
+        }
+
+        if (selectedButtonCount) {
+
+            selectedButtonCount.textContent =
+                checked;
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Bulk action bar
+        |--------------------------------------------------------------------------
+        */
+
+        if (bulkActionBar) {
+
+            bulkActionBar.style.display =
+                checked > 0
+                    ? 'flex'
+                    : 'none';
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Select all state
+        |--------------------------------------------------------------------------
+        */
 
         if (selectAll) {
 
             selectAll.checked =
-                checked === productCheckboxes.length;
+                checked > 0 &&
+                checked ===
+                productCheckboxes.length;
 
             selectAll.indeterminate =
                 checked > 0 &&
-                checked < productCheckboxes.length;
+                checked <
+                productCheckboxes.length;
 
         }
 
@@ -1292,7 +1954,7 @@ document.addEventListener('DOMContentLoaded', function () {
             function () {
 
                 productCheckboxes.forEach(
-                    checkbox => {
+                    function (checkbox) {
 
                         checkbox.checked =
                             selectAll.checked;
@@ -1310,16 +1972,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Individual selection
+    | Individual checkbox
     |--------------------------------------------------------------------------
     */
 
     productCheckboxes.forEach(
-        checkbox => {
+        function (checkbox) {
 
             checkbox.addEventListener(
                 'change',
-                updateSelectionCount
+                function () {
+
+                    updateSelectionCount();
+
+                }
             );
 
         }
@@ -1339,14 +2005,23 @@ document.addEventListener('DOMContentLoaded', function () {
             function () {
 
                 productCheckboxes.forEach(
-                    checkbox => {
+                    function (checkbox) {
 
-                        checkbox.checked = false;
+                        checkbox.checked =
+                            false;
 
                     }
                 );
 
-                selectAll.checked = false;
+                if (selectAll) {
+
+                    selectAll.checked =
+                        false;
+
+                    selectAll.indeterminate =
+                        false;
+
+                }
 
                 updateSelectionCount();
 
@@ -1354,6 +2029,125 @@ document.addEventListener('DOMContentLoaded', function () {
         );
 
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Bulk Push
+    |--------------------------------------------------------------------------
+    |
+    | Step 2:
+    | We only collect the selected IDs.
+    |
+    | The actual API request will be implemented in Step 3.
+    |
+    */
+
+    if (pushSelectedButton) {
+
+        pushSelectedButton.addEventListener(
+            'click',
+            function () {
+
+                const selected =
+                    Array.from(
+                        document.querySelectorAll(
+                            '.product-checkbox:checked'
+                        )
+                    ).map(
+                        function (checkbox) {
+
+                            return {
+                                id:
+                                    checkbox.value,
+
+                                sku:
+                                    checkbox.dataset.sku
+                                    || null
+                            };
+
+                        }
+                    );
+
+
+                if (!selected.length) {
+
+                    return;
+
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Temporary confirmation
+                |--------------------------------------------------------------------------
+                */
+
+                const message =
+                    'You have selected ' +
+                    selected.length +
+                    ' product(s).\n\n' +
+                    'Bulk Shopify sync will be connected in the next step.';
+
+                alert(message);
+
+            }
+        );
+
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Individual product actions
+    |--------------------------------------------------------------------------
+    |
+    | Actual endpoints will be connected in Step 3.
+    |
+    */
+
+    document.querySelectorAll(
+        '.product-action-button'
+    ).forEach(
+        function (button) {
+
+            button.addEventListener(
+                'click',
+                function () {
+
+                    const action =
+                        button.dataset.action;
+
+                    if (!action) {
+                        return;
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Step 2 placeholder
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        action === 'push' ||
+                        action === 'update' ||
+                        action === 'retry'
+                    ) {
+
+                        alert(
+                            'The "' +
+                            action +
+                            '" action will be connected in the next step.'
+                        );
+
+                    }
+
+                }
+            );
+
+        }
+    );
 
 
     /*
@@ -1376,30 +2170,33 @@ document.addEventListener('DOMContentLoaded', function () {
                 const originalHtml =
                     syncButton.innerHTML;
 
-                syncButton.disabled = true;
+
+                syncButton.disabled =
+                    true;
+
 
                 syncButton.innerHTML =
                     '<span class="spinner-border spinner-border-sm me-2"></span>' +
                     'Syncing...';
 
+
                 /*
-                 * Step 1 only.
-                 *
-                 * Actual Fullscript synchronization
-                 * will be connected in the next step.
-                 */
+                |--------------------------------------------------------------------------
+                | Step 2:
+                | Reload the Products page.
+                |
+                | The actual catalog synchronization/history will be
+                | implemented later.
+                |--------------------------------------------------------------------------
+                */
 
                 setTimeout(
                     function () {
 
-                        syncButton.disabled =
-                            false;
-
-                        syncButton.innerHTML =
-                            originalHtml;
+                        window.location.reload();
 
                     },
-                    1200
+                    500
                 );
 
             }
@@ -1410,7 +2207,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Initial selection count
+    | Initial state
     |--------------------------------------------------------------------------
     */
 
