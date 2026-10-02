@@ -38,25 +38,13 @@ class ProductTransformer
         $fullscriptStatus = strtolower(
             trim(
                 (string) (
-                    $primaryVariant['status']
-                    ?? $product['status']
-                    ?? ''
-                )
-            )
-        );
-
-        $availability = strtolower(
-            trim(
-                (string) (
-                    $primaryVariant['availability']
-                    ?? ''
+                    $product['status'] ?? ''
                 )
             )
         );
 
         $shopifyStatus =
             $fullscriptStatus === 'available'
-            || $availability === 'in stock'
                 ? 'ACTIVE'
                 : 'ARCHIVED';
 
