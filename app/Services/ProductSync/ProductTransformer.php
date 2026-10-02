@@ -530,8 +530,8 @@ class ProductTransformer
                     $imageUrl,
 
                 'alt' =>
-                    $product['name']
-                    ?? 'Fullscript product',
+                    $product['name']. ' | Curated Wellness'
+                    ?? 'Curated Wellness',
             ],
         ];
     }
