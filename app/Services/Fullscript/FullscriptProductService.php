@@ -22,7 +22,7 @@ class FullscriptProductService
      */
     public function getProducts(
         int $page = 1,
-        int $perPage = 10
+        int $perPage = 25
     ): array {
         $baseUrl = rtrim(
             config('fullscript.api_base_url'),
