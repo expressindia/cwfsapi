@@ -444,31 +444,16 @@ class ProductsController extends Controller
     /**
      * Push one Fullscript product to Shopify.
      */
-    public function push(
-        Request $request,
-        string $productId
-    ): JsonResponse {
+    public function push( Request $request, string $productId ): JsonResponse {
         try {
 
-            $fullscriptResponse =
-                $this->fullscript->getProduct(
-                    $productId
-                );
+            $fullscriptResponse = $this->fullscript->getProduct( $productId );
 
-            $fullscriptProduct =
-                $fullscriptResponse['product']
-                ?? $fullscriptResponse['data']
-                ?? $fullscriptResponse;
+            $fullscriptProduct = $fullscriptResponse['product'] ?? $fullscriptResponse['data']  ?? $fullscriptResponse;
 
-            $product =
-                $this->productTransformer->transform(
-                    $fullscriptProduct
-                );
+            $product = $this->productTransformer->transform(  $fullscriptProduct );
 
-            $shopifyProductId =
-                $request->input(
-                    'shopify_product_id'
-                );
+            $shopifyProductId =  $request->input( 'shopify_product_id'  );
 
             /*
             |--------------------------------------------------------------------------
@@ -476,30 +461,15 @@ class ProductsController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            if (
-                blank(
-                    $shopifyProductId
-                )
-            ) {
+            if ( blank( $shopifyProductId  ) ) {
 
-                $sku =
-                    $this->getPrimarySku(
-                        $fullscriptProduct
-                    );
+                $sku = $this->getPrimarySku( $fullscriptProduct );
 
                 if ($sku !== '') {
 
-                    $variant =
-                        $this->shopify
-                            ->findProductBySku(
-                                $sku
-                            );
+                    $variant = $this->shopify ->findProductBySku(  $sku );
 
-                    $shopifyProductId =
-                        $variant[
-                            'product'
-                        ]['id']
-                        ?? null;
+                    $shopifyProductId = $variant[  'product'  ]['id']  ?? null;
                 }
             }
 
@@ -509,11 +479,7 @@ class ProductsController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $result =
-                $this->shopify->createOrUpdate(
-                    $product,
-                    $shopifyProductId
-                );
+            $result = $this->shopify->createOrUpdate( $product, $shopifyProductId );
 
             return response()->json(
                 [
