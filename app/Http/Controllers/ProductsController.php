@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Services\Fullscript\FullscriptProductService;
-use App\Services\ProductSync\ProductTransformer;
 use App\Services\Shopify\ShopifyProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +14,6 @@ class ProductsController extends Controller
     public function __construct(
         protected FullscriptProductService $fullscript,
         protected ShopifyProductService $shopify,
-        protected ProductTransformer $productTransformer,
     ) {
     }
 
@@ -450,18 +448,13 @@ class ProductsController extends Controller
     ): JsonResponse {
         try {
 
-            $fullscriptResponse =
+            $fullscriptProduct =
                 $this->fullscript->getProduct(
                     $productId
                 );
 
-            $fullscriptProduct =
-                $fullscriptResponse['product']
-                ?? $fullscriptResponse['data']
-                ?? $fullscriptResponse;
-
             $product =
-                $this->productTransformer->transform(
+                $this->normalizeForShopify(
                     $fullscriptProduct
                 );
 
@@ -604,18 +597,13 @@ class ProductsController extends Controller
 
             try {
 
-                $fullscriptResponse =
+                $fullscriptProduct =
                     $this->fullscript->getProduct(
                         $productId
                     );
 
-                $fullscriptProduct =
-                    $fullscriptResponse['product']
-                    ?? $fullscriptResponse['data']
-                    ?? $fullscriptResponse;
-
                 $product =
-                    $this->productTransformer->transform(
+                    $this->normalizeForShopify(
                         $fullscriptProduct
                     );
 
