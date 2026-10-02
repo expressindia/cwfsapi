@@ -59,14 +59,14 @@
 
     <nav class="nav flex-column">
 
-        <a href="#"
-           class="nav-link">
+        <a href="{{ route('products.index') }}"
+            class="nav-link {{ request()->routeIs('products.*') ? 'active' : '' }}">
 
-            <i class="bi bi-box-seam"></i>
+                <i class="bi bi-box-seam"></i>
 
-            Products
+                Products
 
-        </a>
+            </a>
 
         <a href="#"
            class="nav-link">

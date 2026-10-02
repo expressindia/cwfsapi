@@ -12,6 +12,7 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\FulfillmentController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\VendorInventoryController;
+use App\Http\Controllers\ProductsController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -47,37 +48,24 @@ Route::post( '/orders/{orderId}/fulfillments/{fulfillmentId}/tracking', [OrderCo
     ->name('orders.tracking.update');
 
 
+
 /*
 |--------------------------------------------------------------------------
-| Vendor Inventory Move
+| Products
 |--------------------------------------------------------------------------
 */
-// Route::get( '/vendor-inventory', [VendorInventoryController::class, 'index']) ->middleware('shopify.standalone') ->name('vendor-inventory.index');
-// Route::post( '/vendor-inventory/preview', [VendorInventoryController::class, 'preview'])->middleware('shopify.standalone')->name('vendor-inventory.preview');
-// Route::post( '/vendor-inventory/move', [VendorInventoryController::class, 'move'])->middleware('shopify.standalone')->name('vendor-inventory.move');
 
+Route::get('/products', [ProductsController::class, 'index'])->middleware('shopify.standalone')->name('products.index');
 
+/*
+|--------------------------------------------------------------------------
+| Vendor Inventory Activation for locations
+|--------------------------------------------------------------------------
+*/
 
-Route::get(
-    '/vendor-inventory',
-    [VendorInventoryController::class, 'index']
-)
-    ->middleware('shopify.standalone')
-    ->name('vendor-inventory.index');
-
-Route::get(
-    '/vendor-inventory/products',
-    [VendorInventoryController::class, 'products']
-)
-    ->middleware('shopify.standalone')
-    ->name('vendor-inventory.products');
-
-Route::post(
-    '/vendor-inventory/product/action',
-    [VendorInventoryController::class, 'productAction']
-)
-    ->middleware('shopify.standalone')
-    ->name('vendor-inventory.product.action');
+Route::get('/vendor-inventory',[VendorInventoryController::class, 'index'])->middleware('shopify.standalone')->name('vendor-inventory.index');
+Route::get('/vendor-inventory/products',[VendorInventoryController::class, 'products'])->middleware('shopify.standalone')->name('vendor-inventory.products');
+Route::post('/vendor-inventory/product/action',[VendorInventoryController::class, 'productAction'])->middleware('shopify.standalone')->name('vendor-inventory.product.action');
 /*
 |--------------------------------------------------------------------------
 | Fullscript OAuth
