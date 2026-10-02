@@ -4,46 +4,67 @@
 
 <div class="container-fluid py-4">
 
-    {{-- ============================================================
+    {{-- =========================================================
          PAGE HEADER
-    ============================================================ --}}
+    ========================================================== --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
 
         <div>
+
             <h1 class="h3 mb-1">
-                Vendor Inventory Move
+                Vendor Inventory
             </h1>
 
             <p class="text-muted mb-0">
-                Move a vendor's available inventory to FSWarehouse.
+                Activate FSWarehouse and deactivate Headquarters
+                for a selected brand.
             </p>
+
         </div>
 
     </div>
 
 
-    {{-- ============================================================
+    {{-- =========================================================
          SUCCESS MESSAGE
-    ============================================================ --}}
+    ========================================================== --}}
     @if(session('success'))
 
         <div class="alert alert-success">
-            <strong>Success:</strong>
 
             {{ session('success') }}
+
         </div>
 
     @endif
 
 
-    {{-- ============================================================
+    {{-- =========================================================
          ERROR MESSAGE
-    ============================================================ --}}
-    @if($errors->any())
+    ========================================================== --}}
+    @if(session('error'))
 
         <div class="alert alert-danger">
 
             <strong>Error:</strong>
+
+            {{ session('error') }}
+
+        </div>
+
+    @endif
+
+
+    {{-- =========================================================
+         VALIDATION ERRORS
+    ========================================================== --}}
+    @if($errors->any())
+
+        <div class="alert alert-danger">
+
+            <strong>
+                Please correct the following:
+            </strong>
 
             <ul class="mb-0 mt-2">
 
@@ -62,15 +83,17 @@
     @endif
 
 
-    {{-- ============================================================
-         VENDOR SEARCH
-    ============================================================ --}}
+    {{-- =========================================================
+         STEP 1 — SELECT BRAND
+    ========================================================== --}}
     <div class="card mb-4">
 
         <div class="card-header">
+
             <strong>
-                Vendor
+                Step 1 — Select Brand
             </strong>
+
         </div>
 
         <div class="card-body">
@@ -90,7 +113,7 @@
                             for="vendor"
                             class="form-label"
                         >
-                            Vendor Name
+                            Brand / Vendor Name
                         </label>
 
                         <input
@@ -99,12 +122,15 @@
                             id="vendor"
                             class="form-control"
                             value="{{ old('vendor', $vendor ?? '') }}"
-                            placeholder="Enter vendor name"
+                            placeholder="Enter brand name"
                             required
                         >
 
                         <div class="form-text">
-                            Example: A.C. Grace
+
+                            Example:
+                            <strong>A.C. Grace</strong>
+
                         </div>
 
                     </div>
@@ -116,7 +142,9 @@
                             type="submit"
                             class="btn btn-primary w-100"
                         >
+
                             Preview Inventory
+
                         </button>
 
                     </div>
@@ -130,69 +158,33 @@
     </div>
 
 
-    {{-- ============================================================
-         INVENTORY PREVIEW
-    ============================================================ --}}
+    {{-- =========================================================
+         PREVIEW
+    ========================================================== --}}
     @if(!empty($preview))
 
-        @php
-
-            /*
-             * The service returns these values inside
-             * the "summary" array.
-             */
-            $summary = $preview['summary'] ?? [];
-
-            $productsCount =
-                $summary['products'] ?? 0;
-
-            $variantsCount =
-                $summary['variants'] ?? 0;
-
-            $totalInventory =
-                $summary['total_inventory'] ?? 0;
-
-            $fsWarehouseInventory =
-                $summary['fswarehouse_current_inventory'] ?? 0;
-
-            $inventoryToMove =
-                $summary['inventory_to_move'] ?? 0;
-
-            $warehouseName =
-                $preview['target_location']['name']
-                ?? $preview['fs_warehouse']['name']
-                ?? 'FSWarehouse';
-
-        @endphp
-
-
-        {{-- ========================================================
-             PREVIEW SUMMARY
-        ========================================================= --}}
         <div class="card mb-4">
 
             <div class="card-header">
 
                 <strong>
-                    Inventory Preview
+                    Step 2 — Inventory Preview
                 </strong>
 
             </div>
 
-
             <div class="card-body">
 
-                {{-- Basic information --}}
                 <div class="row g-4">
 
-                    {{-- Vendor --}}
+                    {{-- Brand --}}
                     <div class="col-md-3">
 
                         <strong>
-                            Vendor
+                            Brand
                         </strong>
 
-                        <div class="mt-1">
+                        <div>
                             {{ $preview['vendor'] ?? '-' }}
                         </div>
 
@@ -203,16 +195,16 @@
                     <div class="col-md-3">
 
                         <strong>
-                            Destination
+                            FSWarehouse
                         </strong>
 
-                        <div class="mt-1">
+                        <div>
 
-                            <span class="badge bg-primary">
-
-                                {{ $warehouseName }}
-
-                            </span>
+                            {{ 
+                                $preview['target_location']['name']
+                                ?? $preview['fs_warehouse']['name']
+                                ?? 'FSWarehouse'
+                            }}
 
                         </div>
 
@@ -226,9 +218,15 @@
                             Products
                         </strong>
 
-                        <div class="fs-5 mt-1">
+                        <div class="fs-5">
 
-                            {{ number_format($productsCount) }}
+                            {{
+                                number_format(
+                                    $preview['summary']['products']
+                                    ?? $preview['product_count']
+                                    ?? 0
+                                )
+                            }}
 
                         </div>
 
@@ -242,9 +240,15 @@
                             Variants
                         </strong>
 
-                        <div class="fs-5 mt-1">
+                        <div class="fs-5">
 
-                            {{ number_format($variantsCount) }}
+                            {{
+                                number_format(
+                                    $preview['summary']['variants']
+                                    ?? $preview['variant_count']
+                                    ?? count($preview['variants'] ?? [])
+                                )
+                            }}
 
                         </div>
 
@@ -256,65 +260,68 @@
                 <hr>
 
 
-                {{-- Inventory totals --}}
                 <div class="row g-4">
 
-                    {{-- Total --}}
+                    {{-- Total Inventory --}}
                     <div class="col-md-4">
 
                         <strong>
-                            Total Inventory
+                            Current Total Inventory
                         </strong>
 
-                        <div class="fs-4 mt-1">
+                        <div class="fs-5">
 
-                            {{ number_format($totalInventory) }}
+                            {{
+                                number_format(
+                                    $preview['summary']['total_inventory']
+                                    ?? $preview['total_inventory']
+                                    ?? 0
+                                )
+                            }}
 
                         </div>
-
-                        <small class="text-muted">
-                            Total inventory across active locations.
-                        </small>
 
                     </div>
 
 
-                    {{-- Current FSWarehouse --}}
+                    {{-- Current FS --}}
                     <div class="col-md-4">
 
                         <strong>
-                            Current FSWarehouse
+                            Current FSWarehouse Inventory
                         </strong>
 
-                        <div class="fs-4 mt-1">
+                        <div class="fs-5">
 
-                            {{ number_format($fsWarehouseInventory) }}
+                            {{
+                                number_format(
+                                    $preview['summary']['fswarehouse_current_inventory']
+                                    ?? $preview['fswarehouse_current_inventory']
+                                    ?? 0
+                                )
+                            }}
 
                         </div>
-
-                        <small class="text-muted">
-                            Current inventory already at FSWarehouse.
-                        </small>
 
                     </div>
 
 
-                    {{-- Inventory to move --}}
+                    {{-- Inventory To Move --}}
                     <div class="col-md-4">
 
                         <strong>
-                            Inventory to Move
+                            Inventory Quantity
                         </strong>
 
-                        <div class="fs-4 mt-1">
+                        <div class="fs-5">
 
-                            {{ number_format($inventoryToMove) }}
+                            <span class="badge text-bg-secondary">
+
+                                No quantity changes
+
+                            </span>
 
                         </div>
-
-                        <small class="text-muted">
-                            Inventory that will be moved to FSWarehouse.
-                        </small>
 
                     </div>
 
@@ -325,9 +332,9 @@
         </div>
 
 
-        {{-- ========================================================
+        {{-- =====================================================
              INVENTORY DETAILS
-        ========================================================= --}}
+        ====================================================== --}}
         <div class="card mb-4">
 
             <div class="card-header">
@@ -337,7 +344,6 @@
                 </strong>
 
             </div>
-
 
             <div class="card-body p-0">
 
@@ -370,19 +376,11 @@
                                     </th>
 
                                     <th class="text-end">
-                                        Other Locations
-                                    </th>
-
-                                    <th class="text-end">
                                         Total
                                     </th>
 
-                                    <th class="text-end">
-                                        New FSWarehouse
-                                    </th>
-
                                     <th>
-                                        Location Details
+                                        Locations
                                     </th>
 
                                 </tr>
@@ -392,91 +390,20 @@
 
                             <tbody>
 
-                                @foreach($preview['variants'] as $row)
-
-                                    @php
-
-                                        $fsQuantity =
-                                            $row['fs_quantity'] ?? 0;
-
-                                        $totalQuantity =
-                                            $row['total_quantity'] ?? 0;
-
-                                        $newFsQuantity =
-                                            $row['new_fs_quantity'] ?? $totalQuantity;
-
-                                        /*
-                                         * Calculate other active-location
-                                         * inventory directly from the
-                                         * locations returned by Shopify.
-                                         */
-                                        $otherQuantity = 0;
-
-                                        $otherLocations = [];
-
-                                        foreach (
-                                            ($row['locations'] ?? [])
-                                            as $location
-                                        ) {
-
-                                            $isFsWarehouse =
-                                                (
-                                                    $location['location_id']
-                                                    ?? null
-                                                )
-                                                ===
-                                                (
-                                                    $preview['target_location']['id']
-                                                    ?? null
-                                                );
-
-                                            if ($isFsWarehouse) {
-                                                continue;
-                                            }
-
-                                            $locationQuantity =
-                                                (int) (
-                                                    $location['quantity']
-                                                    ?? 0
-                                                );
-
-                                            $locationIsActive =
-                                                (bool) (
-                                                    $location['is_active']
-                                                    ?? false
-                                                );
-
-                                            if ($locationIsActive) {
-
-                                                $otherQuantity +=
-                                                    $locationQuantity;
-
-                                            }
-
-                                            $otherLocations[] = [
-                                                'location_name' =>
-                                                    $location['location_name']
-                                                    ?? 'Unknown',
-
-                                                'quantity' =>
-                                                    $locationQuantity,
-
-                                                'is_active' =>
-                                                    $locationIsActive,
-                                            ];
-                                        }
-
-                                    @endphp
-
+                                @foreach(
+                                    $preview['variants']
+                                    as $row
+                                )
 
                                     <tr>
 
                                         {{-- Product --}}
                                         <td>
 
-                                            <strong>
-                                                {{ $row['product_title'] ?? '-' }}
-                                            </strong>
+                                            {{
+                                                $row['product_title']
+                                                ?? '-'
+                                            }}
 
                                         </td>
 
@@ -484,7 +411,10 @@
                                         {{-- Variant --}}
                                         <td>
 
-                                            {{ $row['variant_title'] ?? '-' }}
+                                            {{
+                                                $row['variant_title']
+                                                ?? '-'
+                                            }}
 
                                         </td>
 
@@ -493,7 +423,12 @@
                                         <td>
 
                                             <code>
-                                                {{ $row['sku'] ?: '-' }}
+
+                                                {{
+                                                    $row['sku']
+                                                    ?: '-'
+                                                }}
+
                                             </code>
 
                                         </td>
@@ -502,17 +437,12 @@
                                         {{-- FSWarehouse --}}
                                         <td class="text-end">
 
-                                            <strong>
-                                                {{ number_format($fsQuantity) }}
-                                            </strong>
-
-                                        </td>
-
-
-                                        {{-- Other active locations --}}
-                                        <td class="text-end">
-
-                                            {{ number_format($otherQuantity) }}
+                                            {{
+                                                number_format(
+                                                    $row['fs_quantity']
+                                                    ?? 0
+                                                )
+                                            }}
 
                                         </td>
 
@@ -521,69 +451,72 @@
                                         <td class="text-end">
 
                                             <strong>
-                                                {{ number_format($totalQuantity) }}
-                                            </strong>
 
-                                        </td>
-
-
-                                        {{-- New FSWarehouse --}}
-                                        <td class="text-end">
-
-                                            <strong class="text-success">
-
-                                                {{ number_format($newFsQuantity) }}
+                                                {{
+                                                    number_format(
+                                                        $row['total_quantity']
+                                                        ?? 0
+                                                    )
+                                                }}
 
                                             </strong>
 
                                         </td>
 
 
-                                        {{-- Location details --}}
+                                        {{-- Locations --}}
                                         <td>
 
-                                            @forelse($otherLocations as $location)
+                                            @forelse(
+                                                ($row['locations'] ?? [])
+                                                as $location
+                                            )
 
-                                                <div class="mb-2">
+                                                <div class="mb-1">
 
-                                                    <div>
+                                                    <span>
 
-                                                        <span>
-                                                            {{ $location['location_name'] }}
-                                                        </span>
+                                                        {{
+                                                            $location['location_name']
+                                                            ?? 'Unknown'
+                                                        }}
 
-                                                        @if($location['is_active'])
+                                                    </span>
 
-                                                            <span class="badge bg-success ms-1">
-                                                                Active
-                                                            </span>
+                                                    <span
+                                                        class="badge
+                                                        {{
+                                                            ($location['is_active'] ?? false)
+                                                                ? 'text-bg-success'
+                                                                : 'text-bg-secondary'
+                                                        }}"
+                                                    >
 
-                                                        @else
+                                                        {{
+                                                            ($location['is_active'] ?? false)
+                                                                ? 'Active'
+                                                                : 'Inactive'
+                                                        }}
 
-                                                            <span class="badge bg-secondary ms-1">
-                                                                Inactive
-                                                            </span>
+                                                    </span>
 
-                                                        @endif
+                                                    <strong class="float-end">
 
-                                                    </div>
+                                                        {{
+                                                            number_format(
+                                                                $location['quantity']
+                                                                ?? 0
+                                                            )
+                                                        }}
 
-                                                    <div>
-
-                                                        Quantity:
-
-                                                        <strong>
-                                                            {{ number_format($location['quantity']) }}
-                                                        </strong>
-
-                                                    </div>
+                                                    </strong>
 
                                                 </div>
 
                                             @empty
 
                                                 <span class="text-muted">
-                                                    None
+                                                    No locations found
                                                 </span>
 
                                             @endforelse
@@ -604,7 +537,8 @@
 
                     <div class="p-4 text-center text-muted">
 
-                        No inventory variants were found for this vendor.
+                        No inventory variants were found
+                        for this brand.
 
                     </div>
 
@@ -615,102 +549,97 @@
         </div>
 
 
-        {{-- ========================================================
-             MOVE INVENTORY
-        ========================================================= --}}
+        {{-- =====================================================
+             STEP 3 — ACTIVATE FS-WAREHOUSE
+        ====================================================== --}}
         @if(!empty($preview['variants']))
 
-            <div class="card border-warning mb-4">
+            <div class="card border-primary mb-4">
 
-                <div class="card-header bg-warning-subtle">
+                <div class="card-header bg-primary-subtle">
 
                     <strong>
-                        Move Inventory
+                        Step 3 — Activate FS-Warehouse
                     </strong>
 
                 </div>
 
-
                 <div class="card-body">
 
-                    <p class="mb-3">
-                        This action will:
+                    <p>
+                        Activate
+                        <strong>
+                            {{
+                                number_format(
+                                    $preview['summary']['variants']
+                                    ?? count($preview['variants'])
+                                )
+                            }}
+                        </strong>
+                        variants at
+                        <strong>
+                            {{
+                                $preview['target_location']['name']
+                                ?? 'FSWarehouse'
+                            }}
+                        </strong>.
                     </p>
 
 
-                    <ul>
-
-                        <li>
-                            Move available inventory to
-                            <strong>
-                                {{ $warehouseName }}
-                            </strong>.
-                        </li>
-
-                        <li>
-                            Set FSWarehouse inventory to the total
-                            available quantity.
-                        </li>
-
-                        <li>
-                            Deactivate all other active inventory
-                            locations for these variants.
-                        </li>
-
-                        <li>
-                            FSWarehouse will become the only active
-                            inventory location for these variants.
-                        </li>
-
-                    </ul>
-
-
-                    <div class="alert alert-warning">
+                    <div class="alert alert-info">
 
                         <strong>
                             Important:
                         </strong>
 
-                        Verify the inventory quantities above before
-                        clicking Move Inventory.
+                        <ul class="mb-0 mt-2">
+
+                            <li>
+                                Inventory quantities will not change.
+                            </li>
+
+                            <li>
+                                Headquarters will remain active.
+                            </li>
+
+                            <li>
+                                Other locations will remain unchanged.
+                            </li>
+
+                            <li>
+                                Only FSWarehouse activation status
+                                will be changed.
+                            </li>
+
+                        </ul>
 
                     </div>
 
 
-                    {{-- Move form --}}
                     <form
                         method="POST"
-                        action="{{ route('vendor-inventory.move') }}"
-                        onsubmit="return confirm(
-                            'Are you sure you want to move all inventory for this vendor to FSWarehouse?'
-                        );"
+                        action="{{ route('vendor-inventory.activate') }}"
+                        onsubmit="
+                            return confirm(
+                                'Activate FSWarehouse for all variants of this brand?'
+                            );
+                        "
                     >
 
                         @csrf
 
-
-                        {{-- Vendor --}}
                         <input
                             type="hidden"
                             name="vendor"
                             value="{{ $preview['vendor'] ?? ($vendor ?? '') }}"
                         >
 
-
-                        {{-- Required by Controller --}}
-                        <input
-                            type="hidden"
-                            name="confirm"
-                            value="1"
-                        >
-
-
                         <button
                             type="submit"
-                            class="btn btn-warning"
+                            class="btn btn-primary"
                         >
 
-                            Move Inventory to FSWarehouse
+                            Activate FS-Warehouse
 
                         </button>
 
@@ -722,235 +651,833 @@
 
         @endif
 
-    @endif
+
+        {{-- =====================================================
+             ACTIVATION RESULT
+        ====================================================== --}}
+        @if(!empty($activationResult))
+
+            <div class="card border-info mb-4">
+
+                <div class="card-header bg-info-subtle">
+
+                    <strong>
+                        Activation Result
+                    </strong>
+
+                </div>
+
+                <div class="card-body">
+
+                    <div class="row g-3 mb-4">
+
+                        <div class="col-md-4">
+
+                            <div class="border rounded p-3">
+
+                                <div class="text-muted">
+                                    Total
+                                </div>
+
+                                <div class="fs-4">
+
+                                    {{
+                                        number_format(
+                                            $activationResult['summary']['total']
+                                            ?? 0
+                                        )
+                                    }}
+
+                                </div>
+
+                            </div>
+
+                        </div>
 
 
-    {{-- ============================================================
-         MOVE RESULT
-    ============================================================ --}}
-    @if(!empty($moveResult))
+                        <div class="col-md-4">
 
-        <div class="card mb-4">
+                            <div
+                                class="border border-success
+                                rounded p-3"
+                            >
 
-            <div class="card-header">
+                                <div class="text-muted">
+                                    Activated
+                                </div>
 
-                <strong>
-                    Move Result
-                </strong>
+                                <div class="fs-4 text-success">
+
+                                    {{
+                                        number_format(
+                                            $activationResult['summary']['successful']
+                                            ?? 0
+                                        )
+                                    }}
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="col-md-4">
+
+                            <div
+                                class="border border-danger
+                                rounded p-3"
+                            >
+
+                                <div class="text-muted">
+                                    Failed
+                                </div>
+
+                                <div class="fs-4 text-danger">
+
+                                    {{
+                                        number_format(
+                                            $activationResult['summary']['failed']
+                                            ?? 0
+                                        )
+                                    }}
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    @if(
+                        ($activationResult['summary']['failed'] ?? 0)
+                        > 0
+                    )
+
+                        <div class="alert alert-danger">
+
+                            Some variants failed to activate.
+
+                            Please fix the errors before
+                            continuing.
+
+                        </div>
+
+                    @else
+
+                        <div class="alert alert-success">
+
+                            All variants were successfully
+                            activated at FSWarehouse.
+
+                        </div>
+
+                    @endif
+
+
+                    {{-- Activation Details --}}
+                    @if(!empty($activationResult['results']))
+
+                        <div class="table-responsive mb-4">
+
+                            <table class="table table-bordered">
+
+                                <thead class="table-light">
+
+                                    <tr>
+
+                                        <th>
+                                            SKU
+                                        </th>
+
+                                        <th>
+                                            Product
+                                        </th>
+
+                                        <th>
+                                            Variant
+                                        </th>
+
+                                        <th>
+                                            Status
+                                        </th>
+
+                                        <th>
+                                            Message
+                                        </th>
+
+                                    </tr>
+
+                                </thead>
+
+
+                                <tbody>
+
+                                    @foreach(
+                                        $activationResult['results']
+                                        as $result
+                                    )
+
+                                        <tr>
+
+                                            <td>
+
+                                                <code>
+                                                    {{
+                                                        $result['sku']
+                                                        ?? '-'
+                                                    }}
+                                                </code>
+
+                                            </td>
+
+                                            <td>
+
+                                                {{
+                                                    $result['product_title']
+                                                    ?? '-'
+                                                }}
+
+                                            </td>
+
+                                            <td>
+
+                                                {{
+                                                    $result['variant_title']
+                                                    ?? '-'
+                                                }}
+
+                                            </td>
+
+                                            <td>
+
+                                                @if(
+                                                    $result['success']
+                                                    ?? false
+                                                )
+
+                                                    <span
+                                                        class="badge text-bg-success"
+                                                    >
+                                                        Activated
+                                                    </span>
+
+                                                @else
+
+                                                    <span
+                                                        class="badge text-bg-danger"
+                                                    >
+                                                        Failed
+                                                    </span>
+
+                                                @endif
+
+                                            </td>
+
+                                            <td>
+
+                                                {{
+                                                    $result['message']
+                                                    ?? ''
+                                                }}
+
+                                            </td>
+
+                                        </tr>
+
+                                    @endforeach
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    @endif
+
+
+                    {{-- Verify Activation --}}
+                    @if(
+                        ($activationResult['summary']['failed'] ?? 0)
+                        === 0
+                    )
+
+                        <form
+                            method="POST"
+                            action="{{
+                                route(
+                                    'vendor-inventory.verify-activation'
+                                )
+                            }}"
+                        >
+
+                            @csrf
+
+                            <input
+                                type="hidden"
+                                name="vendor"
+                                value="{{
+                                    $activationResult['vendor']
+                                    ?? $vendor
+                                }}"
+                            >
+
+                            <button
+                                type="submit"
+                                class="btn btn-info"
+                            >
+
+                                Verify Activation
+
+                            </button>
+
+                        </form>
+
+                    @endif
+
+                </div>
+
+            </div>
+
+        @endif
+
+
+        {{-- =====================================================
+             STEP 4 — ACTIVATION VERIFICATION
+        ====================================================== --}}
+        @if(!empty($activationVerification))
+
+            <div class="card mb-4">
+
+                <div class="card-header">
+
+                    <strong>
+                        Step 4 — Verify Activation
+                    </strong>
+
+                </div>
+
+                <div class="card-body">
+
+                    @if(
+                        $activationVerification['verified']
+                        ?? false
+                    )
+
+                        <div class="alert alert-success">
+
+                            <strong>
+                                Activation Verified
+                            </strong>
+
+                            <br>
+
+                            All
+                            {{
+                                $activationVerification['summary']['verified']
+                                ?? 0
+                            }}
+                            variants are active at
+                            FSWarehouse.
+
+                        </div>
+
+                    @else
+
+                        <div class="alert alert-danger">
+
+                            <strong>
+                                Activation Verification Failed
+                            </strong>
+
+                            <br>
+
+                            Some variants are not active
+                            at FSWarehouse.
+
+                        </div>
+
+                    @endif
+
+
+                    {{-- Verification table --}}
+                    @if(
+                        !empty(
+                            $activationVerification['results']
+                        )
+                    )
+
+                        <div class="table-responsive mb-4">
+
+                            <table class="table table-bordered">
+
+                                <thead class="table-light">
+
+                                    <tr>
+
+                                        <th>
+                                            SKU
+                                        </th>
+
+                                        <th>
+                                            Product
+                                        </th>
+
+                                        <th>
+                                            Variant
+                                        </th>
+
+                                        <th>
+                                            FSWarehouse
+                                        </th>
+
+                                        <th>
+                                            Quantity
+                                        </th>
+
+                                    </tr>
+
+                                </thead>
+
+
+                                <tbody>
+
+                                    @foreach(
+                                        $activationVerification['results']
+                                        as $result
+                                    )
+
+                                        <tr>
+
+                                            <td>
+
+                                                <code>
+                                                    {{
+                                                        $result['sku']
+                                                        ?? '-'
+                                                    }}
+                                                </code>
+
+                                            </td>
+
+                                            <td>
+
+                                                {{
+                                                    $result['product_title']
+                                                    ?? '-'
+                                                }}
+
+                                            </td>
+
+                                            <td>
+
+                                                {{
+                                                    $result['variant_title']
+                                                    ?? '-'
+                                                }}
+
+                                            </td>
+
+                                            <td>
+
+                                                @if(
+                                                    $result['fs_active']
+                                                    ?? false
+                                                )
+
+                                                    <span
+                                                        class="badge text-bg-success"
+                                                    >
+                                                        Active
+                                                    </span>
+
+                                                @else
+
+                                                    <span
+                                                        class="badge text-bg-danger"
+                                                    >
+                                                        Not Active
+                                                    </span>
+
+                                                @endif
+
+                                            </td>
+
+                                            <td>
+
+                                                {{
+                                                    number_format(
+                                                        $result['fs_quantity']
+                                                        ?? 0
+                                                    )
+                                                }}
+
+                                            </td>
+
+                                        </tr>
+
+                                    @endforeach
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    @endif
+
+                </div>
 
             </div>
 
 
-            <div class="card-body">
+            {{-- =================================================
+                 STEP 5 — DEACTIVATE HQ
+            ================================================== --}}
+            @if(
+                $activationVerification['verified']
+                ?? false
+            )
 
-                @php
-                    $moveSummary =
-                        $moveResult['summary'] ?? [];
-                @endphp
+                <div class="card border-danger mb-4">
 
-
-                <div class="row mb-4">
-
-                    {{-- Total --}}
-                    <div class="col-md-4">
+                    <div class="card-header bg-danger-subtle">
 
                         <strong>
-                            Total
+                            Step 5 — Deactivate Headquarters
                         </strong>
-
-                        <div class="fs-4">
-
-                            {{ number_format(
-                                $moveSummary['total'] ?? 0
-                            ) }}
-
-                        </div>
 
                     </div>
 
+                    <div class="card-body">
 
-                    {{-- Successful --}}
-                    <div class="col-md-4">
+                        <div class="alert alert-warning">
 
-                        <strong>
-                            Successful
-                        </strong>
+                            <strong>
+                                Final Step
+                            </strong>
 
-                        <div class="fs-4 text-success">
+                            <br>
 
-                            {{ number_format(
-                                $moveSummary['successful'] ?? 0
-                            ) }}
+                            Activation has been verified.
 
-                        </div>
+                            <br><br>
 
-                    </div>
+                            The next action will deactivate
+                            Headquarters and other active
+                            inventory locations.
 
+                            <br><br>
 
-                    {{-- Failed --}}
-                    <div class="col-md-4">
+                            <strong>
+                                FSWarehouse will remain active.
+                            </strong>
 
-                        <strong>
-                            Failed
-                        </strong>
+                            <br>
 
-                        <div class="fs-4 text-danger">
-
-                            {{ number_format(
-                                $moveSummary['failed'] ?? 0
-                            ) }}
+                            Inventory quantities will NOT be changed.
 
                         </div>
+
+
+                        <form
+                            method="POST"
+                            action="{{
+                                route(
+                                    'vendor-inventory.deactivate'
+                                )
+                            }}"
+                            onsubmit="
+                                return confirm(
+                                    'FINAL STEP: Deactivate Headquarters and other inventory locations?'
+                                );
+                            "
+                        >
+
+                            @csrf
+
+                            <input
+                                type="hidden"
+                                name="vendor"
+                                value="{{
+                                    $activationVerification['vendor']
+                                    ?? $vendor
+                                }}"
+                            >
+
+
+                            <div class="form-check mb-3">
+
+                                <input
+                                    class="form-check-input"
+                                    type="checkbox"
+                                    name="confirm"
+                                    value="1"
+                                    id="confirmDeactivate"
+                                    required
+                                >
+
+                                <label
+                                    class="form-check-label"
+                                    for="confirmDeactivate"
+                                >
+
+                                    I confirm that activation has
+                                    been verified and I want to
+                                    deactivate Headquarters.
+
+                                </label>
+
+                            </div>
+
+
+                            <button
+                                type="submit"
+                                class="btn btn-danger"
+                            >
+
+                                Deactivate HQ
+
+                            </button>
+
+                        </form>
 
                     </div>
 
                 </div>
 
+            @endif
 
-                @if(!empty($moveResult['results']))
-
-                    <div class="table-responsive">
-
-                        <table class="table table-bordered">
-
-                            <thead class="table-light">
-
-                                <tr>
-
-                                    <th>
-                                        Product
-                                    </th>
-
-                                    <th>
-                                        SKU
-                                    </th>
-
-                                    <th>
-                                        Old Total
-                                    </th>
-
-                                    <th>
-                                        Old FSWarehouse
-                                    </th>
-
-                                    <th>
-                                        New FSWarehouse
-                                    </th>
-
-                                    <th>
-                                        Status
-                                    </th>
-
-                                    <th>
-                                        Message
-                                    </th>
-
-                                </tr>
-
-                            </thead>
+        @endif
 
 
-                            <tbody>
+        {{-- =====================================================
+             DEACTIVATION RESULT / COMPLETED
+        ====================================================== --}}
+        @if(!empty($deactivationResult))
 
-                                @foreach(
-                                    $moveResult['results']
-                                    as $result
-                                )
+            <div class="card border-success mb-4">
+
+                <div class="card-header bg-success text-white">
+
+                    <strong>
+                        Completed
+                    </strong>
+
+                </div>
+
+                <div class="card-body">
+
+                    @if(
+                        ($deactivationResult['summary']['failed'] ?? 0)
+                        === 0
+                    )
+
+                        <div class="alert alert-success mb-0">
+
+                            <h5 class="alert-heading">
+                                Inventory Setup Completed
+                            </h5>
+
+                            <p class="mb-2">
+
+                                All
+                                {{
+                                    $deactivationResult['summary']['successful']
+                                    ?? 0
+                                }}
+                                variants were processed
+                                successfully.
+
+                            </p>
+
+                            <hr>
+
+                            <ul class="mb-0">
+
+                                <li>
+                                    FSWarehouse is active.
+                                </li>
+
+                                <li>
+                                    Headquarters has been
+                                    deactivated.
+                                </li>
+
+                                <li>
+                                    Other inventory locations
+                                    have been deactivated.
+                                </li>
+
+                                <li>
+                                    Inventory quantities were
+                                    <strong>not changed</strong>.
+                                </li>
+
+                            </ul>
+
+                        </div>
+
+                    @else
+
+                        <div class="alert alert-warning">
+
+                            <strong>
+                                Completed with errors.
+                            </strong>
+
+                            <br><br>
+
+                            Successful:
+                            {{
+                                $deactivationResult['summary']['successful']
+                                ?? 0
+                            }}
+
+                            <br>
+
+                            Failed:
+                            {{
+                                $deactivationResult['summary']['failed']
+                                ?? 0
+                            }}
+
+                        </div>
+
+                    @endif
+
+
+                    {{-- Deactivation details --}}
+                    @if(
+                        !empty(
+                            $deactivationResult['results']
+                        )
+                    )
+
+                        <div class="table-responsive mt-4">
+
+                            <table class="table table-bordered">
+
+                                <thead class="table-light">
 
                                     <tr>
 
-                                        {{-- Product --}}
-                                        <td>
-                                            {{ $result['product_title'] ?? '-' }}
-                                        </td>
+                                        <th>
+                                            SKU
+                                        </th>
 
+                                        <th>
+                                            Product
+                                        </th>
 
-                                        {{-- SKU --}}
-                                        <td>
+                                        <th>
+                                            Variant
+                                        </th>
 
-                                            <code>
-                                                {{ $result['sku'] ?? '-' }}
-                                            </code>
+                                        <th>
+                                            Status
+                                        </th>
 
-                                        </td>
-
-
-                                        {{-- Old total --}}
-                                        <td>
-
-                                            {{ number_format(
-                                                $result['old_total_quantity'] ?? 0
-                                            ) }}
-
-                                        </td>
-
-
-                                        {{-- Old FSWarehouse --}}
-                                        <td>
-
-                                            {{ number_format(
-                                                $result['old_fs_quantity'] ?? 0
-                                            ) }}
-
-                                        </td>
-
-
-                                        {{-- New FSWarehouse --}}
-                                        <td>
-
-                                            <strong>
-
-                                                {{ number_format(
-                                                    $result['new_fs_quantity'] ?? 0
-                                                ) }}
-
-                                            </strong>
-
-                                        </td>
-
-
-                                        {{-- Status --}}
-                                        <td>
-
-                                            @if($result['success'] ?? false)
-
-                                                <span class="badge bg-success">
-                                                    Success
-                                                </span>
-
-                                            @else
-
-                                                <span class="badge bg-danger">
-                                                    Failed
-                                                </span>
-
-                                            @endif
-
-                                        </td>
-
-
-                                        {{-- Message --}}
-                                        <td>
-
-                                            {{ $result['message'] ?? '' }}
-
-                                        </td>
+                                        <th>
+                                            Message
+                                        </th>
 
                                     </tr>
 
-                                @endforeach
+                                </thead>
 
-                            </tbody>
 
-                        </table>
+                                <tbody>
 
-                    </div>
+                                    @foreach(
+                                        $deactivationResult['results']
+                                        as $result
+                                    )
 
-                @endif
+                                        <tr>
+
+                                            <td>
+
+                                                <code>
+                                                    {{
+                                                        $result['sku']
+                                                        ?? '-'
+                                                    }}
+                                                </code>
+
+                                            </td>
+
+                                            <td>
+
+                                                {{
+                                                    $result['product_title']
+                                                    ?? '-'
+                                                }}
+
+                                            </td>
+
+                                            <td>
+
+                                                {{
+                                                    $result['variant_title']
+                                                    ?? '-'
+                                                }}
+
+                                            </td>
+
+                                            <td>
+
+                                                @if(
+                                                    $result['success']
+                                                    ?? false
+                                                )
+
+                                                    <span
+                                                        class="badge text-bg-success"
+                                                    >
+                                                        Completed
+                                                    </span>
+
+                                                @else
+
+                                                    <span
+                                                        class="badge text-bg-danger"
+                                                    >
+                                                        Failed
+                                                    </span>
+
+                                                @endif
+
+                                            </td>
+
+                                            <td>
+
+                                                {{
+                                                    $result['message']
+                                                    ?? ''
+                                                }}
+
+                                            </td>
+
+                                        </tr>
+
+                                    @endforeach
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    @endif
+
+                </div>
 
             </div>
 
-        </div>
+        @endif
 
     @endif
 
