@@ -106,7 +106,7 @@
                     <form
                         method="GET"
                         action="{{ route('vendor-inventory.products') }}"
-                        class="row g-3 align-items-end"
+                        class="row g-3"
                     >
 
                         <div class="col-md-9">
@@ -134,8 +134,9 @@
 
                         </div>
 
+                        <div class="col-md-2">
 
-                        <div class="col-md-2 d-flex align-items-start">
+                            <label class="form-label">&nbsp;</label>
 
                             <button
                                 type="submit"
