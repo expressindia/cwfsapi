@@ -36,7 +36,6 @@ query GetProduct($id: ID!) {
             id
             name
             position
-            values
             optionValues {
                 id
                 name
@@ -53,16 +52,6 @@ query GetProduct($id: ID!) {
                 id
                 title
                 sku
-
-                selectedOptions {
-                    name
-                    value
-                    optionValue {
-                        id
-                        name
-                    }
-                }
-
                 barcode
                 price
                 compareAtPrice
@@ -268,59 +257,8 @@ GRAPHQL;
         |--------------------------------------------------------------------------
         */
 
-        $fsWarehouseLocationId = $this->getFsWarehouseLocationId();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Automatically resolve existing Shopify product by SKU
-        |--------------------------------------------------------------------------
-        |
-        | If the controller did not provide a Shopify product ID, check Shopify
-        | using the Fullscript SKU before creating a new product.
-        |
-        | This prevents duplicate Shopify products when the Update button is
-        | clicked without a Shopify product ID.
-        |
-        */
-
-        if (!$shopifyProductId) {
-
-            foreach (
-                $product['variants'] ?? []
-                as $variant
-            ) {
-
-                $sku = trim(
-                    (string) (
-                        $variant['sku']
-                        ?? ''
-                    )
-                );
-
-                if ($sku === '') {
-                    continue;
-                }
-
-                $existingVariant =
-                    $this->findProductBySku($sku);
-
-                if (!$existingVariant) {
-                    continue;
-                }
-
-                $foundProductId =
-                    $existingVariant['product']['id']
-                    ?? null;
-
-                if ($foundProductId) {
-
-                    $shopifyProductId =
-                        $foundProductId;
-
-                    break;
-                }
-            }
-        }
+        $fsWarehouseLocationId =
+            $this->getFsWarehouseLocationId();
 
         /*
         |--------------------------------------------------------------------------
@@ -381,21 +319,9 @@ GRAPHQL;
                 $product['tags']
                 ?? [],
 
-            /*
-            |--------------------------------------------------------------------------
-            | Product options
-            |--------------------------------------------------------------------------
-            |
-            | Shopify requires productOptions when productSet updates variants.
-            | Existing products use their current Shopify options as the source
-            | of truth. New products use the Fullscript/controller data.
-            |
-            */
             'productOptions' =>
-                $this->buildProductOptions(
-                    $product,
-                    $existingProduct
-                ),
+                $product['product_options']
+                ?? [],
         ];
 
         /*
@@ -594,7 +520,8 @@ GRAPHQL;
                     continue;
                 }
 
-                $this->activateInventoryLocation(
+                $this->ensureInventoryLocationActive(
+                    $existingVariant,
                     $inventoryItemId,
                     $fsWarehouseLocationId
                 );
@@ -640,27 +567,37 @@ GRAPHQL;
                         ),
 
                     'inventoryPolicy' =>
-                        'DENY',
+                        $variant['inventory_policy']
+                        ?? 'DENY',
 
                     'taxable' =>
-                        true,
+                        (bool) (
+                            $variant['taxable']
+                            ?? true
+                        ),
 
                     'inventoryItem' => [
                         'tracked' =>
-                            true,
+                            ($variant['inventory_tracker'] ?? 'shopify') === 'shopify',
 
                         'requiresShipping' =>
-                            true,
+                            (bool) (
+                                $variant['requires_shipping']
+                                ?? true
+                            ),
                     ],
 
-                    'optionValues' =>
-                        $this->buildVariantOptionValues(
-                            $variant,
-                            $existingVariantsBySku[
-                                $sku
-                            ] ?? null,
-                            $input['productOptions']
-                        ),
+                    'optionValues' => [
+                        [
+                            'optionName' =>
+                                $variant['option_name']
+                                ?? 'Size',
+
+                            'name' =>
+                                $variant['option_value']
+                                ?? 'Default',
+                        ],
+                    ],
                 ];
 
                 /*
@@ -783,9 +720,9 @@ GRAPHQL;
                             'available',
 
                         'quantity' =>
-                            (int) config(
-                                'fullscript.default_inventory',
-                                88
+                            (int) (
+                                $variant['quantity']
+                                ?? 0
                             ),
                     ],
                 ];
@@ -962,10 +899,12 @@ GRAPHQL;
         |--------------------------------------------------------------------------
         */
 
-        $this->makeFsWarehouseOnly(
-            $shopifyProduct,
-            $fsWarehouseLocationId
-        );
+        if ($existingProduct) {
+            $this->makeFsWarehouseOnly(
+                $shopifyProduct,
+                $fsWarehouseLocationId
+            );
+        }
 
         return $shopifyProduct;
     }
@@ -973,743 +912,39 @@ GRAPHQL;
     /**
      * Build Shopify product options.
      *
-     * Existing Shopify products:
-     * - Preserve existing option IDs.
-     * - Preserve existing option value IDs.
-     * - Add missing values required by incoming variants.
-     *
-     * New products:
-     * - Use supplied product_options when available.
-     * - Otherwise derive options from variant option_name/option_value.
-     * - Fall back to Title / Default Title for simple products.
+     * For an existing product, preserve its existing Shopify options.
+     * For a new product, use the options supplied by ProductTransformer.
      */
     protected function buildProductOptions(
         array $product,
-        ?array $existingProduct
+        ?array $existingProduct = null
     ): array {
-
-        $sourceOptions = [];
-
         if (
             $existingProduct
             && !empty($existingProduct['options'])
-            && is_array($existingProduct['options'])
         ) {
-            $sourceOptions = $existingProduct['options'];
+            return $existingProduct['options'];
         }
 
-        if (empty($sourceOptions)) {
-            $sourceOptions =
-                $product['product_options']
-                ?? [];
-        }
-
-        $options = [];
-
-        foreach ($sourceOptions as $index => $option) {
-
-            if (!is_array($option)) {
-                continue;
-            }
-
-            $name = trim(
-                (string) (
-                    $option['name']
-                    ?? $option['option_name']
-                    ?? ''
-                )
-            );
-
-            if ($name === '') {
-                continue;
-            }
-
-            $position =
-                (int) (
-                    $option['position']
-                    ?? ($index + 1)
-                );
-
-            if ($position < 1) {
-                $position = $index + 1;
-            }
-
-            $normalizedOption = [
-                'name' => $name,
-                'position' => $position,
-                'values' => [],
-            ];
-
-            if (!empty($option['id'])) {
-                $normalizedOption['id'] =
-                    $option['id'];
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Existing Shopify option values
-            |--------------------------------------------------------------------------
-            */
-
-            $optionValues =
-                $option['optionValues']
-                ?? [];
-
-            if (
-                !empty($optionValues)
-                && is_array($optionValues)
-            ) {
-                foreach ($optionValues as $optionValue) {
-
-                    if (!is_array($optionValue)) {
-                        continue;
-                    }
-
-                    $valueName = trim(
-                        (string) (
-                            $optionValue['name']
-                            ?? ''
-                        )
-                    );
-
-                    if ($valueName === '') {
-                        continue;
-                    }
-
-                    $value = [
-                        'name' => $valueName,
-                    ];
-
-                    if (!empty($optionValue['id'])) {
-                        $value['id'] =
-                            $optionValue['id'];
-                    }
-
-                    $this->appendUniqueOptionValue(
-                        $normalizedOption['values'],
-                        $value
-                    );
-                }
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Fallback for string values
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                isset($option['values'])
-                && is_array($option['values'])
-            ) {
-                foreach ($option['values'] as $value) {
-
-                    if (is_array($value)) {
-
-                        $valueName = trim(
-                            (string) (
-                                $value['name']
-                                ?? ''
-                            )
-                        );
-
-                        if ($valueName === '') {
-                            continue;
-                        }
-
-                        $normalizedValue = [
-                            'name' => $valueName,
-                        ];
-
-                        if (!empty($value['id'])) {
-                            $normalizedValue['id'] =
-                                $value['id'];
-                        }
-
-                    } else {
-
-                        $valueName =
-                            trim((string) $value);
-
-                        if ($valueName === '') {
-                            continue;
-                        }
-
-                        $normalizedValue = [
-                            'name' => $valueName,
-                        ];
-                    }
-
-                    $this->appendUniqueOptionValue(
-                        $normalizedOption['values'],
-                        $normalizedValue
-                    );
-                }
-            }
-
-            $options[] = $normalizedOption;
-        }
-
-        $variants =
-            $product['variants']
+        $options =
+            $product['product_options']
             ?? [];
 
-        /*
-        |--------------------------------------------------------------------------
-        | New product with no explicit product options:
-        | derive them from Fullscript variants.
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            empty($options)
-            && is_array($variants)
-        ) {
-            foreach ($variants as $variant) {
-
-                if (!is_array($variant)) {
-                    continue;
-                }
-
-                $optionName = trim(
-                    (string) (
-                        $variant['option_name']
-                        ?? $variant['optionName']
-                        ?? ''
-                    )
-                );
-
-                $optionValue = trim(
-                    (string) (
-                        $variant['option_value']
-                        ?? $variant['optionValue']
-                        ?? ''
-                    )
-                );
-
-                if (
-                    $optionName === ''
-                    || $optionValue === ''
-                ) {
-                    continue;
-                }
-
-                $optionIndex = null;
-
-                foreach ($options as $index => $option) {
-
-                    if (
-                        strcasecmp(
-                            $option['name'],
-                            $optionName
-                        ) === 0
-                    ) {
-                        $optionIndex = $index;
-                        break;
-                    }
-                }
-
-                if ($optionIndex === null) {
-
-                    $options[] = [
-                        'name' => $optionName,
-                        'position' => count($options) + 1,
-                        'values' => [],
-                    ];
-
-                    $optionIndex =
-                        count($options) - 1;
-                }
-
-                $this->appendUniqueOptionValue(
-                    $options[$optionIndex]['values'],
-                    [
-                        'name' => $optionValue,
-                    ]
-                );
-            }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Add variant values to matching options.
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            !empty($options)
-            && is_array($variants)
-        ) {
-            foreach ($variants as $variant) {
-
-                if (!is_array($variant)) {
-                    continue;
-                }
-
-                $optionName = trim(
-                    (string) (
-                        $variant['option_name']
-                        ?? $variant['optionName']
-                        ?? ''
-                    )
-                );
-
-                $optionValue = trim(
-                    (string) (
-                        $variant['option_value']
-                        ?? $variant['optionValue']
-                        ?? ''
-                    )
-                );
-
-                if ($optionValue === '') {
-                    continue;
-                }
-
-                $optionIndex = null;
-
-                if ($optionName !== '') {
-                    foreach ($options as $index => $option) {
-
-                        if (
-                            strcasecmp(
-                                $option['name'],
-                                $optionName
-                            ) === 0
-                        ) {
-                            $optionIndex = $index;
-                            break;
-                        }
-                    }
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | A simple product normally has one option.
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    $optionIndex === null
-                    && count($options) === 1
-                ) {
-                    $optionIndex = 0;
-                }
-
-                if ($optionIndex === null) {
-                    continue;
-                }
-
-                $this->appendUniqueOptionValue(
-                    $options[$optionIndex]['values'],
-                    [
-                        'name' => $optionValue,
-                    ]
-                );
-            }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Safe fallback for simple products.
-        |--------------------------------------------------------------------------
-        */
-
-        if (empty($options)) {
-            $options = [
+        if (!is_array($options) || empty($options)) {
+            return [
                 [
-                    'name' => 'Title',
+                    'name' => 'Size',
                     'position' => 1,
                     'values' => [
                         [
-                            'name' => 'Default Title',
+                            'name' => 'Default',
                         ],
                     ],
                 ],
             ];
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Every option needs at least one value.
-        |--------------------------------------------------------------------------
-        */
-
-        foreach ($options as $index => &$option) {
-
-            $option['position'] =
-                $index + 1;
-
-            if (empty($option['values'])) {
-                $option['values'] = [
-                    [
-                        'name' => 'Default Title',
-                    ],
-                ];
-            }
-        }
-
-        unset($option);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Shopify supports a maximum of 3 product options.
-        |--------------------------------------------------------------------------
-        */
-
-        return array_values(
-            array_slice($options, 0, 3)
-        );
-    }
-
-    /**
-     * Build variant option values that match productOptions.
-     *
-     * Existing Shopify variants are preferred so an existing variant's
-     * option configuration is not accidentally changed.
-     */
-    protected function buildVariantOptionValues(
-        array $variant,
-        ?array $existingVariant,
-        array $productOptions
-    ): array {
-
-        /*
-        |--------------------------------------------------------------------------
-        | Existing Shopify variant
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $existingVariant
-            && !empty($existingVariant['selectedOptions'])
-            && is_array($existingVariant['selectedOptions'])
-        ) {
-
-            $selectedOptions = [];
-
-            foreach (
-                $existingVariant['selectedOptions']
-                as $selectedOption
-            ) {
-
-                if (!is_array($selectedOption)) {
-                    continue;
-                }
-
-                $optionName = trim(
-                    (string) (
-                        $selectedOption['name']
-                        ?? ''
-                    )
-                );
-
-                $valueName = trim(
-                    (string) (
-                        $selectedOption['value']
-                        ?? (
-                            $selectedOption['optionValue']['name']
-                            ?? ''
-                        )
-                    )
-                );
-
-                if (
-                    $optionName === ''
-                    || $valueName === ''
-                ) {
-                    continue;
-                }
-
-                $selectedOptions[] = [
-                    'optionName' => $optionName,
-                    'name' => $valueName,
-                ];
-            }
-
-            if (!empty($selectedOptions)) {
-                return $selectedOptions;
-            }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fullscript option_values
-        |--------------------------------------------------------------------------
-        */
-
-        $candidateOptions = [];
-
-        if (
-            !empty($variant['option_values'])
-            && is_array($variant['option_values'])
-        ) {
-
-            foreach (
-                $variant['option_values']
-                as $optionValue
-            ) {
-
-                if (!is_array($optionValue)) {
-                    continue;
-                }
-
-                $optionName = trim(
-                    (string) (
-                        $optionValue['optionName']
-                        ?? $optionValue['option_name']
-                        ?? ''
-                    )
-                );
-
-                $valueName = trim(
-                    (string) (
-                        $optionValue['name']
-                        ?? $optionValue['value']
-                        ?? $optionValue['option_value']
-                        ?? ''
-                    )
-                );
-
-                if (
-                    $optionName === ''
-                    || $valueName === ''
-                ) {
-                    continue;
-                }
-
-                $candidateOptions[] = [
-                    'optionName' => $optionName,
-                    'name' => $valueName,
-                ];
-            }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Legacy Fullscript option fields
-        |--------------------------------------------------------------------------
-        */
-
-        if (empty($candidateOptions)) {
-
-            $optionName = trim(
-                (string) (
-                    $variant['option_name']
-                    ?? $variant['optionName']
-                    ?? ''
-                )
-            );
-
-            $valueName = trim(
-                (string) (
-                    $variant['option_value']
-                    ?? $variant['optionValue']
-                    ?? ''
-                )
-            );
-
-            if (
-                $optionName !== ''
-                && $valueName !== ''
-            ) {
-                $candidateOptions[] = [
-                    'optionName' => $optionName,
-                    'name' => $valueName,
-                ];
-            }
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Match Fullscript options to Shopify options.
-        |--------------------------------------------------------------------------
-        */
-
-        $matchedOptions = [];
-
-        foreach ($candidateOptions as $candidate) {
-
-            $candidateName =
-                $candidate['optionName'];
-
-            $candidateValue =
-                $candidate['name'];
-
-            $matchedOption = null;
-
-            foreach ($productOptions as $productOption) {
-
-                if (
-                    strcasecmp(
-                        (string) (
-                            $productOption['name']
-                            ?? ''
-                        ),
-                        $candidateName
-                    ) === 0
-                ) {
-                    $matchedOption =
-                        $productOption;
-
-                    break;
-                }
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Simple product fallback.
-            |--------------------------------------------------------------------------
-            */
-
-            if (
-                !$matchedOption
-                && count($productOptions) === 1
-            ) {
-                $matchedOption =
-                    $productOptions[0];
-            }
-
-            if (!$matchedOption) {
-                continue;
-            }
-
-            $optionName =
-                $matchedOption['name'];
-
-            $allowedValue = null;
-
-            foreach (
-                $matchedOption['values']
-                ?? []
-                as $allowed
-            ) {
-
-                $allowedName =
-                    is_array($allowed)
-                        ? (
-                            $allowed['name']
-                            ?? ''
-                        )
-                        : (string) $allowed;
-
-                if (
-                    strcasecmp(
-                        trim($allowedName),
-                        $candidateValue
-                    ) === 0
-                ) {
-                    $allowedValue =
-                        $allowedName;
-
-                    break;
-                }
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | buildProductOptions() normally already added this value.
-            |--------------------------------------------------------------------------
-            */
-
-            if ($allowedValue === null) {
-                $allowedValue =
-                    $candidateValue;
-            }
-
-            $matchedOptions[] = [
-                'optionName' => $optionName,
-                'name' => $allowedValue,
-            ];
-        }
-
-        if (!empty($matchedOptions)) {
-            return $matchedOptions;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Final fallback.
-        |--------------------------------------------------------------------------
-        */
-
-        $firstOption =
-            $productOptions[0]
-            ?? [
-                'name' => 'Title',
-                'values' => [
-                    [
-                        'name' => 'Default Title',
-                    ],
-                ],
-            ];
-
-        $firstValue =
-            $firstOption['values'][0]
-            ?? [
-                'name' => 'Default Title',
-            ];
-
-        $firstValueName =
-            is_array($firstValue)
-                ? (
-                    $firstValue['name']
-                    ?? 'Default Title'
-                )
-                : (string) $firstValue;
-
-        return [
-            [
-                'optionName' =>
-                    $firstOption['name']
-                    ?? 'Title',
-
-                'name' =>
-                    $firstValueName,
-            ],
-        ];
-    }
-
-    /**
-     * Add an option value without creating duplicates.
-     */
-    protected function appendUniqueOptionValue(
-        array &$values,
-        array $newValue
-    ): void {
-
-        $newName = trim(
-            (string) (
-                $newValue['name']
-                ?? ''
-            )
-        );
-
-        if ($newName === '') {
-            return;
-        }
-
-        foreach ($values as $existingValue) {
-
-            $existingName =
-                is_array($existingValue)
-                    ? (
-                        $existingValue['name']
-                        ?? ''
-                    )
-                    : (string) $existingValue;
-
-            if (
-                strcasecmp(
-                    trim($existingName),
-                    $newName
-                ) === 0
-            ) {
-                return;
-            }
-        }
-
-        $values[] = $newValue;
+        return $options;
     }
 
     /**
@@ -2024,7 +1259,7 @@ GRAPHQL;
         if (!empty($errors)) {
 
             throw new RuntimeException(
-                'Unable to deactivate inventory location : '
+                'Unable to deactivate inventory location: '
                 .
                 json_encode(
                     $errors,
@@ -2033,4 +1268,4 @@ GRAPHQL;
             );
         }
     }
-} 
+}
