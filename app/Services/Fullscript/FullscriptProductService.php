@@ -17,10 +17,12 @@ class FullscriptProductService
 
     /**
      * Get products from the Fullscript fulfillment catalog.
+     *
+     * This is used when the Products page is opened without filters.
      */
     public function getProducts(
         int $page = 1,
-        int $perPage = 100
+        int $perPage = 25
     ): array {
         $baseUrl = rtrim(
             config('fullscript.api_base_url'),
@@ -33,18 +35,29 @@ class FullscriptProductService
             );
         }
 
-        $accessToken = $this->tokenService->freshAccessToken();
+        $accessToken =
+            $this->tokenService->freshAccessToken();
 
-        $url = $baseUrl . '/catalog/products';
+        $url =
+            $baseUrl . '/catalog/products';
 
-        $response = Http::withToken($accessToken)
-            ->acceptJson()
-            ->connectTimeout(10)
-            ->timeout(30)
-            ->get($url, [
-                'page[number]' => $page,
-                'page[size]' => $perPage,
-            ]);
+        try {
+            $response = Http::withToken($accessToken)
+                ->acceptJson()
+                ->connectTimeout(10)
+                ->timeout(30)
+                ->get($url, [
+                    'page[number]' => $page,
+                    'page[size]' => $perPage,
+                ]);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException(
+                'Unable to connect to Fullscript catalog API: '
+                . $e->getMessage(),
+                0,
+                $e
+            );
+        }
 
         if ($response->failed()) {
             throw new RuntimeException(
@@ -56,7 +69,7 @@ class FullscriptProductService
     }
 
     /**
-     * Get detailed Fullscript product.
+     * Get one Fullscript product by ID.
      */
     public function getProduct(
         string $productId
@@ -72,17 +85,28 @@ class FullscriptProductService
             );
         }
 
-        $accessToken = $this->tokenService->freshAccessToken();
+        $accessToken =
+            $this->tokenService->freshAccessToken();
 
-        $url = $baseUrl
+        $url =
+            $baseUrl
             . '/catalog/products/'
             . urlencode($productId);
 
-        $response = Http::withToken($accessToken)
-            ->acceptJson()
-            ->connectTimeout(10)
-            ->timeout(30)
-            ->get($url);
+        try {
+            $response = Http::withToken($accessToken)
+                ->acceptJson()
+                ->connectTimeout(10)
+                ->timeout(30)
+                ->get($url);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException(
+                'Unable to connect to Fullscript product API: '
+                . $e->getMessage(),
+                0,
+                $e
+            );
+        }
 
         if ($response->failed()) {
             throw new RuntimeException(
@@ -96,12 +120,15 @@ class FullscriptProductService
     /**
      * Search Fullscript products.
      *
-     * IMPORTANT:
-     * The brand parameter below assumes the Fullscript search
-     * endpoint accepts "brand".
+     * This is used only when the user enters a filter.
      *
-     * If Fullscript specifies another parameter name, change
-     * only this query parameter.
+     * IMPORTANT:
+     * The newer /catalog/search/products endpoint was supplied
+     * separately from the Fulfillment API reference.
+     *
+     * The brand parameter below is "brand".
+     * If Fullscript's current endpoint expects a different
+     * parameter name, this is the only place that needs changing.
      */
     public function searchProducts(
         ?string $brand = null,
@@ -120,34 +147,31 @@ class FullscriptProductService
             );
         }
 
-        $accessToken = $this->tokenService->freshAccessToken();
+        $accessToken =
+            $this->tokenService->freshAccessToken();
 
         $query = [
             'page[number]' => $page,
             'page[size]' => $perPage,
         ];
 
-        /*
-        |--------------------------------------------------------------------------
-        | Brand
-        |--------------------------------------------------------------------------
-        */
-
-        if ($brand !== null && $brand !== '') {
+        if (
+            $brand !== null
+            && $brand !== ''
+        ) {
             $query['brand'] = $brand;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Product name / SKU
-        |--------------------------------------------------------------------------
-        */
-
-        if ($search !== null && $search !== '') {
+        if (
+            $search !== null
+            && $search !== ''
+        ) {
             $query['search'] = $search;
         }
 
-        $url = $baseUrl . '/catalog/search/products';
+        $url =
+            $baseUrl
+            . '/catalog/search/products';
 
         try {
             $response = Http::withToken($accessToken)
@@ -157,7 +181,7 @@ class FullscriptProductService
                 ->get($url, $query);
         } catch (ConnectionException $e) {
             throw new RuntimeException(
-                'Unable to connect to Fullscript product search API: '
+                'Unable to connect to Fullscript search API: '
                 . $e->getMessage(),
                 0,
                 $e
@@ -174,28 +198,32 @@ class FullscriptProductService
     }
 
     /**
-     * Get a useful Fullscript API error message.
+     * Convert Fullscript response into a useful exception message.
      */
     protected function responseMessage(
         Response $response
     ): string {
-        $status = $response->status();
+        $status =
+            $response->status();
 
-        $body = $response->json();
+        $json =
+            $response->json();
 
-        if (is_array($body)) {
+        if (is_array($json)) {
+
             $message =
-                $body['message']
-                ?? $body['error']
-                ?? $body['errors']
+                $json['message']
+                ?? $json['error']
+                ?? $json['errors']
                 ?? null;
 
             if (is_array($message)) {
-                $message = json_encode(
-                    $message,
-                    JSON_UNESCAPED_SLASHES
-                    | JSON_UNESCAPED_UNICODE
-                );
+                $message =
+                    json_encode(
+                        $message,
+                        JSON_UNESCAPED_SLASHES
+                        | JSON_UNESCAPED_UNICODE
+                    );
             }
 
             if ($message) {
@@ -207,15 +235,16 @@ class FullscriptProductService
             }
         }
 
-        $text = trim(
-            $response->body()
-        );
+        $body =
+            trim(
+                $response->body()
+            );
 
-        if ($text !== '') {
+        if ($body !== '') {
             return sprintf(
                 'Fullscript API error (%s): %s',
                 $status,
-                $text
+                $body
             );
         }
 

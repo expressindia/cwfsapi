@@ -1,8 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Products - CWFSAPI')
-
-@section('page-title', 'Products')
+@section('title', 'Products')
 
 @section('content')
 
@@ -15,32 +13,36 @@
     <div class="products-header">
 
         <div>
+
             <h1 class="products-title">
                 Products
             </h1>
 
             <p class="products-subtitle">
-                Search Fullscript products by brand and push them to Shopify.
-                Existing products will be updated and new products will be created.
+                Browse Fullscript products and push them to Shopify.
+                Existing products will be updated, new products will be created.
             </p>
+
         </div>
 
-        <div class="products-header-actions">
+        <div class="products-header-right">
 
             <button
                 type="button"
-                class="btn btn-primary products-sync-button"
+                class="btn btn-primary sync-latest-button"
                 id="syncLatestProducts"
             >
-                <i class="bi bi-arrow-repeat me-2"></i>
+                <i class="bi bi-arrow-repeat"></i>
                 Sync Latest Products
             </button>
 
             @if(!empty($lastSyncedAt))
+
                 <div class="last-synced">
                     Last synced:
                     {{ $lastSyncedAt }}
                 </div>
+
             @endif
 
         </div>
@@ -54,28 +56,11 @@
 
     @if(!empty($error))
 
-        <div
-            class="alert alert-danger products-alert"
-            role="alert"
-        >
+        <div class="alert alert-danger products-error">
 
-            <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
 
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-
-                <div>
-
-                    <strong>
-                        Unable to load Fullscript products.
-                    </strong>
-
-                    <div class="mt-1">
-                        {{ $error }}
-                    </div>
-
-                </div>
-
-            </div>
+            {{ $error }}
 
         </div>
 
@@ -83,205 +68,290 @@
 
 
     {{-- ================================================================
-         SEARCH CARD
+         FILTER CARD
     ================================================================= --}}
 
-    <div class="card products-filter-card">
+    <div class="filter-card">
 
-        <div class="card-body">
+        <form
+            method="GET"
+            action="{{ route('products.index') }}"
+            id="productFilterForm"
+        >
 
-            <form
-                method="GET"
-                action="{{ route('products.index') }}"
-                id="productSearchForm"
-            >
+            <div class="filter-row">
 
-                <div class="row g-3 align-items-end">
+                {{-- BRAND --}}
 
-                    {{-- BRAND --}}
+                <div class="filter-field brand-field">
 
-                    <div class="col-lg-5">
+                    <label for="brand">
+                        Brand / Vendor
+                    </label>
 
-                        <label
-                            for="brandSearch"
-                            class="form-label products-form-label"
+                    <div class="search-input-wrapper">
+
+                        <input
+                            type="text"
+                            name="brand"
+                            id="brand"
+                            value="{{ $brand ?? '' }}"
+                            placeholder="Brand / Vendor"
+                            autocomplete="off"
                         >
-                            Brand Name
-                        </label>
 
-                        <div class="input-group">
-
-                            <input
-                                type="text"
-                                id="brandSearch"
-                                name="brand"
-                                class="form-control products-search-input"
-                                placeholder="Enter brand name"
-                                value="{{ $brand ?? '' }}"
-                                autocomplete="off"
-                                required
-                            >
+                        @if(!empty($brand))
 
                             <button
-                                type="submit"
-                                class="btn btn-primary"
+                                type="button"
+                                class="clear-input"
+                                onclick="clearBrand()"
+                                title="Clear"
                             >
-                                <i class="bi bi-search me-1"></i>
-                                Search
+                                <i class="bi bi-x-lg"></i>
                             </button>
 
-                        </div>
-
-                        <div class="form-text">
-                            Enter the Fullscript brand name and search.
-                        </div>
-
-                    </div>
-
-
-                    {{-- PRODUCT / SKU --}}
-
-                    <div class="col-lg-4">
-
-                        <label
-                            for="productSearch"
-                            class="form-label products-form-label"
-                        >
-                            Product Name / SKU
-                            <span class="text-muted">
-                                (optional)
-                            </span>
-                        </label>
-
-                        <div class="input-group">
-
-                            <input
-                                type="text"
-                                id="productSearch"
-                                name="search"
-                                class="form-control products-search-input"
-                                placeholder="Enter product name or SKU"
-                                value="{{ $search ?? '' }}"
-                            >
-
-                            @if(!empty($brand))
-
-                                <button
-                                    type="submit"
-                                    class="btn btn-light products-search-icon"
-                                    title="Search"
-                                >
-                                    <i class="bi bi-search"></i>
-                                </button>
-
-                            @endif
-
-                        </div>
-
-                    </div>
-
-
-                    {{-- PER PAGE --}}
-
-                    <div class="col-lg-3">
-
-                        <label
-                            for="perPage"
-                            class="form-label products-form-label"
-                        >
-                            Show per page
-                        </label>
-
-                        <select
-                            id="perPage"
-                            name="per_page"
-                            class="form-select products-search-input"
-                            onchange="this.form.submit()"
-                        >
-
-                            <option
-                                value="25"
-                                {{ ($perPage ?? 25) == 25 ? 'selected' : '' }}
-                            >
-                                25
-                            </option>
-
-                            <option
-                                value="50"
-                                {{ ($perPage ?? 25) == 50 ? 'selected' : '' }}
-                            >
-                                50
-                            </option>
-
-                            <option
-                                value="100"
-                                {{ ($perPage ?? 25) == 100 ? 'selected' : '' }}
-                            >
-                                100
-                            </option>
-
-                        </select>
+                        @endif
 
                     </div>
 
                 </div>
 
-            </form>
 
-        </div>
+                {{-- SEARCH BUTTON --}}
+
+                <div class="filter-search-button">
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary search-button"
+                    >
+                        <i class="bi bi-search"></i>
+                        Search
+                    </button>
+
+                </div>
+
+
+                {{-- PRODUCT / SKU --}}
+
+                <div class="filter-field product-search-field">
+
+                    <label for="search">
+                        Product Name / SKU
+                        <span>(optional)</span>
+                    </label>
+
+                    <div class="search-input-wrapper">
+
+                        <input
+                            type="text"
+                            name="search"
+                            id="search"
+                            value="{{ $search ?? '' }}"
+                            placeholder="Enter product name or SKU"
+                        >
+
+                        @if(!empty($search))
+
+                            <button
+                                type="button"
+                                class="clear-input"
+                                onclick="clearSearch()"
+                                title="Clear"
+                            >
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+
+                        @endif
+
+                    </div>
+
+                </div>
+
+
+                {{-- SEARCH ICON --}}
+
+                <div class="product-search-icon-wrapper">
+
+                    <button
+                        type="submit"
+                        class="search-icon-button"
+                        title="Search"
+                    >
+                        <i class="bi bi-search"></i>
+                    </button>
+
+                </div>
+
+
+                {{-- PER PAGE --}}
+
+                <div class="filter-field per-page-field">
+
+                    <label for="per_page">
+                        Show per page
+                    </label>
+
+                    <select
+                        name="per_page"
+                        id="per_page"
+                        onchange="this.form.submit()"
+                    >
+
+                        <option
+                            value="25"
+                            {{ ($perPage ?? 25) == 25 ? 'selected' : '' }}
+                        >
+                            25
+                        </option>
+
+                        <option
+                            value="50"
+                            {{ ($perPage ?? 25) == 50 ? 'selected' : '' }}
+                        >
+                            50
+                        </option>
+
+                        <option
+                            value="100"
+                            {{ ($perPage ?? 25) == 100 ? 'selected' : '' }}
+                        >
+                            100
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            {{-- ========================================================
+                 QUICK FILTERS
+            ========================================================= --}}
+
+            <div class="quick-filters">
+
+                <span class="quick-filter-label">
+                    Quick Filters:
+                </span>
+
+                <a
+                    href="{{ route('products.index') }}"
+                    class="quick-filter {{ empty($brand) && empty($search) ? 'active' : '' }}"
+                >
+                    All Brands
+                </a>
+
+                <a
+                    href="{{ route('products.index', ['brand' => 'Designs for Health']) }}"
+                    class="quick-filter {{ ($brand ?? '') === 'Designs for Health' ? 'active' : '' }}"
+                >
+                    Designs for Health
+                </a>
+
+                <a
+                    href="{{ route('products.index', ['brand' => 'Allergy Research Group']) }}"
+                    class="quick-filter {{ ($brand ?? '') === 'Allergy Research Group' ? 'active' : '' }}"
+                >
+                    Allergy Research Group
+                </a>
+
+                <a
+                    href="{{ route('products.index', ['brand' => 'A.C. Grace']) }}"
+                    class="quick-filter {{ ($brand ?? '') === 'A.C. Grace' ? 'active' : '' }}"
+                >
+                    A.C. Grace
+                </a>
+
+                <a
+                    href="{{ route('products.index', ['brand' => 'Nordic Naturals']) }}"
+                    class="quick-filter {{ ($brand ?? '') === 'Nordic Naturals' ? 'active' : '' }}"
+                >
+                    Nordic Naturals
+                </a>
+
+                <a
+                    href="{{ route('products.index', ['brand' => 'Thorne']) }}"
+                    class="quick-filter {{ ($brand ?? '') === 'Thorne' ? 'active' : '' }}"
+                >
+                    Thorne
+                </a>
+
+                <a
+                    href="{{ route('products.index', ['brand' => 'Metagenics']) }}"
+                    class="quick-filter {{ ($brand ?? '') === 'Metagenics' ? 'active' : '' }}"
+                >
+                    Metagenics
+                </a>
+
+            </div>
+
+        </form>
 
     </div>
 
 
     {{-- ================================================================
-         NO BRAND SEARCH
+         NO PRODUCTS
     ================================================================= --}}
 
-    @if(empty($brand))
+    @if($products->count() === 0)
 
-        <div class="products-empty-state">
+        <div class="empty-products">
 
-            <div class="products-empty-icon">
-                <i class="bi bi-search"></i>
-            </div>
-
-            <h4>
-                Search by brand
-            </h4>
-
-            <p>
-                Enter a Fullscript brand name above to view its products.
-            </p>
-
-        </div>
-
-    @elseif($products->count() === 0)
-
-        {{-- ============================================================
-             NO PRODUCTS
-        ============================================================= --}}
-
-        <div class="products-empty-state">
-
-            <div class="products-empty-icon">
+            <div class="empty-icon">
                 <i class="bi bi-box-seam"></i>
             </div>
 
-            <h4>
-                No products found
-            </h4>
+            @if(!empty($brand) || !empty($search))
 
-            <p>
-                No Fullscript products were found for
-                <strong>
-                    "{{ $brand }}"
-                </strong>.
-            </p>
+                <h3>
+                    No products found
+                </h3>
 
-            @if(!empty($search))
+                <p>
 
-                <p class="text-muted mb-0">
-                    Try removing the product/SKU search or use a different brand name.
+                    No Fullscript products matched
+
+                    @if(!empty($brand))
+                        the brand
+                        <strong>
+                            "{{ $brand }}"
+                        </strong>
+                    @endif
+
+                    @if(!empty($search))
+                        @if(!empty($brand))
+                            and
+                        @endif
+
+                        the search
+                        <strong>
+                            "{{ $search }}"
+                        </strong>
+                    @endif
+
+                    .
+
+                </p>
+
+                <a
+                    href="{{ route('products.index') }}"
+                    class="btn btn-outline-primary"
+                >
+                    Show All Products
+                </a>
+
+            @else
+
+                <h3>
+                    No products found
+                </h3>
+
+                <p>
+                    Fullscript did not return any products.
                 </p>
 
             @endif
@@ -290,46 +360,57 @@
 
     @else
 
+
         {{-- ============================================================
-             SELECTION BAR
+             BULK ACTION BAR
         ============================================================= --}}
 
         <div
             class="bulk-action-bar"
             id="bulkActionBar"
-            style="display:none;"
         >
 
-            <div>
+            <div class="selection-info">
 
-                <strong id="selectedCount">
-                    0
-                </strong>
+                <input
+                    type="checkbox"
+                    class="form-check-input"
+                    id="selectAllProducts"
+                >
 
-                products selected
+                <span>
+                    <strong id="selectedCount">
+                        0
+                    </strong>
 
-                <span class="text-muted">
-                    (of {{ $products->count() }} on this page)
+                    products selected
+
+                    <span class="selected-total">
+                        (of {{ $products->count() }} on this page)
+                    </span>
                 </span>
 
             </div>
 
-            <div class="bulk-actions">
+            <div class="bulk-buttons">
 
                 <button
                     type="button"
-                    class="btn btn-primary"
+                    class="btn btn-primary bulk-push-button"
                     id="pushSelectedButton"
+                    disabled
                 >
-                    <i class="bi bi-cloud-arrow-up me-1"></i>
+                    <i class="bi bi-cloud-arrow-up"></i>
                     Push Selected to Shopify
+                    (<span id="selectedButtonCount">0</span>)
                 </button>
 
                 <button
                     type="button"
-                    class="btn btn-outline-secondary"
+                    class="btn btn-light clear-selection-button"
                     id="clearSelectionButton"
                 >
+                    <i class="bi bi-x-lg"></i>
                     Clear Selection
                 </button>
 
@@ -342,25 +423,25 @@
              PRODUCTS TABLE
         ============================================================= --}}
 
-        <div class="card products-table-card">
+        <div class="products-card">
 
             <div class="table-responsive">
 
-                <table class="table products-table mb-0">
+                <table class="products-table">
 
                     <thead>
 
                         <tr>
 
-                            <th class="checkbox-column">
+                            <th class="check-column">
                                 <input
                                     type="checkbox"
                                     class="form-check-input"
-                                    id="selectAllProducts"
+                                    id="headerSelectAll"
                                 >
                             </th>
 
-                            <th>
+                            <th class="image-column">
                                 Image
                             </th>
 
@@ -404,13 +485,12 @@
 
                                 {{-- CHECKBOX --}}
 
-                                <td>
+                                <td class="check-column">
 
                                     <input
                                         type="checkbox"
                                         class="form-check-input product-checkbox"
                                         value="{{ $product['id'] }}"
-                                        data-product-id="{{ $product['id'] }}"
                                     >
 
                                 </td>
@@ -418,20 +498,23 @@
 
                                 {{-- IMAGE --}}
 
-                                <td>
+                                <td class="image-column">
 
                                     @if(!empty($product['image']))
 
                                         <img
                                             src="{{ $product['image'] }}"
                                             alt="{{ $product['title'] }}"
-                                            class="product-thumbnail"
+                                            class="product-image"
+                                            loading="lazy"
                                         >
 
                                     @else
 
-                                        <div class="product-thumbnail-placeholder">
+                                        <div class="product-image-placeholder">
+
                                             <i class="bi bi-image"></i>
+
                                         </div>
 
                                     @endif
@@ -443,7 +526,7 @@
 
                                 <td>
 
-                                    <div class="product-name">
+                                    <div class="product-title">
                                         {{ $product['title'] }}
                                     </div>
 
@@ -454,7 +537,7 @@
 
                                 <td>
 
-                                    <span class="brand-name">
+                                    <span class="brand-text">
                                         {{ $product['brand'] ?: '—' }}
                                     </span>
 
@@ -465,9 +548,9 @@
 
                                 <td>
 
-                                    <code>
+                                    <span class="sku-text">
                                         {{ $product['sku'] ?: '—' }}
-                                    </code>
+                                    </span>
 
                                 </td>
 
@@ -477,33 +560,48 @@
                                 <td>
 
                                     @php
+
                                         $availability =
                                             strtolower(
                                                 $product['availability'] ?? ''
                                             );
+
                                     @endphp
 
-                                    @if($availability === 'in stock')
+                                    @if(
+                                        in_array(
+                                            $availability,
+                                            [
+                                                'in stock',
+                                                'available'
+                                            ],
+                                            true
+                                        )
+                                    )
 
-                                        <span class="status-badge status-success">
+                                        <span class="status-pill success">
                                             In Stock
                                         </span>
 
-                                    @elseif($availability === 'backordered')
+                                    @elseif(
+                                        $availability === 'backordered'
+                                    )
 
-                                        <span class="status-badge status-warning">
+                                        <span class="status-pill warning">
                                             Backordered
                                         </span>
 
-                                    @elseif($availability === 'out of stock')
+                                    @elseif(
+                                        $availability === 'out of stock'
+                                    )
 
-                                        <span class="status-badge status-danger">
+                                        <span class="status-pill danger">
                                             Out of Stock
                                         </span>
 
                                     @else
 
-                                        <span class="status-badge status-secondary">
+                                        <span class="status-pill neutral">
                                             {{ $product['availability'] ?: 'Unknown' }}
                                         </span>
 
@@ -516,34 +614,40 @@
 
                                 <td>
 
-                                    @if(($product['shopify_status'] ?? '') === 'Exists')
+                                    @if(
+                                        ($product['shopify_status'] ?? '')
+                                        === 'Exists'
+                                    )
 
-                                        <span class="status-badge status-success">
+                                        <span class="status-pill shopify-exists">
                                             Exists
                                         </span>
 
-                                        <div class="small text-muted mt-1">
+                                        <div class="status-subtext">
                                             Will update
                                         </div>
 
-                                    @elseif(($product['shopify_status'] ?? '') === 'Not Found')
+                                    @elseif(
+                                        ($product['shopify_status'] ?? '')
+                                        === 'Not Found'
+                                    )
 
-                                        <span class="status-badge status-info">
+                                        <span class="status-pill shopify-not-found">
                                             Not Found
                                         </span>
 
-                                        <div class="small text-muted mt-1">
+                                        <div class="status-subtext">
                                             Will create
                                         </div>
 
                                     @else
 
-                                        <span class="status-badge status-danger">
+                                        <span class="status-pill shopify-error">
                                             Error
                                         </span>
 
-                                        <div class="small text-muted mt-1">
-                                            {{ $product['shopify_status_text'] ?? 'Unable to check' }}
+                                        <div class="status-subtext">
+                                            Sync failed
                                         </div>
 
                                     @endif
@@ -555,9 +659,19 @@
 
                                 <td>
 
-                                    <span class="small text-muted">
-                                        {{ $product['updated_at'] ?? '—' }}
-                                    </span>
+                                    @if(!empty($product['updated_at']))
+
+                                        <span class="updated-text">
+                                            {{ $product['updated_at'] }}
+                                        </span>
+
+                                    @else
+
+                                        <span class="updated-text">
+                                            —
+                                        </span>
+
+                                    @endif
 
                                 </td>
 
@@ -566,21 +680,55 @@
 
                                 <td>
 
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-primary push-product-button"
-                                        data-product-id="{{ $product['id'] }}"
-                                    >
+                                    @if(
+                                        ($product['action'] ?? '')
+                                        === 'update'
+                                    )
 
-                                        <i class="bi bi-cloud-arrow-up me-1"></i>
+                                        <button
+                                            type="button"
+                                            class="action-button update push-product-button"
+                                            data-product-id="{{ $product['id'] }}"
+                                        >
 
-                                        @if(($product['action'] ?? 'push') === 'update')
-                                            Update
-                                        @else
-                                            Push
-                                        @endif
+                                            <i class="bi bi-arrow-repeat"></i>
 
-                                    </button>
+                                            Update in Shopify
+
+                                        </button>
+
+                                    @elseif(
+                                        ($product['action'] ?? '')
+                                        === 'retry'
+                                    )
+
+                                        <button
+                                            type="button"
+                                            class="action-button retry push-product-button"
+                                            data-product-id="{{ $product['id'] }}"
+                                        >
+
+                                            <i class="bi bi-arrow-repeat"></i>
+
+                                            Retry Sync
+
+                                        </button>
+
+                                    @else
+
+                                        <button
+                                            type="button"
+                                            class="action-button push push-product-button"
+                                            data-product-id="{{ $product['id'] }}"
+                                        >
+
+                                            <i class="bi bi-cloud-arrow-up"></i>
+
+                                            Push to Shopify
+
+                                        </button>
+
+                                    @endif
 
                                 </td>
 
@@ -601,11 +749,12 @@
              PAGINATION
         ============================================================= --}}
 
-        <div class="products-pagination">
+        <div class="pagination-area">
 
             <div class="pagination-summary">
 
                 Showing
+
                 <strong>
                     {{ $products->firstItem() ?? 0 }}
                 </strong>
@@ -628,9 +777,12 @@
 
             @if($products->hasPages())
 
-                <div>
+                <div class="products-pagination">
 
-                    {{ $products->onEachSide(1)->links('pagination::bootstrap-5') }}
+                    {{ $products
+                        ->onEachSide(1)
+                        ->links('pagination::bootstrap-5')
+                    }}
 
                 </div>
 
@@ -644,13 +796,14 @@
 
 
 {{-- =====================================================================
-     STYLES
+     CSS
 ===================================================================== --}}
 
 <style>
 
 .products-page {
     width: 100%;
+    color: #1f2937;
 }
 
 .products-header {
@@ -663,8 +816,9 @@
 .products-title {
     margin: 0;
     font-size: 32px;
+    line-height: 1.2;
     font-weight: 600;
-    color: #1f2937;
+    color: #111827;
 }
 
 .products-subtitle {
@@ -673,257 +827,560 @@
     font-size: 15px;
 }
 
-.products-header-actions {
+.products-header-right {
     text-align: right;
 }
 
-.products-sync-button {
+.sync-latest-button {
     min-width: 210px;
     height: 40px;
     border-radius: 6px;
+    font-weight: 500;
 }
 
 .last-synced {
-    margin-top: 7px;
+    margin-top: 6px;
     color: #6b7280;
-    font-size: 13px;
+    font-size: 12px;
 }
 
-.products-alert {
-    border-radius: 7px;
+.products-error {
     margin-bottom: 18px;
+    border-radius: 7px;
 }
 
-.products-filter-card {
+
+/* ================================================================
+   FILTER CARD
+================================================================ */
+
+.filter-card {
+    background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 7px;
-    box-shadow: none;
     margin-bottom: 18px;
+    padding: 17px 18px 13px;
 }
 
-.products-filter-card .card-body {
-    padding: 18px;
+.filter-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
 }
 
-.products-form-label {
+.filter-field {
+    min-width: 0;
+}
+
+.filter-field label {
+    display: block;
+    margin-bottom: 6px;
     font-size: 14px;
     font-weight: 600;
     color: #111827;
-    margin-bottom: 7px;
 }
 
-.products-search-input {
-    min-height: 40px;
+.filter-field label span {
+    font-weight: 400;
+    color: #6b7280;
 }
 
-.products-empty-state {
-    background: #fff;
+.brand-field {
+    flex: 1.15;
+}
+
+.product-search-field {
+    flex: 1.35;
+}
+
+.per-page-field {
+    width: 135px;
+}
+
+.filter-field input,
+.filter-field select {
+    width: 100%;
+    height: 38px;
+    border: 1px solid #d8dee6;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 14px;
+    padding: 0 12px;
+    outline: none;
+}
+
+.filter-field input:focus,
+.filter-field select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, .08);
+}
+
+.search-input-wrapper {
+    position: relative;
+}
+
+.search-input-wrapper input {
+    padding-right: 38px;
+}
+
+.clear-input {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+}
+
+.clear-input:hover {
+    color: #111827;
+}
+
+.filter-search-button {
+    width: 104px;
+}
+
+.search-button {
+    height: 38px;
+    width: 100%;
+    border-radius: 5px;
+}
+
+.product-search-icon-wrapper {
+    width: 40px;
+}
+
+.search-icon-button {
+    height: 38px;
+    width: 40px;
+    border: 1px solid #d8dee6;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #374151;
+}
+
+.search-icon-button:hover {
+    background: #f8fafc;
+}
+
+.quick-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 11px;
+    border-top: 1px solid #edf0f3;
+}
+
+.quick-filter-label {
+    margin-right: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.quick-filter {
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 15px;
+    background: #f1f3f6;
+    color: #4b5563;
+    text-decoration: none;
+    font-size: 12px;
+    transition: all .15s ease;
+}
+
+.quick-filter:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.quick-filter.active {
+    background: #1467f4;
+    color: #ffffff;
+}
+
+
+/* ================================================================
+   EMPTY
+================================================================ */
+
+.empty-products {
+    background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 55px 20px;
+    padding: 70px 20px;
     text-align: center;
 }
 
-.products-empty-icon {
+.empty-icon {
     width: 58px;
     height: 58px;
-    border-radius: 50%;
     margin: 0 auto 15px;
+    border-radius: 50%;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     background: #f3f4f6;
     color: #6b7280;
-    font-size: 25px;
+    font-size: 24px;
 }
 
-.products-empty-state h4 {
+.empty-products h3 {
     margin-bottom: 8px;
-    font-size: 18px;
+    font-size: 19px;
 }
 
-.products-empty-state p {
-    margin: 0;
+.empty-products p {
+    margin-bottom: 18px;
     color: #6b7280;
 }
+
+
+/* ================================================================
+   BULK BAR
+================================================================ */
 
 .bulk-action-bar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 7px;
-    padding: 12px 15px;
+    justify-content: space-between;
+    min-height: 62px;
     margin-bottom: 12px;
+    padding: 10px 16px;
+    background: #e9f5ff;
+    border: 1px solid #d4ebff;
+    border-radius: 6px;
 }
 
-.bulk-actions {
+.selection-info {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 13px;
+    font-size: 14px;
+    color: #1f2937;
 }
 
-.products-table-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 7px;
+.selection-info input {
+    width: 19px;
+    height: 19px;
+}
+
+.selected-total {
+    color: #374151;
+}
+
+.bulk-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.bulk-push-button {
+    height: 40px;
+}
+
+.clear-selection-button {
+    height: 40px;
+    border: 1px solid #d8dee6;
+}
+
+
+/* ================================================================
+   TABLE
+================================================================ */
+
+.products-card {
     overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #e2e6eb;
+    border-radius: 5px;
 }
 
 .products-table {
-    min-width: 1100px;
+    width: 100%;
+    min-width: 1160px;
+    border-collapse: collapse;
 }
 
 .products-table thead th {
-    background: #f8f9fa;
-    color: #4b5563;
+    height: 40px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+    color: #374151;
     font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .03em;
-    padding: 13px 12px;
     white-space: nowrap;
 }
 
 .products-table tbody td {
-    padding: 13px 12px;
+    height: 72px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #edf0f3;
     vertical-align: middle;
-    border-color: #f0f1f2;
+    font-size: 13px;
 }
 
-.checkbox-column {
-    width: 42px;
+.products-table tbody tr:last-child td {
+    border-bottom: 0;
 }
 
-.product-thumbnail,
-.product-thumbnail-placeholder {
-    width: 50px;
-    height: 50px;
-    border-radius: 6px;
+.products-table tbody tr:hover {
+    background: #fbfdff;
+}
+
+.check-column {
+    width: 45px;
+    text-align: center;
+}
+
+.image-column {
+    width: 72px;
+}
+
+.products-table .form-check-input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.product-image {
+    width: 48px;
+    height: 52px;
     object-fit: contain;
-    border: 1px solid #e5e7eb;
-    background: #fff;
+    display: block;
 }
 
-.product-thumbnail-placeholder {
+.product-image-placeholder {
+    width: 48px;
+    height: 52px;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 5px;
+    background: #fafafa;
     color: #9ca3af;
-    font-size: 18px;
 }
 
-.product-name {
-    font-weight: 600;
-    color: #1f2937;
-    max-width: 330px;
+.product-title {
+    max-width: 280px;
+    color: #075fd5;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.35;
 }
 
-.brand-name {
+.brand-text {
     color: #4b5563;
 }
 
-.products-table code {
-    font-size: 12px;
-    color: #374151;
+.sku-text {
+    color: #596579;
+    font-size: 13px;
 }
 
-.status-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 20px;
+.updated-text {
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 3px 9px;
+    border-radius: 5px;
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
 }
 
-.status-success {
+.status-pill.success {
     background: #dcfce7;
-    color: #166534;
+    color: #15803d;
 }
 
-.status-info {
-    background: #dbeafe;
-    color: #1d4ed8;
-}
-
-.status-warning {
+.status-pill.warning {
     background: #fef3c7;
-    color: #92400e;
+    color: #b45309;
 }
 
-.status-danger {
+.status-pill.danger {
     background: #fee2e2;
-    color: #991b1b;
+    color: #dc2626;
 }
 
-.status-secondary {
+.status-pill.neutral {
     background: #f3f4f6;
     color: #4b5563;
 }
 
-.products-pagination {
+.status-pill.shopify-exists {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.status-pill.shopify-not-found {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.status-pill.shopify-error {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.status-subtext {
+    margin-top: 3px;
+    color: #6b7280;
+    font-size: 11px;
+}
+
+.action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 160px;
+    height: 38px;
+    padding: 0 12px;
+    border-radius: 5px;
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.action-button.push {
+    border: 1px solid #1467f4;
+    background: #1467f4;
+    color: #ffffff;
+}
+
+.action-button.update {
+    border: 1px solid #8ab4f8;
+    background: #ffffff;
+    color: #1467f4;
+}
+
+.action-button.retry {
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+.action-button:hover {
+    opacity: .9;
+}
+
+.action-button:disabled {
+    opacity: .6;
+    cursor: wait;
+}
+
+
+/* ================================================================
+   PAGINATION
+================================================================ */
+
+.pagination-area {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 18px;
+    margin-top: 10px;
 }
 
 .pagination-summary {
-    color: #6b7280;
+    color: #667085;
     font-size: 13px;
 }
 
 .products-pagination .pagination {
-    margin-bottom: 0;
+    margin: 0;
 }
 
 .products-pagination .page-link {
-    min-width: 34px;
-    height: 36px;
+    min-width: 36px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0 10px;
     font-size: 13px;
 }
 
-@media (max-width: 992px) {
+
+/* ================================================================
+   RESPONSIVE
+================================================================ */
+
+@media (max-width: 1100px) {
+
+    .filter-row {
+        flex-wrap: wrap;
+    }
+
+    .brand-field,
+    .product-search-field {
+        flex: 1 1 40%;
+    }
+
+    .filter-search-button {
+        width: 100px;
+    }
+
+}
+
+@media (max-width: 768px) {
 
     .products-header {
         flex-direction: column;
         gap: 15px;
     }
 
-    .products-header-actions {
+    .products-header-right {
         width: 100%;
         text-align: left;
+    }
+
+    .sync-latest-button {
+        width: 100%;
+    }
+
+    .filter-row {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .brand-field,
+    .product-search-field,
+    .per-page-field,
+    .filter-search-button,
+    .product-search-icon-wrapper {
+        width: 100%;
     }
 
     .bulk-action-bar {
         flex-direction: column;
         align-items: flex-start;
-        gap: 10px;
-    }
-
-    .products-pagination {
-        flex-direction: column;
-        align-items: flex-start;
         gap: 12px;
     }
 
-}
-
-@media (max-width: 576px) {
-
-    .products-title {
-        font-size: 26px;
+    .bulk-buttons {
+        width: 100%;
+        flex-wrap: wrap;
     }
 
-    .products-sync-button {
-        width: 100%;
-    }
-
-    .products-header-actions {
-        width: 100%;
+    .pagination-area {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
     }
 
 }
@@ -943,21 +1400,30 @@ document.addEventListener(
     'DOMContentLoaded',
     function () {
 
-        const selectAll =
-            document.getElementById(
-                'selectAllProducts'
-            );
+        const csrfToken =
+            document
+                .querySelector(
+                    'meta[name="csrf-token"]'
+                )
+                ?.getAttribute(
+                    'content'
+                );
 
         const checkboxes =
-            () => Array.from(
+            Array.from(
                 document.querySelectorAll(
                     '.product-checkbox'
                 )
             );
 
-        const bulkBar =
+        const selectAll =
             document.getElementById(
-                'bulkActionBar'
+                'selectAllProducts'
+            );
+
+        const headerSelectAll =
+            document.getElementById(
+                'headerSelectAll'
             );
 
         const selectedCount =
@@ -965,9 +1431,9 @@ document.addEventListener(
                 'selectedCount'
             );
 
-        const clearButton =
+        const selectedButtonCount =
             document.getElementById(
-                'clearSelectionButton'
+                'selectedButtonCount'
             );
 
         const pushSelectedButton =
@@ -975,11 +1441,22 @@ document.addEventListener(
                 'pushSelectedButton'
             );
 
+        const clearSelectionButton =
+            document.getElementById(
+                'clearSelectionButton'
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update selection UI
+        |--------------------------------------------------------------------------
+        */
 
         function updateSelectionUI() {
 
             const selected =
-                checkboxes().filter(
+                checkboxes.filter(
                     checkbox =>
                         checkbox.checked
                 );
@@ -992,26 +1469,62 @@ document.addEventListener(
                     count;
             }
 
-            if (bulkBar) {
-                bulkBar.style.display =
-                    count > 0
-                        ? 'flex'
-                        : 'none';
+            if (selectedButtonCount) {
+                selectedButtonCount.textContent =
+                    count;
             }
+
+            if (pushSelectedButton) {
+                pushSelectedButton.disabled =
+                    count === 0;
+            }
+
+            const allSelected =
+                checkboxes.length > 0
+                && count === checkboxes.length;
+
+            const partiallySelected =
+                count > 0
+                && count < checkboxes.length;
 
             if (selectAll) {
 
-                const all =
-                    checkboxes().length > 0
-                    && count === checkboxes().length;
-
                 selectAll.checked =
-                    all;
+                    allSelected;
 
                 selectAll.indeterminate =
-                    count > 0
-                    && !all;
+                    partiallySelected;
             }
+
+            if (headerSelectAll) {
+
+                headerSelectAll.checked =
+                    allSelected;
+
+                headerSelectAll.indeterminate =
+                    partiallySelected;
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Select all
+        |--------------------------------------------------------------------------
+        */
+
+        function selectEverything(
+            checked
+        ) {
+
+            checkboxes.forEach(
+                checkbox => {
+                    checkbox.checked =
+                        checked;
+                }
+            );
+
+            updateSelectionUI();
         }
 
 
@@ -1020,22 +1533,28 @@ document.addEventListener(
             selectAll.addEventListener(
                 'change',
                 function () {
-
-                    checkboxes().forEach(
-                        checkbox => {
-                            checkbox.checked =
-                                selectAll.checked;
-                        }
+                    selectEverything(
+                        selectAll.checked
                     );
-
-                    updateSelectionUI();
                 }
             );
-
         }
 
 
-        checkboxes().forEach(
+        if (headerSelectAll) {
+
+            headerSelectAll.addEventListener(
+                'change',
+                function () {
+                    selectEverything(
+                        headerSelectAll.checked
+                    );
+                }
+            );
+        }
+
+
+        checkboxes.forEach(
             checkbox => {
 
                 checkbox.addEventListener(
@@ -1047,13 +1566,19 @@ document.addEventListener(
         );
 
 
-        if (clearButton) {
+        /*
+        |--------------------------------------------------------------------------
+        | Clear selection
+        |--------------------------------------------------------------------------
+        */
 
-            clearButton.addEventListener(
+        if (clearSelectionButton) {
+
+            clearSelectionButton.addEventListener(
                 'click',
                 function () {
 
-                    checkboxes().forEach(
+                    checkboxes.forEach(
                         checkbox => {
                             checkbox.checked =
                                 false;
@@ -1063,13 +1588,12 @@ document.addEventListener(
                     updateSelectionUI();
                 }
             );
-
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | Individual Push
+        | Individual Push / Update
         |--------------------------------------------------------------------------
         */
 
@@ -1091,26 +1615,36 @@ document.addEventListener(
                                 return;
                             }
 
-                            const originalText =
+                            const originalHtml =
                                 button.innerHTML;
 
                             button.disabled =
                                 true;
 
                             button.innerHTML =
-                                '<span class="spinner-border spinner-border-sm me-1"></span> Processing...';
+                                '<span class="spinner-border spinner-border-sm"></span> Processing...';
 
                             try {
 
+                                const url =
+                                    @json(
+                                        route(
+                                            'products.push',
+                                            [
+                                                'productId' =>
+                                                    '__PRODUCT_ID__'
+                                            ]
+                                        )
+                                    ).replace(
+                                        '__PRODUCT_ID__',
+                                        encodeURIComponent(
+                                            productId
+                                        )
+                                    );
+
                                 const response =
                                     await fetch(
-                                        '{{ route('products.push', ['productId' => '__PRODUCT_ID__']) }}'
-                                            .replace(
-                                                '__PRODUCT_ID__',
-                                                encodeURIComponent(
-                                                    productId
-                                                )
-                                            ),
+                                        url,
                                         {
                                             method: 'POST',
 
@@ -1118,17 +1652,11 @@ document.addEventListener(
                                                 'Content-Type':
                                                     'application/json',
 
-                                                'X-CSRF-TOKEN':
-                                                    document
-                                                        .querySelector(
-                                                            'meta[name="csrf-token"]'
-                                                        )
-                                                        ?.getAttribute(
-                                                            'content'
-                                                        ),
-
                                                 'Accept':
-                                                    'application/json'
+                                                    'application/json',
+
+                                                'X-CSRF-TOKEN':
+                                                    csrfToken
                                             },
 
                                             body:
@@ -1139,10 +1667,14 @@ document.addEventListener(
                                 const data =
                                     await response.json();
 
-                                if (!response.ok || !data.success) {
+                                if (
+                                    !response.ok
+                                    || !data.success
+                                ) {
+
                                     throw new Error(
                                         data.message
-                                        || 'Unable to push product.'
+                                        || 'Unable to process product.'
                                     );
                                 }
 
@@ -1163,7 +1695,7 @@ document.addEventListener(
                                     false;
 
                                 button.innerHTML =
-                                    originalText;
+                                    originalHtml;
                             }
 
                         }
@@ -1186,7 +1718,7 @@ document.addEventListener(
                 async function () {
 
                     const selected =
-                        checkboxes()
+                        checkboxes
                             .filter(
                                 checkbox =>
                                     checkbox.checked
@@ -1202,28 +1734,33 @@ document.addEventListener(
                         return;
                     }
 
-                    if (
-                        !confirm(
+                    const confirmed =
+                        confirm(
                             `Push ${selected.length} selected product(s) to Shopify?`
-                        )
-                    ) {
+                        );
+
+                    if (!confirmed) {
                         return;
                     }
 
-                    const originalText =
+                    const originalHtml =
                         pushSelectedButton.innerHTML;
 
                     pushSelectedButton.disabled =
                         true;
 
                     pushSelectedButton.innerHTML =
-                        '<span class="spinner-border spinner-border-sm me-1"></span> Processing...';
+                        '<span class="spinner-border spinner-border-sm"></span> Processing...';
 
                     try {
 
                         const response =
                             await fetch(
-                                '{{ route('products.push-selected') }}',
+                                @json(
+                                    route(
+                                        'products.push-selected'
+                                    )
+                                ),
                                 {
                                     method: 'POST',
 
@@ -1231,24 +1768,20 @@ document.addEventListener(
                                         'Content-Type':
                                             'application/json',
 
-                                        'X-CSRF-TOKEN':
-                                            document
-                                                .querySelector(
-                                                    'meta[name="csrf-token"]'
-                                                )
-                                                ?.getAttribute(
-                                                    'content'
-                                                ),
-
                                         'Accept':
-                                            'application/json'
+                                            'application/json',
+
+                                        'X-CSRF-TOKEN':
+                                            csrfToken
                                     },
 
                                     body:
-                                        JSON.stringify({
-                                            product_ids:
-                                                selected
-                                        })
+                                        JSON.stringify(
+                                            {
+                                                product_ids:
+                                                    selected
+                                            }
+                                        )
                                 }
                             );
 
@@ -1256,6 +1789,7 @@ document.addEventListener(
                             await response.json();
 
                         if (!response.ok) {
+
                             throw new Error(
                                 data.message
                                 || 'Bulk push failed.'
@@ -1264,7 +1798,7 @@ document.addEventListener(
 
                         alert(
                             data.message
-                            || 'Products processed.'
+                            || 'Products processed successfully.'
                         );
 
                         window.location.reload();
@@ -1279,18 +1813,17 @@ document.addEventListener(
                             false;
 
                         pushSelectedButton.innerHTML =
-                            originalText;
+                            originalHtml;
                     }
 
                 }
             );
-
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | Initial UI
+        | Initial state
         |--------------------------------------------------------------------------
         */
 
@@ -1298,6 +1831,56 @@ document.addEventListener(
 
     }
 );
+
+
+/*
+|--------------------------------------------------------------------------
+| Clear Brand
+|--------------------------------------------------------------------------
+*/
+
+function clearBrand()
+{
+    const input =
+        document.getElementById(
+            'brand'
+        );
+
+    if (input) {
+        input.value = '';
+    }
+
+    document
+        .getElementById(
+            'productFilterForm'
+        )
+        ?.submit();
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Clear Product Search
+|--------------------------------------------------------------------------
+*/
+
+function clearSearch()
+{
+    const input =
+        document.getElementById(
+            'search'
+        );
+
+    if (input) {
+        input.value = '';
+    }
+
+    document
+        .getElementById(
+            'productFilterForm'
+        )
+        ?.submit();
+}
 
 </script>
 

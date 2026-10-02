@@ -7,7 +7,6 @@ use App\Services\Shopify\ShopifyProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Str;
 use Throwable;
 
 class ProductsController extends Controller
@@ -23,6 +22,12 @@ class ProductsController extends Controller
      */
     public function index(Request $request)
     {
+        /*
+        |--------------------------------------------------------------------------
+        | Pagination
+        |--------------------------------------------------------------------------
+        */
+
         $page = max(
             1,
             (int) $request->input('page', 1)
@@ -41,6 +46,12 @@ class ProductsController extends Controller
             $perPage = 25;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Filters
+        |--------------------------------------------------------------------------
+        */
+
         $brand = trim(
             (string) $request->input(
                 'brand',
@@ -55,6 +66,12 @@ class ProductsController extends Controller
             )
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Variables
+        |--------------------------------------------------------------------------
+        */
+
         $products = [];
 
         $total = 0;
@@ -65,63 +82,62 @@ class ProductsController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Do not load the catalog until a brand is entered
+        | Load Fullscript products
         |--------------------------------------------------------------------------
         |
-        | This prevents the page from loading thousands of products just to
-        | perform a local brand search.
+        | NO FILTER:
         |
-        */
-
-        if ($brand === '') {
-            $paginator = new LengthAwarePaginator(
-                [],
-                0,
-                $perPage,
-                1,
-                [
-                    'path' => route(
-                        'products.index'
-                    ),
-                    'query' => $request->except(
-                        'page'
-                    ),
-                ]
-            );
-
-            return view(
-                'products.index',
-                [
-                    'products' => $paginator,
-                    'paginator' => $paginator,
-                    'totalProducts' => 0,
-                    'perPage' => $perPage,
-                    'brand' => $brand,
-                    'search' => $search,
-                    'error' => null,
-                    'lastSyncedAt' => session(
-                        'products.last_synced_at'
-                    ),
-                ]
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Search Fullscript
-        |--------------------------------------------------------------------------
+        |     /catalog/products
+        |
+        | FILTERED:
+        |
+        |     /catalog/search/products
+        |
         */
 
         try {
-            $response =
-                $this->fullscript->searchProducts(
-                    $brand,
-                    $search !== ''
-                        ? $search
-                        : null,
-                    $page,
-                    $perPage
-                );
+
+            if (
+                $brand !== ''
+                || $search !== ''
+            ) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Filtered search
+                |--------------------------------------------------------------------------
+                */
+
+                $response =
+                    $this->fullscript->searchProducts(
+                        $brand !== ''
+                            ? $brand
+                            : null,
+                        $search !== ''
+                            ? $search
+                            : null,
+                        $page,
+                        $perPage
+                    );
+
+            } else {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Default Products page
+                |--------------------------------------------------------------------------
+                |
+                | When the user simply clicks Products,
+                | load the Fullscript catalog immediately.
+                |
+                */
+
+                $response =
+                    $this->fullscript->getProducts(
+                        $page,
+                        $perPage
+                    );
+            }
 
             /*
             |--------------------------------------------------------------------------
@@ -150,8 +166,9 @@ class ProductsController extends Controller
 
             $total =
                 (int) (
-                    $meta['total']
-                    ?? $meta['total_count']
+                    $meta['total_count']
+                    ?? $meta['total']
+                    ?? $response['total_count']
                     ?? $response['total']
                     ?? 0
                 );
@@ -166,6 +183,24 @@ class ProductsController extends Controller
 
             /*
             |--------------------------------------------------------------------------
+            | If total count is unavailable
+            |--------------------------------------------------------------------------
+            |
+            | Fullscript's documented catalog response includes total_pages.
+            | Use that to provide a usable paginator.
+            |
+            */
+
+            if (
+                $total <= 0
+                && $lastPage > 1
+            ) {
+                $total =
+                    $lastPage * $perPage;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
             | Normalize products
             |--------------------------------------------------------------------------
             */
@@ -173,22 +208,33 @@ class ProductsController extends Controller
             $seen = [];
 
             foreach ($rawProducts as $rawProduct) {
+
                 if (
-                    isset($rawProduct['attributes'])
+                    isset(
+                        $rawProduct['attributes']
+                    )
                     && is_array(
                         $rawProduct['attributes']
                     )
                 ) {
-                    $product = array_merge(
-                        [
-                            'id' =>
-                                $rawProduct['id']
-                                ?? null,
-                        ],
-                        $rawProduct['attributes']
-                    );
+                    $product =
+                        array_merge(
+                            [
+                                'id' =>
+                                    $rawProduct['id']
+                                    ?? null,
+                            ],
+                            $rawProduct[
+                                'attributes'
+                            ]
+                        );
                 } else {
-                    $product = $rawProduct;
+                    $product =
+                        $rawProduct;
+                }
+
+                if (!is_array($product)) {
+                    continue;
                 }
 
                 $normalized =
@@ -201,9 +247,8 @@ class ProductsController extends Controller
                 | Exact brand verification
                 |--------------------------------------------------------------------------
                 |
-                | We still verify the returned product brand locally.
-                | This protects us if Fullscript's search endpoint performs
-                | a broader/partial brand search.
+                | If the API returns a broader result, don't show a
+                | product belonging to a different brand.
                 |
                 */
 
@@ -221,7 +266,7 @@ class ProductsController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | Optional product/SKU search verification
+                | Product / SKU verification
                 |--------------------------------------------------------------------------
                 */
 
@@ -241,7 +286,7 @@ class ProductsController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | Remove duplicates
+                | Deduplicate
                 |--------------------------------------------------------------------------
                 */
 
@@ -255,7 +300,9 @@ class ProductsController extends Controller
 
                 if (
                     $uniqueKey !== ''
-                    && isset($seen[$uniqueKey])
+                    && isset(
+                        $seen[$uniqueKey]
+                    )
                 ) {
                     continue;
                 }
@@ -299,32 +346,30 @@ class ProductsController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Fallback pagination
+            | Fallback total
             |--------------------------------------------------------------------------
             */
 
             if ($total <= 0) {
+
                 $total =
                     (($page - 1) * $perPage)
                     + count($products);
-
-                if (
-                    count($products)
-                    === $perPage
-                ) {
-                    $total++;
-                }
             }
 
             if ($lastPage <= 0) {
-                $lastPage = max(
-                    1,
-                    (int) ceil(
-                        $total / $perPage
-                    )
-                );
+
+                $lastPage =
+                    max(
+                        1,
+                        (int) ceil(
+                            $total / $perPage
+                        )
+                    );
             }
+
         } catch (Throwable $e) {
+
             report($e);
 
             $error =
@@ -402,6 +447,7 @@ class ProductsController extends Controller
         string $productId
     ): JsonResponse {
         try {
+
             $fullscriptProduct =
                 $this->fullscript->getProduct(
                     $productId
@@ -417,15 +463,25 @@ class ProductsController extends Controller
                     'shopify_product_id'
                 );
 
+            /*
+            |--------------------------------------------------------------------------
+            | Find existing Shopify product by SKU
+            |--------------------------------------------------------------------------
+            */
+
             if (
-                blank($shopifyProductId)
+                blank(
+                    $shopifyProductId
+                )
             ) {
+
                 $sku =
                     $this->getPrimarySku(
                         $fullscriptProduct
                     );
 
                 if ($sku !== '') {
+
                     $variant =
                         $this->shopify
                             ->findProductBySku(
@@ -440,6 +496,12 @@ class ProductsController extends Controller
                 }
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Create / Update
+            |--------------------------------------------------------------------------
+            */
+
             $result =
                 $this->shopify->createOrUpdate(
                     $product,
@@ -448,20 +510,28 @@ class ProductsController extends Controller
 
             return response()->json(
                 [
-                    'success' => true,
+                    'success' =>
+                        true,
+
                     'message' =>
                         $shopifyProductId
                             ? 'Product updated successfully.'
                             : 'Product created successfully.',
-                    'data' => $result,
+
+                    'data' =>
+                        $result,
                 ]
             );
+
         } catch (Throwable $e) {
+
             report($e);
 
             return response()->json(
                 [
-                    'success' => false,
+                    'success' =>
+                        false,
+
                     'message' =>
                         $e->getMessage(),
                 ],
@@ -483,9 +553,12 @@ class ProductsController extends Controller
             );
 
         if (!is_array($productIds)) {
+
             return response()->json(
                 [
-                    'success' => false,
+                    'success' =>
+                        false,
+
                     'message' =>
                         'Invalid product selection.',
                 ],
@@ -505,9 +578,12 @@ class ProductsController extends Controller
                 ->all();
 
         if (empty($productIds)) {
+
             return response()->json(
                 [
-                    'success' => false,
+                    'success' =>
+                        false,
+
                     'message' =>
                         'Please select at least one product.',
                 ],
@@ -518,7 +594,9 @@ class ProductsController extends Controller
         $results = [];
 
         foreach ($productIds as $productId) {
+
             try {
+
                 $fullscriptProduct =
                     $this->fullscript->getProduct(
                         $productId
@@ -537,6 +615,7 @@ class ProductsController extends Controller
                 $shopifyProductId = null;
 
                 if ($sku !== '') {
+
                     $variant =
                         $this->shopify
                             ->findProductBySku(
@@ -574,7 +653,9 @@ class ProductsController extends Controller
                     'data' =>
                         $shopifyResult,
                 ];
+
             } catch (Throwable $e) {
+
                 report($e);
 
                 $results[] = [
@@ -622,7 +703,7 @@ class ProductsController extends Controller
     }
 
     /**
-     * Normalize Fullscript product for the Products page.
+     * Normalize Fullscript product for display.
      */
     protected function normalizeProduct(
         array $product
@@ -645,10 +726,13 @@ class ProductsController extends Controller
             ?? '';
 
         if (is_array($brandValue)) {
+
             $brand =
                 $brandValue['name']
                 ?? '';
+
         } else {
+
             $brand =
                 (string) $brandValue;
         }
@@ -658,12 +742,19 @@ class ProductsController extends Controller
             ?? $product['SKU']
             ?? '';
 
+        /*
+        |--------------------------------------------------------------------------
+        | Primary variant SKU
+        |--------------------------------------------------------------------------
+        */
+
         if (
             $sku === ''
             && isset(
                 $product['primary_variant']
             )
         ) {
+
             $sku =
                 $product[
                     'primary_variant'
@@ -671,34 +762,96 @@ class ProductsController extends Controller
                 ?? '';
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Variants
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $sku === ''
+            && isset(
+                $product['variants']
+            )
+            && is_array(
+                $product['variants']
+            )
+        ) {
+
+            foreach (
+                $product['variants']
+                as $variant
+            ) {
+
+                if (
+                    is_array($variant)
+                    && !empty(
+                        $variant['sku']
+                    )
+                ) {
+
+                    $sku =
+                        $variant['sku'];
+
+                    break;
+                }
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Availability
+        |--------------------------------------------------------------------------
+        */
+
         $availability =
             $product['availability']
             ?? $product['availability_status']
             ?? $product['status']
-            ?? 'Unknown';
+            ?? '';
+
+        /*
+        |--------------------------------------------------------------------------
+        | Image
+        |--------------------------------------------------------------------------
+        */
 
         $image = null;
 
         if (
-            isset($product['image'])
+            isset(
+                $product['image']
+            )
             && is_string(
                 $product['image']
             )
         ) {
+
             $image =
                 $product['image'];
+
         } elseif (
-            isset($product['image_url'])
+            isset(
+                $product['image_url']
+            )
         ) {
+
             $image =
                 $product['image_url'];
+
         } elseif (
             isset(
                 $product[
                     'primary_variant'
                 ]
             )
+            && is_array(
+                $product[
+                    'primary_variant'
+                ]
+            )
         ) {
+
             $variant =
                 $product[
                     'primary_variant'
@@ -715,6 +868,7 @@ class ProductsController extends Controller
                     'image_url_large'
                 ]
                 ?? null;
+
         } elseif (
             isset(
                 $product['images']
@@ -723,24 +877,38 @@ class ProductsController extends Controller
                 $product['images']
             )
         ) {
+
             $firstImage =
                 $product['images'][0]
                 ?? null;
 
-            if (is_string($firstImage)) {
+            if (
+                is_string(
+                    $firstImage
+                )
+            ) {
+
                 $image =
                     $firstImage;
+
             } elseif (
                 is_array(
                     $firstImage
                 )
             ) {
+
                 $image =
                     $firstImage['url']
                     ?? $firstImage['src']
                     ?? null;
             }
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Updated date
+        |--------------------------------------------------------------------------
+        */
 
         $updatedAt =
             $product['updated_at']
@@ -755,9 +923,7 @@ class ProductsController extends Controller
                 (string) $title,
 
             'brand' =>
-                trim(
-                    $brand
-                ),
+                trim($brand),
 
             'sku' =>
                 trim(
@@ -795,7 +961,7 @@ class ProductsController extends Controller
     }
 
     /**
-     * Normalize Fullscript product for ShopifyProductService.
+     * Normalize detailed Fullscript product for Shopify.
      */
     protected function normalizeForShopify(
         array $response
@@ -813,6 +979,7 @@ class ProductsController extends Controller
                 $product['attributes']
             )
         ) {
+
             $product =
                 array_merge(
                     [
@@ -832,11 +999,18 @@ class ProductsController extends Controller
             ?? $product['vendor']
             ?? 'Fullscript';
 
-        if (is_array($brandValue)) {
+        if (
+            is_array(
+                $brandValue
+            )
+        ) {
+
             $brand =
                 $brandValue['name']
                 ?? 'Fullscript';
+
         } else {
+
             $brand =
                 (string) $brandValue;
         }
@@ -853,6 +1027,12 @@ class ProductsController extends Controller
             ?? $product['description']
             ?? '';
 
+        /*
+        |--------------------------------------------------------------------------
+        | Variants
+        |--------------------------------------------------------------------------
+        */
+
         $variants =
             $product['variants']
             ?? [];
@@ -862,6 +1042,7 @@ class ProductsController extends Controller
                 $variants['nodes']
             )
         ) {
+
             $variants =
                 $variants['nodes'];
         }
@@ -870,6 +1051,7 @@ class ProductsController extends Controller
             !is_array($variants)
             || empty($variants)
         ) {
+
             $primary =
                 $product[
                     'primary_variant'
@@ -877,6 +1059,7 @@ class ProductsController extends Controller
                 ?? [];
 
             if (!empty($primary)) {
+
                 $variants = [
                     $primary,
                 ];
@@ -885,8 +1068,13 @@ class ProductsController extends Controller
 
         $shopifyVariants = [];
 
-        foreach ($variants as $variant) {
-            if (!is_array($variant)) {
+        foreach (
+            $variants as $variant
+        ) {
+
+            if (
+                !is_array($variant)
+            ) {
                 continue;
             }
 
@@ -900,26 +1088,6 @@ class ProductsController extends Controller
 
             if ($sku === '') {
                 continue;
-            }
-
-            $optionValues = [];
-
-            if (
-                isset(
-                    $variant[
-                        'option_values'
-                    ]
-                )
-                && is_array(
-                    $variant[
-                        'option_values'
-                    ]
-                )
-            ) {
-                $optionValues =
-                    $variant[
-                        'option_values'
-                    ];
             }
 
             $shopifyVariants[] = [
@@ -947,22 +1115,35 @@ class ProductsController extends Controller
                     ?? null,
 
                 'option_values' =>
-                    $optionValues,
+                    $variant[
+                        'option_values'
+                    ]
+                    ?? [],
 
                 'inventory_quantity' =>
                     0,
             ];
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Fallback primary variant
+        |--------------------------------------------------------------------------
+        */
+
         if (
-            empty($shopifyVariants)
+            empty(
+                $shopifyVariants
+            )
         ) {
+
             $sku =
                 $this->getPrimarySku(
                     $product
                 );
 
             if ($sku !== '') {
+
                 $primary =
                     $product[
                         'primary_variant'
@@ -1010,7 +1191,9 @@ class ProductsController extends Controller
                     : 'Fullscript',
 
             'product_type' =>
-                $product['product_type']
+                $product[
+                    'product_type'
+                ]
                 ?? 'Vitamins & Supplements',
 
             'status' =>
@@ -1024,10 +1207,10 @@ class ProductsController extends Controller
                 ?? [],
 
             'product_options' =>
-                $this->buildProductOptions(
-                    $product,
-                    $shopifyVariants
-                ),
+                $product[
+                    'product_options'
+                ]
+                ?? [],
 
             'variants' =>
                 $shopifyVariants,
@@ -1044,33 +1227,6 @@ class ProductsController extends Controller
     }
 
     /**
-     * Build Shopify product options.
-     */
-    protected function buildProductOptions(
-        array $product,
-        array $variants
-    ): array {
-        if (
-            !empty(
-                $product[
-                    'product_options'
-                ]
-            )
-            && is_array(
-                $product[
-                    'product_options'
-                ]
-            )
-        ) {
-            return $product[
-                'product_options'
-            ];
-        }
-
-        return [];
-    }
-
-    /**
      * Build Shopify images.
      */
     protected function buildShopifyImages(
@@ -1080,16 +1236,20 @@ class ProductsController extends Controller
             $product['images']
             ?? [];
 
-        if (
-            !is_array($images)
-        ) {
+        if (!is_array($images)) {
             $images = [];
         }
 
         $result = [];
 
-        foreach ($images as $image) {
-            if (is_string($image)) {
+        foreach (
+            $images as $image
+        ) {
+
+            if (
+                is_string($image)
+            ) {
+
                 $result[] = [
                     'url' =>
                         $image,
@@ -1098,7 +1258,9 @@ class ProductsController extends Controller
                 continue;
             }
 
-            if (!is_array($image)) {
+            if (
+                !is_array($image)
+            ) {
                 continue;
             }
 
@@ -1108,12 +1270,19 @@ class ProductsController extends Controller
                 ?? null;
 
             if ($url) {
+
                 $result[] = [
                     'url' =>
                         $url,
                 ];
             }
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Primary variant image fallback
+        |--------------------------------------------------------------------------
+        */
 
         if (
             empty($result)
@@ -1123,6 +1292,7 @@ class ProductsController extends Controller
                 ]
             )
         ) {
+
             $variant =
                 $product[
                     'primary_variant'
@@ -1141,6 +1311,7 @@ class ProductsController extends Controller
                 ?? null;
 
             if ($url) {
+
                 $result[] = [
                     'url' =>
                         $url,
@@ -1164,6 +1335,7 @@ class ProductsController extends Controller
                 ]['sku']
             )
         ) {
+
             return trim(
                 (string) $product[
                     'primary_variant'
@@ -1176,6 +1348,7 @@ class ProductsController extends Controller
                 $product['sku']
             )
         ) {
+
             return trim(
                 (string) $product['sku']
             );
@@ -1190,12 +1363,21 @@ class ProductsController extends Controller
                 $variants['nodes']
             )
         ) {
+
             $variants =
                 $variants['nodes'];
         }
 
-        if (is_array($variants)) {
-            foreach ($variants as $variant) {
+        if (
+            is_array(
+                $variants
+            )
+        ) {
+
+            foreach (
+                $variants as $variant
+            ) {
+
                 $sku =
                     trim(
                         (string) (
@@ -1214,7 +1396,7 @@ class ProductsController extends Controller
     }
 
     /**
-     * Convert availability into a display value.
+     * Format availability.
      */
     protected function formatAvailability(
         mixed $availability
@@ -1227,6 +1409,7 @@ class ProductsController extends Controller
             );
 
         return match ($value) {
+
             'in_stock',
             'in-stock',
             'available',
@@ -1260,7 +1443,7 @@ class ProductsController extends Controller
     }
 
     /**
-     * Format Fullscript updated date.
+     * Format date.
      */
     protected function formatDate(
         mixed $date
@@ -1270,23 +1453,27 @@ class ProductsController extends Controller
         }
 
         try {
+
             return \Illuminate\Support\Carbon::parse(
                 $date
             )->format(
                 'M d, Y h:i A'
             );
+
         } catch (Throwable) {
+
             return (string) $date;
         }
     }
 
     /**
-     * Check whether SKU exists in Shopify.
+     * Check whether a SKU already exists in Shopify.
      */
     protected function getShopifyStatus(
         string $sku
     ): array {
         if ($sku === '') {
+
             return [
                 'status' =>
                     'Not Found',
@@ -1303,6 +1490,7 @@ class ProductsController extends Controller
         }
 
         try {
+
             $variant =
                 $this->shopify
                     ->findProductBySku(
@@ -1310,6 +1498,7 @@ class ProductsController extends Controller
                     );
 
             if (!$variant) {
+
                 return [
                     'status' =>
                         'Not Found',
@@ -1344,7 +1533,9 @@ class ProductsController extends Controller
                 'action' =>
                     'update',
             ];
+
         } catch (Throwable $e) {
+
             report($e);
 
             return [
