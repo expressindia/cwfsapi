@@ -732,9 +732,9 @@ GRAPHQL;
                             'available',
 
                         'quantity' =>
-                            (int) (
-                                $variant['quantity']
-                                ?? 0
+                            (int) config(
+                                'fullscript.default_inventory',
+                                88
                             ),
                     ],
                 ];
