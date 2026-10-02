@@ -65,33 +65,19 @@ Route::get(
     ->middleware('shopify.standalone')
     ->name('vendor-inventory.index');
 
-Route::post(
-    '/vendor-inventory/preview',
-    [VendorInventoryController::class, 'preview']
+Route::get(
+    '/vendor-inventory/products',
+    [VendorInventoryController::class, 'products']
 )
     ->middleware('shopify.standalone')
-    ->name('vendor-inventory.preview');
+    ->name('vendor-inventory.products');
 
 Route::post(
-    '/vendor-inventory/activate',
-    [VendorInventoryController::class, 'activate']
+    '/vendor-inventory/product/action',
+    [VendorInventoryController::class, 'productAction']
 )
     ->middleware('shopify.standalone')
-    ->name('vendor-inventory.activate');
-
-Route::post(
-    '/vendor-inventory/verify-activation',
-    [VendorInventoryController::class, 'verifyActivation']
-)
-    ->middleware('shopify.standalone')
-    ->name('vendor-inventory.verify-activation');
-
-Route::post(
-    '/vendor-inventory/deactivate',
-    [VendorInventoryController::class, 'deactivate']
-)
-    ->middleware('shopify.standalone')
-    ->name('vendor-inventory.deactivate');
+    ->name('vendor-inventory.product.action');
 /*
 |--------------------------------------------------------------------------
 | Fullscript OAuth

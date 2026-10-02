@@ -4,175 +4,152 @@ namespace App\Http\Controllers;
 
 use App\Services\Shopify\VendorInventoryMoveService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class VendorInventoryController extends Controller
 {
+    public function __construct(
+        protected VendorInventoryMoveService $inventoryService
+    ) {
+    }
+
     /**
-     * Display vendor inventory page.
+     * Initial page.
      */
     public function index(Request $request)
     {
         return view('vendor-inventory.index', [
-            'vendor' => old(
-                'vendor',
-                $request->session()->get('vendor')
-            ),
-
-            'preview' => null,
-
-            'activationResult' => $request->session()->get(
-                'activationResult'
-            ),
-
-            'activationVerification' => $request->session()->get(
-                'activationVerification'
-            ),
-
-            'deactivationResult' => $request->session()->get(
-                'deactivationResult'
-            ),
+            'vendor' => '',
+            'products' => [],
+            'totalProducts' => 0,
+            'page' => 1,
+            'hasNextPage' => false,
+            'hasPreviousPage' => false,
+            'nextCursor' => null,
+            'previousCursor' => null,
+            'after' => null,
+            'before' => null,
+            'actionResult' => null,
         ]);
     }
 
     /**
-     * Preview vendor inventory.
-     *
-     * This does not make any changes in Shopify.
+     * Load 25 products for a vendor.
      */
-    public function preview(
-        Request $request,
-        VendorInventoryMoveService $service
-    ) {
+    public function products(Request $request)
+    {
         $validated = $request->validate([
             'vendor' => [
                 'required',
                 'string',
                 'max:255',
             ],
+
+            'after' => [
+                'nullable',
+                'string',
+            ],
+
+            'before' => [
+                'nullable',
+                'string',
+            ],
+
+            'page' => [
+                'nullable',
+                'integer',
+                'min:1',
+            ],
         ]);
 
-        try {
-            $vendor = trim($validated['vendor']);
+        $vendor = trim($validated['vendor']);
 
-            $preview = $service->preview($vendor);
+        $after = $validated['after'] ?? null;
+        $before = $validated['before'] ?? null;
+        $page = (int) ($validated['page'] ?? 1);
+
+        try {
+            $result = $this->inventoryService->getVendorProductPage(
+                vendor: $vendor,
+                after: $after,
+                before: $before,
+            );
 
             return view('vendor-inventory.index', [
                 'vendor' => $vendor,
 
-                'preview' => $preview,
+                'products' =>
+                    $result['products'],
 
-                'activationResult' => null,
+                'totalProducts' =>
+                    $result['total_products'],
 
-                'activationVerification' => null,
+                'page' =>
+                    $page,
 
-                'deactivationResult' => null,
+                'totalPages' =>
+                    $result['total_pages'],
+
+                'hasNextPage' =>
+                    $result['has_next_page'],
+
+                'hasPreviousPage' =>
+                    $result['has_previous_page'],
+
+                'nextCursor' =>
+                    $result['next_cursor'],
+
+                'previousCursor' =>
+                    $result['previous_cursor'],
+
+                'after' =>
+                    $after,
+
+                'before' =>
+                    $before,
+
+                'actionResult' =>
+                    session('actionResult'),
             ]);
+
         } catch (Throwable $e) {
-            report($e);
 
-            return redirect()
-                ->route('vendor-inventory.index')
-                ->withInput()
-                ->withErrors([
-                    'vendor' => $e->getMessage(),
-                ]);
-        }
-    }
-
-    /**
-     * Activate FSWarehouse for the selected vendor.
-     *
-     * IMPORTANT:
-     *
-     * - Does not change inventory quantities.
-     * - Does not deactivate Headquarters.
-     * - Only activates FSWarehouse.
-     */
-    public function activate(
-        Request $request,
-        VendorInventoryMoveService $service
-    ) {
-        $validated = $request->validate([
-            'vendor' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-        ]);
-
-        try {
-            $vendor = trim($validated['vendor']);
-
-            $result = $service->activate($vendor);
-
-            return redirect()
-                ->route('vendor-inventory.index')
-                ->with([
+            Log::error(
+                'Vendor inventory page failed.',
+                [
                     'vendor' => $vendor,
-                    'activationResult' => $result,
-                ]);
-        } catch (Throwable $e) {
-            report($e);
+                    'after' => $after,
+                    'before' => $before,
+                    'exception' => $e,
+                ]
+            );
 
             return redirect()
                 ->route('vendor-inventory.index')
                 ->withInput()
                 ->withErrors([
-                    'vendor' => $e->getMessage(),
+                    'vendor' =>
+                        'Unable to load vendor products: '
+                        . $e->getMessage(),
                 ]);
         }
     }
 
     /**
-     * Verify FSWarehouse activation.
+     * Perform one product-level action.
      *
-     * This does not make any changes in Shopify.
-     */
-    public function verifyActivation(
-        Request $request,
-        VendorInventoryMoveService $service
-    ) {
-        $validated = $request->validate([
-            'vendor' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-        ]);
-
-        try {
-            $vendor = trim($validated['vendor']);
-
-            $result = $service->verifyActivation($vendor);
-
-            return redirect()
-                ->route('vendor-inventory.index')
-                ->with([
-                    'vendor' => $vendor,
-                    'activationVerification' => $result,
-                ]);
-        } catch (Throwable $e) {
-            report($e);
-
-            return redirect()
-                ->route('vendor-inventory.index')
-                ->withInput()
-                ->withErrors([
-                    'vendor' => $e->getMessage(),
-                ]);
-        }
-    }
-
-    /**
-     * Deactivate Headquarters.
+     * Supported actions:
      *
-     * FSWarehouse is always protected.
+     * activate_fs
+     * activate_hq
+     * activate_both
+     * deactivate_fs
+     * deactivate_hq
+     * deactivate_both
      */
-    public function deactivate(
-        Request $request,
-        VendorInventoryMoveService $service
-    ) {
+    public function productAction(Request $request)
+    {
         $validated = $request->validate([
             'vendor' => [
                 'required',
@@ -180,31 +157,75 @@ class VendorInventoryController extends Controller
                 'max:255',
             ],
 
-            'confirm' => [
+            'product_id' => [
                 'required',
-                'accepted',
+                'string',
+            ],
+
+            'action' => [
+                'required',
+                'in:activate_fs,activate_hq,activate_both,deactivate_fs,deactivate_hq,deactivate_both',
+            ],
+
+            'page' => [
+                'nullable',
+                'integer',
+                'min:1',
+            ],
+
+            'after' => [
+                'nullable',
+                'string',
+            ],
+
+            'before' => [
+                'nullable',
+                'string',
             ],
         ]);
 
+        $vendor = trim($validated['vendor']);
+
         try {
-            $vendor = trim($validated['vendor']);
 
-            $result = $service->deactivate($vendor);
+            $result = $this->inventoryService->productAction(
+                vendor: $vendor,
+                productId: $validated['product_id'],
+                action: $validated['action'],
+            );
 
             return redirect()
-                ->route('vendor-inventory.index')
-                ->with([
-                    'vendor' => $vendor,
-                    'deactivationResult' => $result,
-                ]);
+                ->route(
+                    'vendor-inventory.products',
+                    array_filter([
+                        'vendor' => $vendor,
+                        'page' => $validated['page'] ?? 1,
+                        'after' => $validated['after'] ?? null,
+                        'before' => $validated['before'] ?? null,
+                    ])
+                )
+                ->with('actionResult', $result);
+
         } catch (Throwable $e) {
-            report($e);
 
-            return redirect()
-                ->route('vendor-inventory.index')
+            Log::error(
+                'Vendor inventory product action failed.',
+                [
+                    'vendor' => $vendor,
+                    'product_id' =>
+                        $validated['product_id'],
+                    'action' =>
+                        $validated['action'],
+                    'exception' => $e,
+                ]
+            );
+
+            return back()
                 ->withInput()
                 ->withErrors([
-                    'vendor' => $e->getMessage(),
+                    'product' =>
+                        'Unable to update product inventory locations: '
+                        . $e->getMessage(),
                 ]);
         }
     }
