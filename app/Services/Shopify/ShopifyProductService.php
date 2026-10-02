@@ -1973,7 +1973,7 @@ GRAPHQL;
         if (!empty($errors)) {
 
             throw new RuntimeException(
-                'Unable to deactivate inventory location: '
+                'Unable to deactivate inventory location : '
                 .
                 json_encode(
                     $errors,
@@ -1982,4 +1982,4 @@ GRAPHQL;
             );
         }
     }
-}
+} 
