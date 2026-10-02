@@ -4,6 +4,7 @@ namespace App\Services\Fullscript;
 
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use App\Services\FullscriptTokenService;
 use RuntimeException;
 
 class FullscriptProductService
