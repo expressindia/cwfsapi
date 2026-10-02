@@ -268,8 +268,59 @@ GRAPHQL;
         |--------------------------------------------------------------------------
         */
 
-        $fsWarehouseLocationId =
-            $this->getFsWarehouseLocationId();
+        $fsWarehouseLocationId = $this->getFsWarehouseLocationId();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Automatically resolve existing Shopify product by SKU
+        |--------------------------------------------------------------------------
+        |
+        | If the controller did not provide a Shopify product ID, check Shopify
+        | using the Fullscript SKU before creating a new product.
+        |
+        | This prevents duplicate Shopify products when the Update button is
+        | clicked without a Shopify product ID.
+        |
+        */
+
+        if (!$shopifyProductId) {
+
+            foreach (
+                $product['variants'] ?? []
+                as $variant
+            ) {
+
+                $sku = trim(
+                    (string) (
+                        $variant['sku']
+                        ?? ''
+                    )
+                );
+
+                if ($sku === '') {
+                    continue;
+                }
+
+                $existingVariant =
+                    $this->findProductBySku($sku);
+
+                if (!$existingVariant) {
+                    continue;
+                }
+
+                $foundProductId =
+                    $existingVariant['product']['id']
+                    ?? null;
+
+                if ($foundProductId) {
+
+                    $shopifyProductId =
+                        $foundProductId;
+
+                    break;
+                }
+            }
+        }
 
         /*
         |--------------------------------------------------------------------------
