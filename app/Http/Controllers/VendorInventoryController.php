@@ -8,9 +8,6 @@ use Throwable;
 
 class VendorInventoryController extends Controller
 {
-    /**
-     * Display the vendor inventory page.
-     */
     public function index(Request $request)
     {
         return view('vendor-inventory.index', [
@@ -35,11 +32,6 @@ class VendorInventoryController extends Controller
         ]);
     }
 
-    /**
-     * Preview inventory for the selected vendor.
-     *
-     * This method does not make any changes in Shopify.
-     */
     public function preview(
         Request $request,
         VendorInventoryMoveService $service
@@ -59,13 +51,9 @@ class VendorInventoryController extends Controller
 
             return view('vendor-inventory.index', [
                 'vendor' => $vendor,
-
                 'preview' => $preview,
-
                 'activationResult' => null,
-
                 'activationVerification' => null,
-
                 'deactivationResult' => null,
             ]);
         } catch (Throwable $e) {
@@ -80,15 +68,6 @@ class VendorInventoryController extends Controller
         }
     }
 
-    /**
-     * Activate FSWarehouse for all variants
-     * belonging to the selected vendor.
-     *
-     * IMPORTANT:
-     * - Does NOT change inventory quantities.
-     * - Does NOT deactivate Headquarters.
-     * - Only activates FSWarehouse.
-     */
     public function activate(
         Request $request,
         VendorInventoryMoveService $service
@@ -124,12 +103,6 @@ class VendorInventoryController extends Controller
         }
     }
 
-    /**
-     * Verify that FSWarehouse is active
-     * for all variants belonging to the vendor.
-     *
-     * This method does not change anything in Shopify.
-     */
     public function verifyActivation(
         Request $request,
         VendorInventoryMoveService $service
@@ -165,12 +138,6 @@ class VendorInventoryController extends Controller
         }
     }
 
-    /**
-     * Deactivate non-FSWarehouse locations
-     * for the selected vendor.
-     *
-     * FSWarehouse itself will remain active.
-     */
     public function deactivate(
         Request $request,
         VendorInventoryMoveService $service

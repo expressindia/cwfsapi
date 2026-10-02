@@ -9,7 +9,7 @@ use Throwable;
 class VendorInventoryController extends Controller
 {
     /**
-     * Display Vendor Inventory page.
+     * Display vendor inventory page.
      */
     public function index(Request $request)
     {
@@ -21,22 +21,24 @@ class VendorInventoryController extends Controller
 
             'preview' => null,
 
-            'activationResult' => $request
-                ->session()
-                ->get('activationResult'),
+            'activationResult' => $request->session()->get(
+                'activationResult'
+            ),
 
-            'activationVerification' => $request
-                ->session()
-                ->get('activationVerification'),
+            'activationVerification' => $request->session()->get(
+                'activationVerification'
+            ),
 
-            'deactivationResult' => $request
-                ->session()
-                ->get('deactivationResult'),
+            'deactivationResult' => $request->session()->get(
+                'deactivationResult'
+            ),
         ]);
     }
 
     /**
      * Preview vendor inventory.
+     *
+     * This does not make any changes in Shopify.
      */
     public function preview(
         Request $request,
@@ -51,31 +53,22 @@ class VendorInventoryController extends Controller
         ]);
 
         try {
-            $vendor = trim(
-                $validated['vendor']
-            );
+            $vendor = trim($validated['vendor']);
 
-            $preview = $service->preview(
-                $vendor
-            );
+            $preview = $service->preview($vendor);
 
-            return view(
-                'vendor-inventory.index',
-                [
-                    'vendor' => $vendor,
+            return view('vendor-inventory.index', [
+                'vendor' => $vendor,
 
-                    'preview' => $preview,
+                'preview' => $preview,
 
-                    'activationResult' => null,
+                'activationResult' => null,
 
-                    'activationVerification' => null,
+                'activationVerification' => null,
 
-                    'deactivationResult' => null,
-                ]
-            );
-
+                'deactivationResult' => null,
+            ]);
         } catch (Throwable $e) {
-
             report($e);
 
             return redirect()
@@ -88,11 +81,13 @@ class VendorInventoryController extends Controller
     }
 
     /**
-     * Step 1:
+     * Activate FSWarehouse for the selected vendor.
      *
-     * Activate FSWarehouse.
+     * IMPORTANT:
      *
-     * No inventory quantity is changed.
+     * - Does not change inventory quantities.
+     * - Does not deactivate Headquarters.
+     * - Only activates FSWarehouse.
      */
     public function activate(
         Request $request,
@@ -107,24 +102,17 @@ class VendorInventoryController extends Controller
         ]);
 
         try {
-            $vendor = trim(
-                $validated['vendor']
-            );
+            $vendor = trim($validated['vendor']);
 
-            $result = $service->activate(
-                $vendor
-            );
+            $result = $service->activate($vendor);
 
             return redirect()
                 ->route('vendor-inventory.index')
                 ->with([
                     'vendor' => $vendor,
-
                     'activationResult' => $result,
                 ]);
-
         } catch (Throwable $e) {
-
             report($e);
 
             return redirect()
@@ -137,9 +125,9 @@ class VendorInventoryController extends Controller
     }
 
     /**
-     * Step 2:
+     * Verify FSWarehouse activation.
      *
-     * Verify that FSWarehouse is active.
+     * This does not make any changes in Shopify.
      */
     public function verifyActivation(
         Request $request,
@@ -154,24 +142,17 @@ class VendorInventoryController extends Controller
         ]);
 
         try {
-            $vendor = trim(
-                $validated['vendor']
-            );
+            $vendor = trim($validated['vendor']);
 
-            $result = $service->verifyActivation(
-                $vendor
-            );
+            $result = $service->verifyActivation($vendor);
 
             return redirect()
                 ->route('vendor-inventory.index')
                 ->with([
                     'vendor' => $vendor,
-
                     'activationVerification' => $result,
                 ]);
-
         } catch (Throwable $e) {
-
             report($e);
 
             return redirect()
@@ -184,12 +165,9 @@ class VendorInventoryController extends Controller
     }
 
     /**
-     * Step 3:
+     * Deactivate Headquarters.
      *
-     * Deactivate Headquarters and other
-     * inventory locations.
-     *
-     * FSWarehouse remains active.
+     * FSWarehouse is always protected.
      */
     public function deactivate(
         Request $request,
@@ -209,24 +187,17 @@ class VendorInventoryController extends Controller
         ]);
 
         try {
-            $vendor = trim(
-                $validated['vendor']
-            );
+            $vendor = trim($validated['vendor']);
 
-            $result = $service->deactivate(
-                $vendor
-            );
+            $result = $service->deactivate($vendor);
 
             return redirect()
                 ->route('vendor-inventory.index')
                 ->with([
                     'vendor' => $vendor,
-
                     'deactivationResult' => $result,
                 ]);
-
         } catch (Throwable $e) {
-
             report($e);
 
             return redirect()
