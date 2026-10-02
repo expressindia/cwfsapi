@@ -35,32 +35,7 @@ class ProductTransformer
             $variants
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Fullscript availability/status
-        |--------------------------------------------------------------------------
-        |
-        | Fullscript can expose availability/status at the variant level.
-        | Use the primary variant first, then fall back to product status.
-        |
-        */
-        $variantStatus = strtolower(
-            trim(
-                (string) (
-                    $primaryVariant['status'] ?? ''
-                )
-            )
-        );
-
-        $variantAvailability = strtolower(
-            trim(
-                (string) (
-                    $primaryVariant['availability'] ?? ''
-                )
-            )
-        );
-
-        $productStatus = strtolower(
+        $fullscriptStatus = strtolower(
             trim(
                 (string) (
                     $product['status'] ?? ''
@@ -68,15 +43,8 @@ class ProductTransformer
             )
         );
 
-        $fullscriptStatus =
-            $variantStatus !== ''
-                ? $variantStatus
-                : $productStatus;
-
         $shopifyStatus =
-            $variantStatus === 'available'
-            || $variantAvailability === 'in stock'
-            || $productStatus === 'available'
+            $fullscriptStatus === 'available'
                 ? 'ACTIVE'
                 : 'ARCHIVED';
 
@@ -548,38 +516,13 @@ class ProductTransformer
         array $product
     ): array {
 
-        /*
-        |--------------------------------------------------------------------------
-        | Fullscript image location
-        |--------------------------------------------------------------------------
-        |
-        | Depending on the Fullscript response, image URLs may be returned
-        | inside primary_variant or directly on the product.
-        |
-        */
-
-        $primaryVariant =
-            $product['primary_variant']
-            ?? [];
-
         $imageUrl =
-            $primaryVariant['image_url_large']
-            ?? $primaryVariant['image_url_medium']
-            ?? $primaryVariant['image_url_small']
-            ?? $product['image_url_large']
-            ?? $product['image_url_medium']
-            ?? $product['image_url_small']
+            $product['image_url_large']
             ?? null;
 
         if (!$imageUrl) {
             return [];
         }
-
-        $productName = trim(
-            (string) (
-                $product['name'] ?? ''
-            )
-        );
 
         return [
             [
@@ -587,9 +530,8 @@ class ProductTransformer
                     $imageUrl,
 
                 'alt' =>
-                    $productName !== ''
-                        ? $productName . ' | Curated Wellness'
-                        : 'Curated Wellness',
+                    $product['name']. ' | Curated Wellness'
+                    ?? 'Curated Wellness',
             ],
         ];
     }
