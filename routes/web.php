@@ -56,6 +56,9 @@ Route::post( '/orders/{orderId}/fulfillments/{fulfillmentId}/tracking', [OrderCo
 */
 
 Route::get('/products', [ProductsController::class, 'index'])->middleware('shopify.standalone')->name('products.index');
+Route::post('/products/{productId}/push', [ProductsController::class, 'push'])->name('products.push');
+
+Route::post('/products/push-selected', [ProductsController::class, 'pushSelected'])->name('products.push-selected');
 
 /*
 |--------------------------------------------------------------------------
