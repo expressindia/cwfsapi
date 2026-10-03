@@ -375,10 +375,12 @@ class ProductsController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $shopifyInfo =
-                    $this->getShopifyStatus(
-                        $normalized['sku']
-                    );
+                $shopifyInfo = [
+                    'status' => 'Not Checked',
+                    'text' => 'Not checked',
+                    'product_id' => null,
+                    'action' => 'push',
+                ];
 
                 $normalized[
                     'shopify_status'
