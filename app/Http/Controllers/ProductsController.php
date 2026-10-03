@@ -1459,6 +1459,35 @@ class ProductsController extends Controller
 
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Images from the product listing
+        |--------------------------------------------------------------------------
+        |
+        | The Fullscript detail endpoint does not return the product image.
+        | The listing does, so the Blade sends the image URL for each selected
+        | product.
+        |
+        */
+
+        $imageUrls =
+
+            $request->input(
+
+                'image_urls',
+
+                []
+
+            );
+
+
+
+        if (!is_array($imageUrls)) {
+            $imageUrls = [];
+        }
+
+
+
         if (!is_array($productIds)) {
 
 
@@ -1566,6 +1595,63 @@ class ProductsController extends Controller
                     ?? $fullscriptResponse['data']
 
                     ?? $fullscriptResponse;
+
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Restore image from product listing
+                |--------------------------------------------------------------------------
+                */
+
+                $imageUrlLarge =
+
+                    trim(
+
+                        (string) (
+
+                            $imageUrls[$productId]
+
+                            ?? ''
+
+                        )
+
+                    );
+
+
+
+                if ($imageUrlLarge !== '') {
+
+                    if (
+                        !isset(
+                            $fullscriptProduct['primary_variant']
+                        )
+                        || !is_array(
+                            $fullscriptProduct['primary_variant']
+                        )
+                    ) {
+                        $fullscriptProduct['primary_variant'] = [];
+                    }
+
+                    $fullscriptProduct['primary_variant']['image_url_large'] =
+                        $imageUrlLarge;
+                }
+
+
+
+                \Log::info(
+
+                    'FULLSCRIPT PUSH SELECTED IMAGE',
+
+                    [
+
+                        'product_id' => $productId,
+
+                        'image_url_large' => $imageUrlLarge ?: null,
+
+                    ]
+
+                );
 
 
 

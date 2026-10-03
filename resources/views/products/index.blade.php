@@ -111,7 +111,10 @@
                     <tr>
                         <td>
                             @if(!empty($product['id']))
-                                <input type="checkbox" class="form-check-input product-checkbox" value="{{ $product['id'] }}">
+                                <input type="checkbox"
+                                       class="form-check-input product-checkbox"
+                                       value="{{ $product['id'] }}"
+                                       data-image-url="{{ $product['image'] ?? '' }}">
                             @endif
                         </td>
                         <td>
@@ -147,6 +150,7 @@
                                     class="btn btn-sm {{ ($product['action'] ?? '') === 'update' ? 'btn-outline-primary' : 'btn-primary' }} push-product-btn"
                                     data-product-id="{{ $product['id'] ?? '' }}"
                                     data-shopify-product-id="{{ $product['shopify_product_id'] ?? '' }}"
+                                    data-image-url="{{ $product['image'] ?? '' }}"
                                     data-sku="{{ $product['sku'] ?? '' }}"
                                     {{ ($product['action'] ?? '') === 'checking' ? 'disabled' : '' }}>
                                 <i class="bi bi-cloud-upload me-1"></i>
@@ -164,8 +168,7 @@
         @if($paginator->hasPages())
             <div class="card-footer bg-white border-top py-3">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-
-                    {{-- <div class="small text-muted">
+                    <div class="small text-muted">
                         Showing
                         <strong>{{ $paginator->firstItem() }}</strong>
                         to
@@ -173,12 +176,11 @@
                         of
                         <strong>{{ number_format($paginator->total()) }}</strong>
                         products
-                    </div> --}}
+                    </div>
 
                     <div class="products-pagination">
                         {{ $paginator->withQueryString()->links('pagination::bootstrap-5') }}
                     </div>
-
                 </div>
             </div>
         @endif
@@ -192,6 +194,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
     const boxes = () => [...document.querySelectorAll('.product-checkbox')];
     const selected = () => boxes().filter(x => x.checked).map(x => x.value);
+
+    const selectedImageUrls = () => {
+        const images = {};
+
+        boxes().filter(x => x.checked).forEach(x => {
+            images[x.value] = x.dataset.imageUrl || '';
+        });
+
+        return images;
+    };
     const bar = document.getElementById('selectionBar');
     const count = document.getElementById('selectedCount');
 
@@ -219,11 +231,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ids.length) return alert('Please select at least one product.');
 
         try {
-            const response = await fetch('{{ route('products.push-selected') }}', {
+            const response = await fetch('{{ route('products.pushSelected') }}', {
                 method: 'POST',
                 headers: {'Accept':'application/json','Content-Type':'application/json',
                           'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'},
-                body: JSON.stringify({product_ids: ids})
+                body: JSON.stringify({
+                    product_ids: ids,
+                    image_urls: selectedImageUrls()
+                })
             });
             const data = await response.json();
             if (!response.ok || !data.success) throw new Error(data.message || 'Product sync failed.');
@@ -247,7 +262,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     method:'POST',
                     headers:{'Accept':'application/json','Content-Type':'application/json',
                              'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'},
-                    body:JSON.stringify({shopify_product_id:button.dataset.shopifyProductId || null})
+                    body:JSON.stringify({
+                        shopify_product_id:button.dataset.shopifyProductId || null,
+                        image_url_large:button.dataset.imageUrl || ''
+                    })
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) throw new Error(data.message || 'Product sync failed.');
