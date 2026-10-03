@@ -3557,4 +3557,102 @@ class ProductsController extends Controller
 
     }
 
+
+    public function show(
+            Request $request,
+            string $productId
+        ) {
+            try {
+                $response = $this->fullscript->getProduct($productId);
+
+                $product =
+                    $response['product']
+                    ?? $response['data']
+                    ?? $response;
+
+                if (!is_array($product)) {
+                    abort(404, 'Product was not found.');
+                }
+
+                // Get image passed from product listing
+                $imageUrlLarge = trim(
+                    (string) $request->query(
+                        'image_url_large',
+                        ''
+                    )
+                );
+
+                if ($imageUrlLarge !== '') {
+                    if (
+                        !isset($product['primary_variant'])
+                        || !is_array($product['primary_variant'])
+                    ) {
+                        $product['primary_variant'] = [];
+                    }
+
+                    $product['primary_variant']['image_url_large'] =
+                        $imageUrlLarge;
+                }
+
+                $brand =
+                    $product['brand']['name']
+                    ?? $product['brand_name']
+                    ?? $product['vendor']
+                    ?? 'Fullscript';
+
+                if (is_array($brand)) {
+                    $brand = $brand['name'] ?? 'Fullscript';
+                }
+
+                $variants = $product['variants'] ?? [];
+
+                if (isset($variants['nodes'])) {
+                    $variants = $variants['nodes'];
+                }
+
+                if (!is_array($variants) || empty($variants)) {
+                    $primary = $product['primary_variant'] ?? [];
+                    $variants = !empty($primary)
+                        ? [$primary]
+                        : [];
+                }
+
+                $primarySku =
+                    $this->getPrimarySku($product);
+
+                $shopifyInfo =
+                    $this->getShopifyStatus($primarySku);
+
+                return view('products.show', [
+                    'product' => $product,
+                    'brand' => (string) $brand,
+                    'variants' => $variants,
+                    'primarySku' => $primarySku,
+                    'shopifyInfo' => $shopifyInfo,
+                    'imageUrlLarge' => $imageUrlLarge
+                        ?: ($product['primary_variant']['image_url_large'] ?? null),
+                    'error' => null,
+                ]);
+
+            } catch (Throwable $e) {
+
+                report($e);
+
+                return view('products.show', [
+                    'product' => null,
+                    'brand' => 'Fullscript',
+                    'variants' => [],
+                    'primarySku' => '',
+                    'shopifyInfo' => [
+                        'status' => 'Error',
+                        'text' => 'Unable to check Shopify',
+                        'product_id' => null,
+                        'action' => 'retry',
+                    ],
+                    'imageUrlLarge' => null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
 }

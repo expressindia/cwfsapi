@@ -18,7 +18,8 @@
             </div>
             <button id="pushProductBtn" type="button" class="btn btn-primary"
                     data-product-id="{{ $product['id'] }}"
-                    data-shopify-product-id="{{ $shopifyInfo['product_id'] ?? '' }}">
+                    data-shopify-product-id="{{ $shopifyInfo['product_id'] ?? '' }}"
+                    data-image-url="{{ $imageUrlLarge ?? '' }}">
                 <i class="bi bi-cloud-upload me-1"></i>
                 {{ ($shopifyInfo['action'] ?? '') === 'update' ? 'Update in Shopify' : 'Push to Shopify' }}
             </button>
@@ -26,6 +27,17 @@
 
         <div class="row g-4">
             <div class="col-lg-8">
+                @if(!empty($imageUrlLarge))
+                    <div class="card mb-4">
+                        <div class="card-header fw-semibold">Product Image</div>
+                        <div class="card-body text-center">
+                            <img src="{{ $imageUrlLarge }}"
+                                 alt="{{ $product['name'] ?? $product['title'] ?? 'Product' }}"
+                                 class="img-fluid rounded border"
+                                 style="max-height:320px;object-fit:contain;">
+                        </div>
+                    </div>
+                @endif
                 <div class="card mb-4">
                     <div class="card-header fw-semibold">Product Information</div>
                     <div class="card-body">
@@ -108,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers:{'Accept':'application/json','Content-Type':'application/json',
                          'X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]')?.content,
                          'X-Requested-With':'XMLHttpRequest'},
-                body:JSON.stringify({shopify_product_id:button.dataset.shopifyProductId || null})
+                body:JSON.stringify({shopify_product_id:button.dataset.shopifyProductId || null, image_url_large:button.dataset.imageUrl || ''})
             });
             const data = await response.json();
             if (!response.ok || !data.success) throw new Error(data.message || 'Product sync failed.');
