@@ -514,6 +514,12 @@ class ProductsController extends Controller
     ): JsonResponse {
         try {
 
+            /*
+            |--------------------------------------------------------------------------
+            | Get detailed Fullscript product
+            |--------------------------------------------------------------------------
+            */
+
             $fullscriptResponse =
                 $this->fullscript->getProduct(
                     $productId
@@ -524,33 +530,79 @@ class ProductsController extends Controller
                 ?? $fullscriptResponse['data']
                 ?? $fullscriptResponse;
 
+            /*
+            |--------------------------------------------------------------------------
+            | Image from product listing
+            |--------------------------------------------------------------------------
+            |
+            | The Fullscript detail endpoint does not return primary_variant.
+            | The product listing does contain image_url_large.
+            |
+            */
+
+            $imageUrlLarge =
+                trim(
+                    (string) $request->input(
+                        'image_url_large',
+                        ''
+                    )
+                );
+
+            if ($imageUrlLarge !== '') {
+
+                if (
+                    !isset(
+                        $fullscriptProduct[
+                            'primary_variant'
+                        ]
+                    )
+                    || !is_array(
+                        $fullscriptProduct[
+                            'primary_variant'
+                        ]
+                    )
+                ) {
+                    $fullscriptProduct[
+                        'primary_variant'
+                    ] = [];
+                }
+
+                $fullscriptProduct[
+                    'primary_variant'
+                ][
+                    'image_url_large'
+                ] = $imageUrlLarge;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Log image being passed to transformer
+            |--------------------------------------------------------------------------
+            */
 
             \Log::info(
-    'FULLSCRIPT PRODUCT IMAGE DEBUG',
-    [
-        'product_id' =>
-            $productId,
+                'FULLSCRIPT PUSH IMAGE',
+                [
+                    'product_id' =>
+                        $productId,
 
-        'product_name' =>
-            $fullscriptProduct['name'] ?? null,
+                    'image_url_large' =>
+                        $fullscriptProduct[
+                            'primary_variant'
+                        ]['image_url_large']
+                        ?? null,
+                ]
+            );
 
-        'primary_variant' =>
-            $fullscriptProduct['primary_variant'] ?? null,
-
-        'image_url_large' =>
-            $fullscriptProduct['primary_variant']['image_url_large']
-            ?? null,
-    ]
-);
+            /*
+            |--------------------------------------------------------------------------
+            | Transform
+            |--------------------------------------------------------------------------
+            */
 
             $product =
                 $this->productTransformer->transform(
                     $fullscriptProduct
-                );
-
-            $shopifyProductId =
-                $request->input(
-                    'shopify_product_id'
                 );
 
             /*
@@ -558,6 +610,11 @@ class ProductsController extends Controller
             | Find existing Shopify product by SKU
             |--------------------------------------------------------------------------
             */
+
+            $shopifyProductId =
+                $request->input(
+                    'shopify_product_id'
+                );
 
             if (
                 blank(
@@ -588,7 +645,7 @@ class ProductsController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Create / Update
+            | Create / Update Shopify product
             |--------------------------------------------------------------------------
             */
 
@@ -641,6 +698,16 @@ class ProductsController extends Controller
                 'product_ids',
                 []
             );
+
+        $imageUrls =
+            $request->input(
+                'image_urls',
+                []
+            );
+
+        if (!is_array($imageUrls)) {
+            $imageUrls = [];
+        }
 
         if (!is_array($productIds)) {
 
@@ -696,6 +763,40 @@ class ProductsController extends Controller
                     $fullscriptResponse['product']
                     ?? $fullscriptResponse['data']
                     ?? $fullscriptResponse;
+
+                $imageUrlLarge =
+                    trim(
+                        (string) (
+                            $imageUrls[$productId]
+                            ?? ''
+                        )
+                    );
+
+                if ($imageUrlLarge !== '') {
+
+                    if (
+                        !isset(
+                            $fullscriptProduct[
+                                'primary_variant'
+                            ]
+                        )
+                        || !is_array(
+                            $fullscriptProduct[
+                                'primary_variant'
+                            ]
+                        )
+                    ) {
+                        $fullscriptProduct[
+                            'primary_variant'
+                        ] = [];
+                    }
+
+                    $fullscriptProduct[
+                        'primary_variant'
+                    ][
+                        'image_url_large'
+                    ] = $imageUrlLarge;
+                }
 
                 $product =
                     $this->productTransformer->transform(

@@ -1023,18 +1023,38 @@ class ProductTransformer
     /**
      * Transform product image.
      */
-    protected function transformImages( array $product ): array {
-        $imageUrl = $product['primary_variant']['image_url_large'] ?? null;
+    protected function transformImages(
+        array $product
+    ): array {
+
+        $imageUrl =
+            $product[
+                'primary_variant'
+            ]['image_url_large']
+            ?? null;
+
         if (!$imageUrl) {
             return [];
         }
 
-        $productName = trim( (string) ( $product['name'] ?? '' ) );
+        $productName =
+            trim(
+                (string) (
+                    $product['name']
+                    ?? ''
+                )
+            );
 
         return [
             [
-                'url' => $imageUrl,
-                'alt' => $productName !== '' ? $productName . ' | Curated Wellness' : 'Curated Wellness',
+                'url' =>
+                    $imageUrl,
+
+                'alt' =>
+                    $productName !== ''
+                        ? $productName
+                            . ' | Curated Wellness'
+                        : 'Curated Wellness',
             ],
         ];
     }
