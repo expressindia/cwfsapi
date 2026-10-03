@@ -1033,6 +1033,22 @@ class ProductTransformer
             ]['image_url_large']
             ?? null;
 
+
+        \Log::info(
+    'FULLSCRIPT PRODUCT IMAGE',
+    [
+        'product_id' =>
+            $product['id'] ?? null,
+
+        'product_name' =>
+            $product['name'] ?? null,
+
+        'image_url_large' =>
+            $imageUrl,
+    ]
+);
+
+
         if (!$imageUrl) {
             return [];
         }
