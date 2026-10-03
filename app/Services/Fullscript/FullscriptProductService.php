@@ -130,16 +130,17 @@ class FullscriptProductService
      * If Fullscript's current endpoint expects a different
      * parameter name, this is the only place that needs changing.
      */
-    public function searchProducts(
-        ?string $brand = null,
-        ?string $search = null,
-        int $page = 1,
-        int $perPage = 25
-    ): array {
-        $baseUrl = rtrim(
-            config('fullscript.api_base_url'),
-            '/'
-        );
+    public function searchProducts(  ?string $brand = null, ?string $search = null, int $page = 1, int $perPage = 25 ): array {
+
+    \Log::info('SEARCH PRODUCTS METHOD CALLED', [
+        'brand' => $brand,
+        'search' => $search,
+        'page' => $page,
+        'perPage' => $perPage,
+    ]);
+
+    
+        $baseUrl = rtrim( config('fullscript.api_base_url'), '/' );
 
         if (blank($baseUrl)) {
             throw new RuntimeException(
@@ -147,31 +148,22 @@ class FullscriptProductService
             );
         }
 
-        $accessToken =
-            $this->tokenService->freshAccessToken();
+        $accessToken = $this->tokenService->freshAccessToken();
 
         $query = [
             'page[number]' => $page,
             'page[size]' => $perPage,
         ];
 
-        if (
-            $brand !== null
-            && $brand !== ''
-        ) {
+        if ( $brand !== null && $brand !== '' ) {
             $query['brand'] = $brand;
         }
 
-        if (
-            $search !== null
-            && $search !== ''
-        ) {
+        if ( $search !== null && $search !== '' ) {
             $query['search'] = $search;
         }
 
-        $url =
-            $baseUrl
-            . '/catalog/search/products';
+        $url = $baseUrl . '/catalog/search/products';
 
         try {
             $response = Http::withToken($accessToken)
@@ -180,18 +172,11 @@ class FullscriptProductService
                 ->timeout(30)
                 ->get($url, $query);
         } catch (ConnectionException $e) {
-            throw new RuntimeException(
-                'Unable to connect to Fullscript search API: '
-                . $e->getMessage(),
-                0,
-                $e
-            );
+            throw new RuntimeException( 'Unable to connect to Fullscript search API: ' . $e->getMessage(), 0, $e );
         }
 
         if ($response->failed()) {
-            throw new RuntimeException(
-                $this->responseMessage($response)
-            );
+            throw new RuntimeException( $this->responseMessage($response) );
         }
 
         return $response->json();

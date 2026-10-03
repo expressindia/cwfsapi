@@ -12,11 +12,7 @@ use Throwable;
 
 class ProductsController extends Controller
 {
-    public function __construct(
-        protected FullscriptProductService $fullscript,
-        protected ShopifyProductService $shopify,
-        protected ProductTransformer $productTransformer,
-    ) {
+    public function __construct( protected FullscriptProductService $fullscript, protected ShopifyProductService $shopify, protected ProductTransformer $productTransformer, ) {
     }
 
     /**
@@ -30,22 +26,11 @@ class ProductsController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $page = max(
-            1,
-            (int) $request->input('page', 1)
-        );
+        $page = max( 1, (int) $request->input('page', 1) );
+        $perPage = (int) $request->input( 'per_page', 10 );
 
-        $perPage = (int) $request->input(
-            'per_page',
-            25
-        );
-
-        if (!in_array(
-            $perPage,
-            [25, 50, 100],
-            true
-        )) {
-            $perPage = 25;
+        if (!in_array( $perPage, [10, 15, 25, 50, 100], true )) {
+            $perPage = 10;
         }
 
         /*
@@ -54,19 +39,9 @@ class ProductsController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $brand = trim(
-            (string) $request->input(
-                'brand',
-                ''
-            )
-        );
+        $brand = trim( (string) $request->input( 'brand', '' ) );
 
-        $search = trim(
-            (string) $request->input(
-                'search',
-                ''
-            )
-        );
+        $search = trim( (string) $request->input( 'search', '' )  );
 
         /*
         |--------------------------------------------------------------------------
@@ -99,10 +74,7 @@ class ProductsController extends Controller
 
         try {
 
-            if (
-                $brand !== ''
-                || $search !== ''
-            ) {
+            if ( $brand !== '' || $search !== '' ) {
 
                 /*
                 |--------------------------------------------------------------------------
@@ -110,17 +82,7 @@ class ProductsController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $response =
-                    $this->fullscript->searchProducts(
-                        $brand !== ''
-                            ? $brand
-                            : null,
-                        $search !== ''
-                            ? $search
-                            : null,
-                        $page,
-                        $perPage
-                    );
+                $response = $this->fullscript->searchProducts( $brand !== '' ? $brand : null, $search !== '' ? $search : null, $page, $perPage );
 
             } else {
 
@@ -134,11 +96,7 @@ class ProductsController extends Controller
                 |
                 */
 
-                $response =
-                    $this->fullscript->getProducts(
-                        $page,
-                        $perPage
-                    );
+                $response = $this->fullscript->getProducts( $page, $perPage );
             }
 
             /*
@@ -147,10 +105,7 @@ class ProductsController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $rawProducts =
-                $response['products']
-                ?? $response['data']
-                ?? [];
+            $rawProducts = $response['products'] ?? $response['data'] ?? [];
 
             if (!is_array($rawProducts)) {
                 $rawProducts = [];
@@ -162,26 +117,11 @@ class ProductsController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $meta =
-                $response['meta']
-                ?? [];
+            $meta = $response['meta'] ?? [];
 
-            $total =
-                (int) (
-                    $meta['total_count']
-                    ?? $meta['total']
-                    ?? $response['total_count']
-                    ?? $response['total']
-                    ?? 0
-                );
+            $total = (int) ( $meta['total_count'] ?? $meta['total'] ?? $response['total_count'] ?? $response['total'] ?? 0  );
 
-            $lastPage =
-                (int) (
-                    $meta['total_pages']
-                    ?? $meta['last_page']
-                    ?? $response['total_pages']
-                    ?? 1
-                );
+            $lastPage = (int) ( $meta['total_pages'] ?? $meta['last_page'] ?? $response['total_pages'] ?? 1 );
 
             /*
             |--------------------------------------------------------------------------
@@ -193,12 +133,8 @@ class ProductsController extends Controller
             |
             */
 
-            if (
-                $total <= 0
-                && $lastPage > 1
-            ) {
-                $total =
-                    $lastPage * $perPage;
+            if ( $total <= 0 && $lastPage > 1 ) {
+                $total = $lastPage * $perPage;
             }
 
             /*
@@ -211,38 +147,22 @@ class ProductsController extends Controller
 
             foreach ($rawProducts as $rawProduct) {
 
-                if (
-                    isset(
-                        $rawProduct['attributes']
-                    )
-                    && is_array(
-                        $rawProduct['attributes']
-                    )
-                ) {
-                    $product =
-                        array_merge(
+                if ( isset( $rawProduct['attributes'] ) && is_array( $rawProduct['attributes'] ) ) {
+                    $product = array_merge(
                             [
-                                'id' =>
-                                    $rawProduct['id']
-                                    ?? null,
+                                'id' => $rawProduct['id'] ?? null,
                             ],
-                            $rawProduct[
-                                'attributes'
-                            ]
+                            $rawProduct[ 'attributes' ]
                         );
                 } else {
-                    $product =
-                        $rawProduct;
+                    $product = $rawProduct;
                 }
 
                 if (!is_array($product)) {
                     continue;
                 }
 
-                $normalized =
-                    $this->normalizeProduct(
-                        $product
-                    );
+                $normalized = $this->normalizeProduct( $product  );
 
                 /*
                 |--------------------------------------------------------------------------
@@ -254,15 +174,7 @@ class ProductsController extends Controller
                 |
                 */
 
-                if (
-                    $brand !== ''
-                    && strcasecmp(
-                        trim(
-                            $normalized['brand']
-                        ),
-                        trim($brand)
-                    ) !== 0
-                ) {
+                if ( $brand !== '' && strcasecmp( trim( $normalized['brand'] ), trim($brand) ) !== 0 ) {
                     continue;
                 }
 
@@ -272,17 +184,7 @@ class ProductsController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                if (
-                    $search !== ''
-                    && stripos(
-                        $normalized['title'],
-                        $search
-                    ) === false
-                    && stripos(
-                        $normalized['sku'],
-                        $search
-                    ) === false
-                ) {
+                if ( $search !== '' && stripos( $normalized['title'], $search ) === false && stripos( $normalized['sku'], $search ) === false ) {
                     continue;
                 }
 
@@ -292,20 +194,9 @@ class ProductsController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $uniqueKey =
-                    $normalized['id']
-                    ?: (
-                        $normalized['sku']
-                        . '|'
-                        . $normalized['title']
-                    );
+                $uniqueKey = $normalized['id'] ?: ( $normalized['sku'] . '|' . $normalized['title'] );
 
-                if (
-                    $uniqueKey !== ''
-                    && isset(
-                        $seen[$uniqueKey]
-                    )
-                ) {
+                if ( $uniqueKey !== '' && isset( $seen[$uniqueKey] ) ) {
                     continue;
                 }
 
@@ -317,33 +208,17 @@ class ProductsController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $shopifyInfo =
-                    $this->getShopifyStatus(
-                        $normalized['sku']
-                    );
+                $shopifyInfo = $this->getShopifyStatus(  $normalized['sku'] );
 
-                $normalized[
-                    'shopify_status'
-                ] =
-                    $shopifyInfo['status'];
+                $normalized[ 'shopify_status' ] = $shopifyInfo['status'];
 
-                $normalized[
-                    'shopify_status_text'
-                ] =
-                    $shopifyInfo['text'];
+                $normalized[ 'shopify_status_text' ] = $shopifyInfo['text'];
 
-                $normalized[
-                    'shopify_product_id'
-                ] =
-                    $shopifyInfo['product_id'];
+                $normalized[ 'shopify_product_id' ] =  $shopifyInfo['product_id'];
 
-                $normalized[
-                    'action'
-                ] =
-                    $shopifyInfo['action'];
+                $normalized[ 'action'  ] = $shopifyInfo['action'];
 
-                $products[] =
-                    $normalized;
+                $products[] = $normalized;
             }
 
             /*
@@ -354,28 +229,19 @@ class ProductsController extends Controller
 
             if ($total <= 0) {
 
-                $total =
-                    (($page - 1) * $perPage)
-                    + count($products);
+                $total = (($page - 1) * $perPage) + count($products);
             }
 
             if ($lastPage <= 0) {
 
-                $lastPage =
-                    max(
-                        1,
-                        (int) ceil(
-                            $total / $perPage
-                        )
-                    );
+                $lastPage = max( 1, (int) ceil(  $total / $perPage ) );
             }
 
         } catch (Throwable $e) {
 
             report($e);
 
-            $error =
-                $e->getMessage();
+            $error = $e->getMessage();
 
             $products = [];
 
@@ -390,53 +256,31 @@ class ProductsController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $paginator =
-            new LengthAwarePaginator(
-                $products,
-                $total,
-                $perPage,
-                $page,
+        $paginator = new LengthAwarePaginator( $products, $total, $perPage, $page,
                 [
-                    'path' =>
-                        route(
-                            'products.index'
-                        ),
+                    'path' => route( 'products.index' ),
 
-                    'query' =>
-                        $request->except(
-                            'page'
-                        ),
+                    'query' => $request->except( 'page'  ),
                 ]
             );
 
-        return view(
-            'products.index',
+        return view( 'products.index',
             [
-                'products' =>
-                    $paginator,
+                'products' => $paginator,
 
-                'paginator' =>
-                    $paginator,
+                'paginator' => $paginator,
 
-                'totalProducts' =>
-                    $paginator->total(),
+                'totalProducts' => $paginator->total(),
 
-                'perPage' =>
-                    $perPage,
+                'perPage' => $perPage,
 
-                'brand' =>
-                    $brand,
+                'brand' => $brand,
 
-                'search' =>
-                    $search,
+                'search' => $search,
 
-                'error' =>
-                    $error,
+                'error' => $error,
 
-                'lastSyncedAt' =>
-                    session(
-                        'products.last_synced_at'
-                    ),
+                'lastSyncedAt' => session( 'products.last_synced_at' ),
             ]
         );
     }
