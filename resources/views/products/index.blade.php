@@ -94,13 +94,12 @@
                 <tbody>
                 @forelse($products as $product)
                     @php
-                        $status = $product['shopify_status'] ?? 'Checking';
+                        $status = $product['shopify_status'] ?? 'Not Checked';
                         $statusClass = match($status) {
                             'Exists' => 'bg-info-subtle text-info-emphasis',
                             'Not Found' => 'bg-warning-subtle text-warning-emphasis',
                             'Error' => 'bg-danger-subtle text-danger-emphasis',
-                            'Checking' => 'bg-secondary-subtle text-secondary-emphasis',
-                            default => 'bg-secondary-subtle text-secondary-emphasis',
+                                default => 'bg-secondary-subtle text-secondary-emphasis',
                         };
                         $availabilityClass = match(strtolower($product['availability'] ?? '')) {
                             'in stock' => 'bg-success-subtle text-success-emphasis',
@@ -139,7 +138,7 @@
                             data-sku="{{ $product['sku'] ?? '' }}">
                             <span class="badge shopify-status-badge {{ $statusClass }}">{{ $status }}</span>
                             <div class="small text-muted shopify-status-text">
-                                {{ $product['shopify_status_text'] ?? ($status === 'Checking' ? 'Checking Shopify...' : '') }}
+                                {{ $product['shopify_status_text'] ?? '' }}
                             </div>
                         </td>
                         <td class="small text-muted">{{ $product['updated_at'] ?: '—' }}</td>
@@ -177,93 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const selected = () => boxes().filter(x => x.checked).map(x => x.value);
     const bar = document.getElementById('selectionBar');
     const count = document.getElementById('selectedCount');
-
-    function setStatusForSku(sku, info) {
-        document.querySelectorAll('.push-product-btn').forEach(button => {
-            if ((button.dataset.sku || '') !== sku) return;
-
-            button.dataset.shopifyProductId = info.product_id || '';
-            button.disabled = false;
-            button.classList.toggle('btn-outline-primary', info.action === 'update');
-            button.classList.toggle('btn-primary', info.action !== 'update');
-            button.innerHTML = info.action === 'update'
-                ? '<i class="bi bi-arrow-repeat me-1"></i> Update in Shopify'
-                : '<i class="bi bi-cloud-upload me-1"></i> Push to Shopify';
-        });
-
-        document.querySelectorAll('.shopify-status-cell').forEach(cell => {
-            if ((cell.dataset.sku || '') !== sku) return;
-
-            const badge = cell.querySelector('.shopify-status-badge');
-            const text = cell.querySelector('.shopify-status-text');
-            if (!badge || !text) return;
-
-            badge.textContent = info.status;
-            text.textContent = info.text || '';
-
-            badge.className = 'badge shopify-status-badge ' + (
-                info.status === 'Exists'
-                    ? 'bg-info-subtle text-info-emphasis'
-                    : info.status === 'Not Found'
-                        ? 'bg-warning-subtle text-warning-emphasis'
-                        : info.status === 'Error'
-                            ? 'bg-danger-subtle text-danger-emphasis'
-                            : 'bg-secondary-subtle text-secondary-emphasis'
-            );
-        });
-    }
-
-    async function checkShopifyStatus() {
-        const items = [...document.querySelectorAll('.shopify-status-cell[data-sku]')]
-            .map(cell => cell.dataset.sku || '')
-            .filter(Boolean);
-
-        const skus = [...new Set(items)];
-        if (!skus.length) return;
-
-        const chunks = [];
-        for (let i = 0; i < skus.length; i += 10) {
-            chunks.push(skus.slice(i, i + 10));
-        }
-
-        await Promise.all(chunks.map(async chunk => {
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 15000);
-
-                const response = await fetch('{{ route('products.shopify-status') }}', {
-                    method: 'POST',
-                    signal: controller.signal,
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrf,
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({ skus: chunk })
-                });
-
-                clearTimeout(timeout);
-
-                const data = await response.json();
-
-                if (!response.ok || !data.success) {
-                    throw new Error(data.message || 'Unable to check Shopify status.');
-                }
-
-                Object.entries(data.statuses || {}).forEach(([sku, info]) => {
-                    setStatusForSku(sku, info);
-                });
-            } catch (error) {
-                chunk.forEach(sku => setStatusForSku(sku, {
-                    status: 'Error',
-                    text: 'Unable to check',
-                    product_id: null,
-                    action: 'push'
-                }));
-            }
-        }));
-    }
 
     function refreshSelection() {
         const ids = selected();
@@ -331,7 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     refreshSelection();
-    checkShopifyStatus();
 });
 </script>
 @endpush

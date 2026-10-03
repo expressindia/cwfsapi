@@ -771,30 +771,76 @@ class ProductsController extends Controller
             | Shopify status
             |--------------------------------------------------------------------------
             |
-            | Shopify status is loaded asynchronously after the page renders.
-            | This keeps the Fullscript product listing fast and prevents a
-            | slow Shopify GraphQL request from causing a gateway timeout.
+            | Check all SKUs on the current page in a single batched Shopify
+            | lookup. The result is rendered directly in the product listing.
             |
             */
 
-            foreach ($products as $index => $normalized) {
+            $shopifySkus = [];
 
+            foreach ($products as $product) {
                 $sku = trim(
                     (string) (
-                        $normalized['sku'] ?? ''
+                        $product['sku'] ?? ''
                     )
                 );
 
-                $products[$index]['shopify_status'] =
-                    $sku === '' ? 'Not Found' : 'Checking';
+                if ($sku !== '') {
+                    $shopifySkus[] = $sku;
+                }
+            }
 
-                $products[$index]['shopify_status_text'] =
-                    $sku === '' ? 'No SKU' : 'Checking Shopify...';
+            $shopifyMatches = [];
 
-                $products[$index]['shopify_product_id'] = null;
+            if (!empty($shopifySkus)) {
+                try {
+                    $shopifyMatches =
+                        $this->shopify->findProductsBySkus(
+                            $shopifySkus
+                        );
+                } catch (Throwable $e) {
+                    report($e);
+                    $shopifyMatches = null;
+                }
+            }
 
-                $products[$index]['action'] =
-                    $sku === '' ? 'push' : 'checking';
+            foreach ($products as $index => $product) {
+                $sku = trim(
+                    (string) (
+                        $product['sku'] ?? ''
+                    )
+                );
+
+                if ($sku === '') {
+                    $products[$index]['shopify_status'] = 'Not Found';
+                    $products[$index]['shopify_status_text'] = 'No SKU';
+                    $products[$index]['shopify_product_id'] = null;
+                    $products[$index]['action'] = 'push';
+                    continue;
+                }
+
+                if ($shopifyMatches === null) {
+                    $products[$index]['shopify_status'] = 'Error';
+                    $products[$index]['shopify_status_text'] = 'Unable to check';
+                    $products[$index]['shopify_product_id'] = null;
+                    $products[$index]['action'] = 'push';
+                    continue;
+                }
+
+                $variant = $shopifyMatches[$sku] ?? null;
+
+                if ($variant) {
+                    $products[$index]['shopify_status'] = 'Exists';
+                    $products[$index]['shopify_status_text'] = 'Will update';
+                    $products[$index]['shopify_product_id'] =
+                        $variant['product']['id'] ?? null;
+                    $products[$index]['action'] = 'update';
+                } else {
+                    $products[$index]['shopify_status'] = 'Not Found';
+                    $products[$index]['shopify_status_text'] = 'Will create';
+                    $products[$index]['shopify_product_id'] = null;
+                    $products[$index]['action'] = 'push';
+                }
             }
 
             /*
