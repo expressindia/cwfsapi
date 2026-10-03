@@ -1657,19 +1657,20 @@ mutation ProductSet(
 
 
             media(first: 10) {
-
                 nodes {
-
                     id
-
                     alt
-
                     mediaContentType
-
                     status
 
+                    ... on MediaImage {
+                        image {
+                            url
+                            width
+                            height
+                        }
+                    }
                 }
-
             }
 
 
@@ -1912,7 +1913,12 @@ GRAPHQL;
 
             $result['product'];
 
-
+        \Log::info('Shopify ProductSet Image Result', [
+            'product_id' => $shopifyProduct['id'] ?? null,
+            'title' => $shopifyProduct['title'] ?? null,
+            'input_images' => $input['files'] ?? [],
+            'shopify_media' => $shopifyProduct['media'] ?? [],
+        ]);
 
         /*
 
