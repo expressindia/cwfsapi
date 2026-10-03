@@ -139,7 +139,7 @@ class FullscriptProductService
         'perPage' => $perPage,
     ]);
 
-    
+
         $baseUrl = rtrim( config('fullscript.api_base_url'), '/' );
 
         if (blank($baseUrl)) {
@@ -171,6 +171,16 @@ class FullscriptProductService
                 ->connectTimeout(10)
                 ->timeout(30)
                 ->get($url, $query);
+
+                \Log::info('FULLSCRIPT SEARCH API RESPONSE', [
+        'url' => $url,
+        'query' => $query,
+        'status' => $response->status(),
+        'successful' => $response->successful(),
+        'body' => $response->body(),
+    ]);
+
+    
         } catch (ConnectionException $e) {
             throw new RuntimeException( 'Unable to connect to Fullscript search API: ' . $e->getMessage(), 0, $e );
         }
