@@ -524,6 +524,25 @@ class ProductsController extends Controller
                 ?? $fullscriptResponse['data']
                 ?? $fullscriptResponse;
 
+
+            \Log::info(
+    'FULLSCRIPT PRODUCT IMAGE DEBUG',
+    [
+        'product_id' =>
+            $productId,
+
+        'product_name' =>
+            $fullscriptProduct['name'] ?? null,
+
+        'primary_variant' =>
+            $fullscriptProduct['primary_variant'] ?? null,
+
+        'image_url_large' =>
+            $fullscriptProduct['primary_variant']['image_url_large']
+            ?? null,
+    ]
+);
+
             $product =
                 $this->productTransformer->transform(
                     $fullscriptProduct
