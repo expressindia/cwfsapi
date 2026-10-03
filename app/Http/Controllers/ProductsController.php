@@ -12,7 +12,11 @@ use Throwable;
 
 class ProductsController extends Controller
 {
-    public function __construct( protected FullscriptProductService $fullscript, protected ShopifyProductService $shopify, protected ProductTransformer $productTransformer, ) {
+    public function __construct(
+        protected FullscriptProductService $fullscript,
+        protected ShopifyProductService $shopify,
+        protected ProductTransformer $productTransformer,
+    ) {
     }
 
     /**
@@ -26,11 +30,22 @@ class ProductsController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $page = max( 1, (int) $request->input('page', 1) );
-        $perPage = (int) $request->input( 'per_page', 10 );
+        $page = max(
+            1,
+            (int) $request->input('page', 1)
+        );
 
-        if (!in_array( $perPage, [10, 15, 25, 50, 100], true )) {
-            $perPage = 10;
+        $perPage = (int) $request->input(
+            'per_page',
+            25
+        );
+
+        if (!in_array(
+            $perPage,
+            [25, 50, 100],
+            true
+        )) {
+            $perPage = 25;
         }
 
         /*
@@ -39,9 +54,19 @@ class ProductsController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $brand = trim( (string) $request->input( 'brand', '' ) );
+        $brand = trim(
+            (string) $request->input(
+                'brand',
+                ''
+            )
+        );
 
-        $search = trim( (string) $request->input( 'search', '' )  );
+        $search = trim(
+            (string) $request->input(
+                'search',
+                ''
+            )
+        );
 
         /*
         |--------------------------------------------------------------------------
@@ -74,7 +99,51 @@ class ProductsController extends Controller
 
         try {
 
-            if ( $brand !== '' || $search !== '' ) {
+            if (
+                $brand !== ''
+                || $search !== ''
+            ) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Resolve brand name to Fullscript brand ID
+                |--------------------------------------------------------------------------
+                */
+
+                $brandId = null;
+
+                if ($brand !== '') {
+
+                    $brandId =
+                        $this->fullscript
+                            ->findBrandIdByName(
+                                $brand
+                            );
+
+                    if (!$brandId) {
+
+                        throw new \RuntimeException(
+                            "Fullscript brand not found: {$brand}"
+                        );
+                    }
+
+                    \Log::info(
+                        'FULLSCRIPT BRAND ID RESOLVED',
+                        [
+                            'brand_name' =>
+                                $brand,
+
+                            'brand_id' =>
+                                $brandId,
+
+                            'page' =>
+                                $page,
+
+                            'per_page' =>
+                                $perPage,
+                        ]
+                    );
+                }
 
                 /*
                 |--------------------------------------------------------------------------
@@ -82,7 +151,18 @@ class ProductsController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $response = $this->fullscript->searchProducts( $brand !== '' ? $brand : null, $search !== '' ? $search : null, $page, $perPage );
+                $response =
+                    $this->fullscript
+                        ->searchProducts(
+                            $brandId,
+
+                            $search !== ''
+                                ? $search
+                                : null,
+
+                            $page,
+                            $perPage
+                        );
 
             } else {
 
@@ -96,7 +176,12 @@ class ProductsController extends Controller
                 |
                 */
 
-                $response = $this->fullscript->getProducts( $page, $perPage );
+                $response =
+                    $this->fullscript
+                        ->getProducts(
+                            $page,
+                            $perPage
+                        );
             }
 
             /*
@@ -105,7 +190,10 @@ class ProductsController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $rawProducts = $response['products'] ?? $response['data'] ?? [];
+            $rawProducts =
+                $response['products']
+                ?? $response['data']
+                ?? [];
 
             if (!is_array($rawProducts)) {
                 $rawProducts = [];
@@ -117,24 +205,40 @@ class ProductsController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $meta = $response['meta'] ?? [];
+            $meta =
+                $response['meta']
+                ?? [];
 
-            $total = (int) ( $meta['total_count'] ?? $meta['total'] ?? $response['total_count'] ?? $response['total'] ?? 0  );
+            $total =
+                (int) (
+                    $meta['total_count']
+                    ?? $meta['total']
+                    ?? $response['total_count']
+                    ?? $response['total']
+                    ?? 0
+                );
 
-            $lastPage = (int) ( $meta['total_pages'] ?? $meta['last_page'] ?? $response['total_pages'] ?? 1 );
+            $lastPage =
+                (int) (
+                    $meta['total_pages']
+                    ?? $meta['last_page']
+                    ?? $response['total_pages']
+                    ?? 1
+                );
 
             /*
             |--------------------------------------------------------------------------
             | If total count is unavailable
             |--------------------------------------------------------------------------
-            |
-            | Fullscript's documented catalog response includes total_pages.
-            | Use that to provide a usable paginator.
-            |
             */
 
-            if ( $total <= 0 && $lastPage > 1 ) {
-                $total = $lastPage * $perPage;
+            if (
+                $total <= 0
+                && $lastPage > 1
+            ) {
+                $total =
+                    $lastPage
+                    * $perPage;
             }
 
             /*
@@ -145,36 +249,78 @@ class ProductsController extends Controller
 
             $seen = [];
 
-            foreach ($rawProducts as $rawProduct) {
+            foreach (
+                $rawProducts
+                as $rawProduct
+            ) {
 
-                if ( isset( $rawProduct['attributes'] ) && is_array( $rawProduct['attributes'] ) ) {
-                    $product = array_merge(
+                /*
+                |--------------------------------------------------------------------------
+                | Handle JSON:API attributes
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    isset(
+                        $rawProduct['attributes']
+                    )
+                    && is_array(
+                        $rawProduct['attributes']
+                    )
+                ) {
+
+                    $product =
+                        array_merge(
                             [
-                                'id' => $rawProduct['id'] ?? null,
+                                'id' =>
+                                    $rawProduct['id']
+                                    ?? null,
                             ],
-                            $rawProduct[ 'attributes' ]
+                            $rawProduct[
+                                'attributes'
+                            ]
                         );
+
                 } else {
-                    $product = $rawProduct;
+
+                    $product =
+                        $rawProduct;
                 }
 
                 if (!is_array($product)) {
                     continue;
                 }
 
-                $normalized = $this->normalizeProduct( $product  );
+                /*
+                |--------------------------------------------------------------------------
+                | Normalize
+                |--------------------------------------------------------------------------
+                */
+
+                $normalized =
+                    $this->normalizeProduct(
+                        $product
+                    );
 
                 /*
                 |--------------------------------------------------------------------------
                 | Exact brand verification
                 |--------------------------------------------------------------------------
                 |
-                | If the API returns a broader result, don't show a
-                | product belonging to a different brand.
+                | Keep this as a safety check even though
+                | the Fullscript API is now receiving brand_id.
                 |
                 */
 
-                if ( $brand !== '' && strcasecmp( trim( $normalized['brand'] ), trim($brand) ) !== 0 ) {
+                if (
+                    $brand !== ''
+                    && strcasecmp(
+                        trim(
+                            $normalized['brand']
+                        ),
+                        trim($brand)
+                    ) !== 0
+                ) {
                     continue;
                 }
 
@@ -184,7 +330,17 @@ class ProductsController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                if ( $search !== '' && stripos( $normalized['title'], $search ) === false && stripos( $normalized['sku'], $search ) === false ) {
+                if (
+                    $search !== ''
+                    && stripos(
+                        $normalized['title'],
+                        $search
+                    ) === false
+                    && stripos(
+                        $normalized['sku'],
+                        $search
+                    ) === false
+                ) {
                     continue;
                 }
 
@@ -194,9 +350,20 @@ class ProductsController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $uniqueKey = $normalized['id'] ?: ( $normalized['sku'] . '|' . $normalized['title'] );
+                $uniqueKey =
+                    $normalized['id']
+                    ?: (
+                        $normalized['sku']
+                        . '|'
+                        . $normalized['title']
+                    );
 
-                if ( $uniqueKey !== '' && isset( $seen[$uniqueKey] ) ) {
+                if (
+                    $uniqueKey !== ''
+                    && isset(
+                        $seen[$uniqueKey]
+                    )
+                ) {
                     continue;
                 }
 
@@ -208,17 +375,33 @@ class ProductsController extends Controller
                 |--------------------------------------------------------------------------
                 */
 
-                $shopifyInfo = $this->getShopifyStatus(  $normalized['sku'] );
+                $shopifyInfo =
+                    $this->getShopifyStatus(
+                        $normalized['sku']
+                    );
 
-                $normalized[ 'shopify_status' ] = $shopifyInfo['status'];
+                $normalized[
+                    'shopify_status'
+                ] =
+                    $shopifyInfo['status'];
 
-                $normalized[ 'shopify_status_text' ] = $shopifyInfo['text'];
+                $normalized[
+                    'shopify_status_text'
+                ] =
+                    $shopifyInfo['text'];
 
-                $normalized[ 'shopify_product_id' ] =  $shopifyInfo['product_id'];
+                $normalized[
+                    'shopify_product_id'
+                ] =
+                    $shopifyInfo['product_id'];
 
-                $normalized[ 'action'  ] = $shopifyInfo['action'];
+                $normalized[
+                    'action'
+                ] =
+                    $shopifyInfo['action'];
 
-                $products[] = $normalized;
+                $products[] =
+                    $normalized;
             }
 
             /*
@@ -229,19 +412,28 @@ class ProductsController extends Controller
 
             if ($total <= 0) {
 
-                $total = (($page - 1) * $perPage) + count($products);
+                $total =
+                    (($page - 1) * $perPage)
+                    + count($products);
             }
 
             if ($lastPage <= 0) {
 
-                $lastPage = max( 1, (int) ceil(  $total / $perPage ) );
+                $lastPage =
+                    max(
+                        1,
+                        (int) ceil(
+                            $total / $perPage
+                        )
+                    );
             }
 
         } catch (Throwable $e) {
 
             report($e);
 
-            $error = $e->getMessage();
+            $error =
+                $e->getMessage();
 
             $products = [];
 
@@ -256,97 +448,55 @@ class ProductsController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $paginator = new LengthAwarePaginator( $products, $total, $perPage, $page,
+        $paginator =
+            new LengthAwarePaginator(
+                $products,
+                $total,
+                $perPage,
+                $page,
                 [
-                    'path' => route( 'products.index' ),
+                    'path' =>
+                        route(
+                            'products.index'
+                        ),
 
-                    'query' => $request->except( 'page'  ),
+                    'query' =>
+                        $request->except(
+                            'page'
+                        ),
                 ]
             );
 
-        return view( 'products.index',
+        return view(
+            'products.index',
             [
-                'products' => $paginator,
+                'products' =>
+                    $paginator,
 
-                'paginator' => $paginator,
+                'paginator' =>
+                    $paginator,
 
-                'totalProducts' => $paginator->total(),
+                'totalProducts' =>
+                    $paginator->total(),
 
-                'perPage' => $perPage,
+                'perPage' =>
+                    $perPage,
 
-                'brand' => $brand,
+                'brand' =>
+                    $brand,
 
-                'search' => $search,
+                'search' =>
+                    $search,
 
-                'error' => $error,
+                'error' =>
+                    $error,
 
-                'lastSyncedAt' => session( 'products.last_synced_at' ),
+                'lastSyncedAt' =>
+                    session(
+                        'products.last_synced_at'
+                    ),
             ]
         );
-    }
-
-    /**
-     * Display one Fullscript product.
-     */
-    public function show(string $productId)
-    {
-        try {
-            $response = $this->fullscript->getProduct($productId);
-
-            $product = $response['product']
-                ?? $response['data']
-                ?? $response;
-
-            if (!is_array($product)) {
-                abort(404, 'Product was not found.');
-            }
-
-            $brand = $product['brand']['name']
-                ?? $product['brand_name']
-                ?? $product['vendor']
-                ?? 'Fullscript';
-
-            $variants = $product['variants'] ?? [];
-
-            if (isset($variants['nodes'])) {
-                $variants = $variants['nodes'];
-            }
-
-            if (!is_array($variants) || empty($variants)) {
-                $primary = $product['primary_variant'] ?? [];
-                $variants = !empty($primary) ? [$primary] : [];
-            }
-
-            $primarySku = $this->getPrimarySku($product);
-            $shopifyInfo = $this->getShopifyStatus($primarySku);
-
-            return view('products.show', [
-                'product' => $product,
-                'brand' => is_array($brand)
-                    ? ($brand['name'] ?? 'Fullscript')
-                    : (string) $brand,
-                'variants' => $variants,
-                'primarySku' => $primarySku,
-                'shopifyInfo' => $shopifyInfo,
-                'error' => null,
-            ]);
-        } catch (Throwable $e) {
-            report($e);
-
-            return view('products.show', [
-                'product' => null,
-                'brand' => 'Fullscript',
-                'variants' => [],
-                'primarySku' => '',
-                'shopifyInfo' => [
-                    'status' => 'Error',
-                    'text' => 'Unable to check Shopify',
-                    'product_id' => null,
-                    'action' => 'retry',
-                ],
-                'error' => $e->getMessage(),
-            ]);
-        }
     }
 
     /**
@@ -358,12 +508,6 @@ class ProductsController extends Controller
     ): JsonResponse {
         try {
 
-            /*
-            |--------------------------------------------------------------------------
-            | Get detailed Fullscript product
-            |--------------------------------------------------------------------------
-            */
-
             $fullscriptResponse =
                 $this->fullscript->getProduct(
                     $productId
@@ -374,79 +518,14 @@ class ProductsController extends Controller
                 ?? $fullscriptResponse['data']
                 ?? $fullscriptResponse;
 
-            /*
-            |--------------------------------------------------------------------------
-            | Image from product listing
-            |--------------------------------------------------------------------------
-            |
-            | The Fullscript detail endpoint does not return primary_variant.
-            | The product listing does contain image_url_large.
-            |
-            */
-
-            $imageUrlLarge =
-                trim(
-                    (string) $request->input(
-                        'image_url_large',
-                        ''
-                    )
-                );
-
-            if ($imageUrlLarge !== '') {
-
-                if (
-                    !isset(
-                        $fullscriptProduct[
-                            'primary_variant'
-                        ]
-                    )
-                    || !is_array(
-                        $fullscriptProduct[
-                            'primary_variant'
-                        ]
-                    )
-                ) {
-                    $fullscriptProduct[
-                        'primary_variant'
-                    ] = [];
-                }
-
-                $fullscriptProduct[
-                    'primary_variant'
-                ][
-                    'image_url_large'
-                ] = $imageUrlLarge;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Log image being passed to transformer
-            |--------------------------------------------------------------------------
-            */
-
-            \Log::info(
-                'FULLSCRIPT PUSH IMAGE',
-                [
-                    'product_id' =>
-                        $productId,
-
-                    'image_url_large' =>
-                        $fullscriptProduct[
-                            'primary_variant'
-                        ]['image_url_large']
-                        ?? null,
-                ]
-            );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Transform
-            |--------------------------------------------------------------------------
-            */
-
             $product =
                 $this->productTransformer->transform(
                     $fullscriptProduct
+                );
+
+            $shopifyProductId =
+                $request->input(
+                    'shopify_product_id'
                 );
 
             /*
@@ -454,11 +533,6 @@ class ProductsController extends Controller
             | Find existing Shopify product by SKU
             |--------------------------------------------------------------------------
             */
-
-            $shopifyProductId =
-                $request->input(
-                    'shopify_product_id'
-                );
 
             if (
                 blank(
@@ -489,7 +563,7 @@ class ProductsController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Create / Update Shopify product
+            | Create / Update
             |--------------------------------------------------------------------------
             */
 
@@ -542,16 +616,6 @@ class ProductsController extends Controller
                 'product_ids',
                 []
             );
-
-        $imageUrls =
-            $request->input(
-                'image_urls',
-                []
-            );
-
-        if (!is_array($imageUrls)) {
-            $imageUrls = [];
-        }
 
         if (!is_array($productIds)) {
 
@@ -607,40 +671,6 @@ class ProductsController extends Controller
                     $fullscriptResponse['product']
                     ?? $fullscriptResponse['data']
                     ?? $fullscriptResponse;
-
-                $imageUrlLarge =
-                    trim(
-                        (string) (
-                            $imageUrls[$productId]
-                            ?? ''
-                        )
-                    );
-
-                if ($imageUrlLarge !== '') {
-
-                    if (
-                        !isset(
-                            $fullscriptProduct[
-                                'primary_variant'
-                            ]
-                        )
-                        || !is_array(
-                            $fullscriptProduct[
-                                'primary_variant'
-                            ]
-                        )
-                    ) {
-                        $fullscriptProduct[
-                            'primary_variant'
-                        ] = [];
-                    }
-
-                    $fullscriptProduct[
-                        'primary_variant'
-                    ][
-                        'image_url_large'
-                    ] = $imageUrlLarge;
-                }
 
                 $product =
                     $this->productTransformer->transform(

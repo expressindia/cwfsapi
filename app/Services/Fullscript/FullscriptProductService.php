@@ -6,6 +6,7 @@ use App\Services\FullscriptTokenService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class FullscriptProductService
@@ -16,9 +17,7 @@ class FullscriptProductService
     }
 
     /**
-     * Get products from the Fullscript fulfillment catalog.
-     *
-     * This is used when the Products page is opened without filters.
+     * Get products from the Fullscript catalog.
      */
     public function getProducts(
         int $page = 1,
@@ -42,15 +41,26 @@ class FullscriptProductService
             $baseUrl . '/catalog/products';
 
         try {
-            $response = Http::withToken($accessToken)
+
+            $response = Http::withToken(
+                $accessToken
+            )
                 ->acceptJson()
                 ->connectTimeout(10)
                 ->timeout(30)
-                ->get($url, [
-                    'page[number]' => $page,
-                    'page[size]' => $perPage,
-                ]);
+                ->get(
+                    $url,
+                    [
+                        'page[number]' =>
+                            $page,
+
+                        'page[size]' =>
+                            $perPage,
+                    ]
+                );
+
         } catch (ConnectionException $e) {
+
             throw new RuntimeException(
                 'Unable to connect to Fullscript catalog API: '
                 . $e->getMessage(),
@@ -61,7 +71,9 @@ class FullscriptProductService
 
         if ($response->failed()) {
             throw new RuntimeException(
-                $this->responseMessage($response)
+                $this->responseMessage(
+                    $response
+                )
             );
         }
 
@@ -69,7 +81,7 @@ class FullscriptProductService
     }
 
     /**
-     * Get one Fullscript product by ID.
+     * Get one Fullscript product.
      */
     public function getProduct(
         string $productId
@@ -94,12 +106,17 @@ class FullscriptProductService
             . urlencode($productId);
 
         try {
-            $response = Http::withToken($accessToken)
+
+            $response = Http::withToken(
+                $accessToken
+            )
                 ->acceptJson()
                 ->connectTimeout(10)
                 ->timeout(30)
                 ->get($url);
+
         } catch (ConnectionException $e) {
+
             throw new RuntimeException(
                 'Unable to connect to Fullscript product API: '
                 . $e->getMessage(),
@@ -110,7 +127,9 @@ class FullscriptProductService
 
         if ($response->failed()) {
             throw new RuntimeException(
-                $this->responseMessage($response)
+                $this->responseMessage(
+                    $response
+                )
             );
         }
 
@@ -120,27 +139,20 @@ class FullscriptProductService
     /**
      * Search Fullscript products.
      *
-     * This is used only when the user enters a filter.
-     *
      * IMPORTANT:
-     * The newer /catalog/search/products endpoint was supplied
-     * separately from the Fulfillment API reference.
-     *
-     * The brand parameter below is "brand".
-     * If Fullscript's current endpoint expects a different
-     * parameter name, this is the only place that needs changing.
+     * $brandId must be the Fullscript brand ID,
+     * not the brand name.
      */
-    public function searchProducts(  ?string $brand = null, ?string $search = null, int $page = 1, int $perPage = 25 ): array {
-
-    \Log::info('SEARCH PRODUCTS METHOD CALLED', [
-        'brand' => $brand,
-        'search' => $search,
-        'page' => $page,
-        'perPage' => $perPage,
-    ]);
-
-
-        $baseUrl = rtrim( config('fullscript.api_base_url'), '/' );
+    public function searchProducts(
+        ?string $brandId = null,
+        ?string $search = null,
+        int $page = 1,
+        int $perPage = 25
+    ): array {
+        $baseUrl = rtrim(
+            config('fullscript.api_base_url'),
+            '/'
+        );
 
         if (blank($baseUrl)) {
             throw new RuntimeException(
@@ -148,52 +160,390 @@ class FullscriptProductService
             );
         }
 
-        $accessToken = $this->tokenService->freshAccessToken();
+        $accessToken =
+            $this->tokenService->freshAccessToken();
 
         $query = [
-            'page[number]' => $page,
-            'page[size]' => $perPage,
+            'page[number]' =>
+                $page,
+
+            'page[size]' =>
+                $perPage,
         ];
 
-        if ( $brand !== null && $brand !== '' ) {
-            $query['brand'] = $brand;
+        /*
+        |--------------------------------------------------------------------------
+        | Brand filter
+        |--------------------------------------------------------------------------
+        |
+        | Fullscript search uses the brand ID.
+        |
+        */
+
+        if (
+            $brandId !== null
+            && $brandId !== ''
+        ) {
+            $query['brand_id'] =
+                $brandId;
         }
 
-        if ( $search !== null && $search !== '' ) {
-            $query['search'] = $search;
+        /*
+        |--------------------------------------------------------------------------
+        | Product search
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $search !== null
+            && $search !== ''
+        ) {
+            $query['query'] =
+                $search;
         }
 
-        $url = $baseUrl . '/catalog/search/products';
+        $url =
+            $baseUrl
+            . '/catalog/search/products';
+
+        Log::info(
+            'FULLSCRIPT SEARCH QUERY',
+            [
+                'url' =>
+                    $url,
+
+                'query' =>
+                    $query,
+            ]
+        );
 
         try {
-            $response = Http::withToken($accessToken)
+
+            $response = Http::withToken(
+                $accessToken
+            )
                 ->acceptJson()
                 ->connectTimeout(10)
                 ->timeout(30)
-                ->get($url, $query);
+                ->get(
+                    $url,
+                    $query
+                );
 
-                \Log::info('FULLSCRIPT SEARCH API RESPONSE', [
-        'url' => $url,
-        'query' => $query,
-        'status' => $response->status(),
-        'successful' => $response->successful(),
-        'body' => $response->body(),
-    ]);
-
-    
         } catch (ConnectionException $e) {
-            throw new RuntimeException( 'Unable to connect to Fullscript search API: ' . $e->getMessage(), 0, $e );
+
+            throw new RuntimeException(
+                'Unable to connect to Fullscript search API: '
+                . $e->getMessage(),
+                0,
+                $e
+            );
         }
 
+        Log::info(
+            'FULLSCRIPT SEARCH API RESPONSE',
+            [
+                'url' =>
+                    $url,
+
+                'query' =>
+                    $query,
+
+                'status' =>
+                    $response->status(),
+
+                'successful' =>
+                    $response->successful(),
+            ]
+        );
+
         if ($response->failed()) {
-            throw new RuntimeException( $this->responseMessage($response) );
+            throw new RuntimeException(
+                $this->responseMessage(
+                    $response
+                )
+            );
         }
 
         return $response->json();
     }
 
     /**
-     * Convert Fullscript response into a useful exception message.
+     * Get Fullscript brands.
+     */
+    public function getBrands(
+        int $page = 1,
+        int $perPage = 100
+    ): array {
+        $baseUrl = rtrim(
+            config('fullscript.api_base_url'),
+            '/'
+        );
+
+        if (blank($baseUrl)) {
+            throw new RuntimeException(
+                'FULLSCRIPT_API_BASE_URL is not configured.'
+            );
+        }
+
+        $accessToken =
+            $this->tokenService->freshAccessToken();
+
+        $url =
+            $baseUrl . '/catalog/brands';
+
+        $perPage =
+            min(
+                max($perPage, 1),
+                100
+            );
+
+        Log::info(
+            'FULLSCRIPT BRANDS REQUEST',
+            [
+                'url' =>
+                    $url,
+
+                'page' =>
+                    $page,
+
+                'perPage' =>
+                    $perPage,
+            ]
+        );
+
+        try {
+
+            $response = Http::withToken(
+                $accessToken
+            )
+                ->acceptJson()
+                ->connectTimeout(10)
+                ->timeout(30)
+                ->get(
+                    $url,
+                    [
+                        'page[number]' =>
+                            $page,
+
+                        'page[size]' =>
+                            $perPage,
+                    ]
+                );
+
+        } catch (ConnectionException $e) {
+
+            throw new RuntimeException(
+                'Unable to connect to Fullscript brands API: '
+                . $e->getMessage(),
+                0,
+                $e
+            );
+        }
+
+        Log::info(
+            'FULLSCRIPT BRANDS RESPONSE',
+            [
+                'status' =>
+                    $response->status(),
+
+                'successful' =>
+                    $response->successful(),
+            ]
+        );
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                $this->responseMessage(
+                    $response
+                )
+            );
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * Find Fullscript brand ID by brand name.
+     */
+    public function findBrandIdByName(
+        string $brandName
+    ): ?string {
+        $brandName =
+            trim($brandName);
+
+        if ($brandName === '') {
+            return null;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Search through brand pages
+        |--------------------------------------------------------------------------
+        */
+
+        $page = 1;
+
+        $perPage = 100;
+
+        $maxPages = 100;
+
+        while ($page <= $maxPages) {
+
+            $response =
+                $this->getBrands(
+                    $page,
+                    $perPage
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Extract brands
+            |--------------------------------------------------------------------------
+            */
+
+            $brands =
+                $response['brands']
+                ?? $response['data']
+                ?? [];
+
+            if (
+                !is_array($brands)
+                || empty($brands)
+            ) {
+                break;
+            }
+
+            foreach ($brands as $rawBrand) {
+
+                if (!is_array($rawBrand)) {
+                    continue;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Support JSON:API-style attributes
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    isset(
+                        $rawBrand['attributes']
+                    )
+                    && is_array(
+                        $rawBrand['attributes']
+                    )
+                ) {
+
+                    $brand = array_merge(
+                        [
+                            'id' =>
+                                $rawBrand['id']
+                                ?? null,
+                        ],
+                        $rawBrand['attributes']
+                    );
+
+                } else {
+
+                    $brand =
+                        $rawBrand;
+                }
+
+                $name =
+                    $brand['name']
+                    ?? $brand['brand_name']
+                    ?? '';
+
+                $id =
+                    $brand['id']
+                    ?? $brand['brand_id']
+                    ?? null;
+
+                if (
+                    $id === null
+                    || trim((string) $name) === ''
+                ) {
+                    continue;
+                }
+
+                if (
+                    strcasecmp(
+                        trim((string) $name),
+                        $brandName
+                    ) === 0
+                ) {
+
+                    Log::info(
+                        'FULLSCRIPT BRAND FOUND',
+                        [
+                            'brand_name' =>
+                                $brandName,
+
+                            'brand_id' =>
+                                $id,
+                        ]
+                    );
+
+                    return (string) $id;
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Determine whether another page exists
+            |--------------------------------------------------------------------------
+            */
+
+            $meta =
+                $response['meta']
+                ?? [];
+
+            $totalPages =
+                (int) (
+                    $meta['total_pages']
+                    ?? $meta['last_page']
+                    ?? $response['total_pages']
+                    ?? 0
+                );
+
+            if (
+                $totalPages > 0
+                && $page >= $totalPages
+            ) {
+                break;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | If fewer than 100 brands were returned,
+            | this is normally the last page.
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                count($brands)
+                < $perPage
+            ) {
+                break;
+            }
+
+            $page++;
+        }
+
+        Log::warning(
+            'FULLSCRIPT BRAND NOT FOUND',
+            [
+                'brand_name' =>
+                    $brandName,
+            ]
+        );
+
+        return null;
+    }
+
+    /**
+     * Convert Fullscript API errors into a readable message.
      */
     protected function responseMessage(
         Response $response
@@ -213,6 +563,7 @@ class FullscriptProductService
                 ?? null;
 
             if (is_array($message)) {
+
                 $message =
                     json_encode(
                         $message,
@@ -222,6 +573,7 @@ class FullscriptProductService
             }
 
             if ($message) {
+
                 return sprintf(
                     'Fullscript API error (%s): %s',
                     $status,
@@ -236,6 +588,7 @@ class FullscriptProductService
             );
 
         if ($body !== '') {
+
             return sprintf(
                 'Fullscript API error (%s): %s',
                 $status,
