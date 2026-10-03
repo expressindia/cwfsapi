@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ids.length) return alert('Please select at least one product.');
 
         try {
-            const response = await fetch('{{ route('products.pushSelected') }}', {
+            const response = await fetch('{{ route('products.push-selected') }}', {
                 method: 'POST',
                 headers: {'Accept':'application/json','Content-Type':'application/json',
                           'X-CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'},
