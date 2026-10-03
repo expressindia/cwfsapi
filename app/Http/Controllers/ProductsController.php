@@ -442,18 +442,97 @@ class ProductsController extends Controller
     }
 
     /**
+     * Display one Fullscript product.
+     */
+    public function show(string $productId)
+    {
+        try {
+            $response = $this->fullscript->getProduct($productId);
+
+            $product = $response['product']
+                ?? $response['data']
+                ?? $response;
+
+            if (!is_array($product)) {
+                abort(404, 'Product was not found.');
+            }
+
+            $brand = $product['brand']['name']
+                ?? $product['brand_name']
+                ?? $product['vendor']
+                ?? 'Fullscript';
+
+            $variants = $product['variants'] ?? [];
+
+            if (isset($variants['nodes'])) {
+                $variants = $variants['nodes'];
+            }
+
+            if (!is_array($variants) || empty($variants)) {
+                $primary = $product['primary_variant'] ?? [];
+                $variants = !empty($primary) ? [$primary] : [];
+            }
+
+            $primarySku = $this->getPrimarySku($product);
+            $shopifyInfo = $this->getShopifyStatus($primarySku);
+
+            return view('products.show', [
+                'product' => $product,
+                'brand' => is_array($brand)
+                    ? ($brand['name'] ?? 'Fullscript')
+                    : (string) $brand,
+                'variants' => $variants,
+                'primarySku' => $primarySku,
+                'shopifyInfo' => $shopifyInfo,
+                'error' => null,
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return view('products.show', [
+                'product' => null,
+                'brand' => 'Fullscript',
+                'variants' => [],
+                'primarySku' => '',
+                'shopifyInfo' => [
+                    'status' => 'Error',
+                    'text' => 'Unable to check Shopify',
+                    'product_id' => null,
+                    'action' => 'retry',
+                ],
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Push one Fullscript product to Shopify.
      */
-    public function push( Request $request, string $productId ): JsonResponse {
+    public function push(
+        Request $request,
+        string $productId
+    ): JsonResponse {
         try {
 
-            $fullscriptResponse = $this->fullscript->getProduct( $productId );
+            $fullscriptResponse =
+                $this->fullscript->getProduct(
+                    $productId
+                );
 
-            $fullscriptProduct = $fullscriptResponse['product'] ?? $fullscriptResponse['data']  ?? $fullscriptResponse;
+            $fullscriptProduct =
+                $fullscriptResponse['product']
+                ?? $fullscriptResponse['data']
+                ?? $fullscriptResponse;
 
-            $product = $this->productTransformer->transform(  $fullscriptProduct );
+            $product =
+                $this->productTransformer->transform(
+                    $fullscriptProduct
+                );
 
-            $shopifyProductId =  $request->input( 'shopify_product_id'  );
+            $shopifyProductId =
+                $request->input(
+                    'shopify_product_id'
+                );
 
             /*
             |--------------------------------------------------------------------------
@@ -461,15 +540,30 @@ class ProductsController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            if ( blank( $shopifyProductId  ) ) {
+            if (
+                blank(
+                    $shopifyProductId
+                )
+            ) {
 
-                $sku = $this->getPrimarySku( $fullscriptProduct );
+                $sku =
+                    $this->getPrimarySku(
+                        $fullscriptProduct
+                    );
 
                 if ($sku !== '') {
 
-                    $variant = $this->shopify ->findProductBySku(  $sku );
+                    $variant =
+                        $this->shopify
+                            ->findProductBySku(
+                                $sku
+                            );
 
-                    $shopifyProductId = $variant[  'product'  ]['id']  ?? null;
+                    $shopifyProductId =
+                        $variant[
+                            'product'
+                        ]['id']
+                        ?? null;
                 }
             }
 
@@ -479,7 +573,11 @@ class ProductsController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $result = $this->shopify->createOrUpdate( $product, $shopifyProductId );
+            $result =
+                $this->shopify->createOrUpdate(
+                    $product,
+                    $shopifyProductId
+                );
 
             return response()->json(
                 [
