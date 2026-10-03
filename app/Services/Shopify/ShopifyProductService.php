@@ -931,7 +931,7 @@ GRAPHQL;
 
 
 
-        foreach (array_chunk($skus, 25) as $skuChunk) {
+        foreach (array_chunk($skus, 10) as $skuChunk) {
 
 
 

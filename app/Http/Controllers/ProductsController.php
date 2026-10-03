@@ -766,224 +766,39 @@ class ProductsController extends Controller
 
             }
 
-
-
             /*
-
             |--------------------------------------------------------------------------
-
-            | Shopify status - batch lookup
-
+            | Shopify status
             |--------------------------------------------------------------------------
-
             |
-
-            | Check all SKUs from the current Fullscript page in a small
-
-            | number of Shopify GraphQL requests instead of calling Shopify
-
-            | once for every product. Exact SKU matching is still performed
-
-            | inside ShopifyProductService before a product is considered
-
-            | to exist.
-
+            | Shopify status is loaded asynchronously after the page renders.
+            | This keeps the Fullscript product listing fast and prevents a
+            | slow Shopify GraphQL request from causing a gateway timeout.
+            |
             */
-
-            $shopifyMatches = [];
-
-            $shopifyLookupError = null;
-
-            try {
-
-                $skus =
-
-                    collect($products)
-
-                        ->pluck('sku')
-
-                        ->map(
-                            fn ($sku) =>
-                                trim((string) $sku)
-                        )
-
-                        ->filter(
-                            fn ($sku) =>
-                                $sku !== ''
-                        )
-
-                        ->unique()
-
-                        ->values()
-
-                        ->all();
-
-                if (!empty($skus)) {
-
-                    $shopifyMatches =
-
-                        $this->shopify
-
-                            ->findProductsBySkus(
-
-                                $skus
-
-                            );
-
-                }
-
-            } catch (Throwable $e) {
-
-                report($e);
-
-                $shopifyLookupError =
-
-                    $e->getMessage();
-
-            }
 
             foreach ($products as $index => $normalized) {
 
-                $sku =
-
-                    trim(
-
-                        (string) (
-
-                            $normalized['sku']
-
-                            ?? ''
-
-                        )
-
-                    );
-
-                if ($shopifyLookupError !== null) {
-
-                    $shopifyInfo = [
-
-                        'status' =>
-
-                            'Error',
-
-                        'text' =>
-
-                            'Unable to check',
-
-                        'product_id' =>
-
-                            null,
-
-                        'action' =>
-
-                            'retry',
-
-                    ];
-
-                } elseif ($sku === '') {
-
-                    $shopifyInfo = [
-
-                        'status' =>
-
-                            'Not Found',
-
-                        'text' =>
-
-                            'No SKU',
-
-                        'product_id' =>
-
-                            null,
-
-                        'action' =>
-
-                            'push',
-
-                    ];
-
-                } else {
-
-                    $variant =
-
-                        $shopifyMatches[$sku]
-
-                        ?? null;
-
-                    if ($variant) {
-
-                        $shopifyInfo = [
-
-                            'status' =>
-
-                                'Exists',
-
-                            'text' =>
-
-                                'Will update',
-
-                            'product_id' =>
-
-                                $variant['product']['id']
-
-                                ?? null,
-
-                            'action' =>
-
-                                'update',
-
-                        ];
-
-                    } else {
-
-                        $shopifyInfo = [
-
-                            'status' =>
-
-                                'Not Found',
-
-                            'text' =>
-
-                                'Will create',
-
-                            'product_id' =>
-
-                                null,
-
-                            'action' =>
-
-                                'push',
-
-                        ];
-
-                    }
-
-                }
+                $sku = trim(
+                    (string) (
+                        $normalized['sku'] ?? ''
+                    )
+                );
 
                 $products[$index]['shopify_status'] =
-
-                    $shopifyInfo['status'];
+                    $sku === '' ? 'Not Found' : 'Checking';
 
                 $products[$index]['shopify_status_text'] =
+                    $sku === '' ? 'No SKU' : 'Checking Shopify...';
 
-                    $shopifyInfo['text'];
-
-                $products[$index]['shopify_product_id'] =
-
-                    $shopifyInfo['product_id'];
+                $products[$index]['shopify_product_id'] = null;
 
                 $products[$index]['action'] =
-
-                    $shopifyInfo['action'];
-
+                    $sku === '' ? 'push' : 'checking';
             }
 
-
-
             /*
-
             |--------------------------------------------------------------------------
-
             | Fallback total
 
             |--------------------------------------------------------------------------
