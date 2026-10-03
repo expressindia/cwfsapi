@@ -506,7 +506,17 @@ class ProductsController extends Controller
         Request $request,
         string $productId
     ): JsonResponse {
+
         try {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Get detailed Fullscript product
+            |--------------------------------------------------------------------------
+            |
+            | The single-product endpoint does NOT return the product image.
+            |
+            */
 
             $fullscriptResponse =
                 $this->fullscript->getProduct(
@@ -518,21 +528,105 @@ class ProductsController extends Controller
                 ?? $fullscriptResponse['data']
                 ?? $fullscriptResponse;
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | Get image from product listing
+            |--------------------------------------------------------------------------
+            |
+            | The listing/search response contains:
+            |
+            | primary_variant.image_url_large
+            |
+            */
+
+            $imageUrlLarge =
+                trim(
+                    (string) $request->input(
+                        'image_url_large',
+                        ''
+                    )
+                );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Add listing image to detailed product
+            |--------------------------------------------------------------------------
+            */
+
+            if ($imageUrlLarge !== '') {
+
+                if (
+                    !isset(
+                        $fullscriptProduct[
+                            'primary_variant'
+                        ]
+                    )
+                    || !is_array(
+                        $fullscriptProduct[
+                            'primary_variant'
+                        ]
+                    )
+                ) {
+
+                    $fullscriptProduct[
+                        'primary_variant'
+                    ] = [];
+
+                }
+
+                $fullscriptProduct[
+                    'primary_variant'
+                ][
+                    'image_url_large'
+                ] = $imageUrlLarge;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Log image
+            |--------------------------------------------------------------------------
+            */
+
+            \Log::info(
+                'FULLSCRIPT PUSH IMAGE',
+                [
+                    'product_id' =>
+                        $productId,
+
+                    'image_url_large' =>
+                        $fullscriptProduct[
+                            'primary_variant'
+                        ]['image_url_large']
+                        ?? null,
+                ]
+            );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Transform
+            |--------------------------------------------------------------------------
+            */
+
             $product =
                 $this->productTransformer->transform(
                     $fullscriptProduct
                 );
 
-            $shopifyProductId =
-                $request->input(
-                    'shopify_product_id'
-                );
 
             /*
             |--------------------------------------------------------------------------
             | Find existing Shopify product by SKU
             |--------------------------------------------------------------------------
             */
+
+            $shopifyProductId =
+                $request->input(
+                    'shopify_product_id'
+                );
 
             if (
                 blank(
@@ -561,9 +655,10 @@ class ProductsController extends Controller
                 }
             }
 
+
             /*
             |--------------------------------------------------------------------------
-            | Create / Update
+            | Create / Update Shopify product
             |--------------------------------------------------------------------------
             */
 
@@ -572,6 +667,7 @@ class ProductsController extends Controller
                     $product,
                     $shopifyProductId
                 );
+
 
             return response()->json(
                 [
