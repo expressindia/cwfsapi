@@ -1021,55 +1021,183 @@ class ProductTransformer
 
 
     /**
-
-     * Transform product image.
-
+     * Transform Fullscript product images.
      */
-
     protected function transformImages(
-
         array $product
-
     ): array {
+        $images = [];
 
+        /*
+        |--------------------------------------------------------------------------
+        | 1. Top-level product image
+        |--------------------------------------------------------------------------
+        */
 
-
-        $imageUrl =
-
+        $productImage =
             $product['image_url_large']
-
+            ?? $product['image_url_medium']
+            ?? $product['image_url_small']
+            ?? $product['image_url']
             ?? null;
 
-
-
-        if (!$imageUrl) {
-
-            return [];
-
-        }
-
-
-
-        return [
-
-            [
-
+        if ($productImage) {
+            $images[] = [
                 'url' =>
-
-                    $imageUrl,
-
-
+                    $productImage,
 
                 'alt' =>
+                    trim((string) ($product['name'] ?? ''))
+                    !== ''
+                        ? $product['name'] . ' | Curated Wellness'
+                        : 'Curated Wellness',
+            ];
+        }
 
-                    $product['name']. ' | Curated Wellness'
+        /*
+        |--------------------------------------------------------------------------
+        | 2. Primary variant image
+        |--------------------------------------------------------------------------
+        */
 
-                    ?? 'Curated Wellness',
+        $primaryVariant =
+            $product['primary_variant']
+            ?? null;
 
-            ],
+        if (
+            is_array($primaryVariant)
+        ) {
+            $primaryImage =
+                $primaryVariant['image_url_large']
+                ?? $primaryVariant['image_url_medium']
+                ?? $primaryVariant['image_url_small']
+                ?? null;
 
-        ];
+            if ($primaryImage) {
+                $images[] = [
+                    'url' =>
+                        $primaryImage,
 
+                    'alt' =>
+                        trim((string) ($product['name'] ?? ''))
+                        !== ''
+                            ? $product['name'] . ' | Curated Wellness'
+                            : 'Curated Wellness',
+                ];
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 3. Variant images
+        |--------------------------------------------------------------------------
+        */
+
+        $variants =
+            $product['variants']
+            ?? [];
+
+        if (
+            isset($variants['nodes'])
+            && is_array($variants['nodes'])
+        ) {
+            $variants = $variants['nodes'];
+        }
+
+        if (is_array($variants)) {
+            foreach ($variants as $variant) {
+                if (!is_array($variant)) {
+                    continue;
+                }
+
+                $variantImage =
+                    $variant['image_url_large']
+                    ?? $variant['image_url_medium']
+                    ?? $variant['image_url_small']
+                    ?? null;
+
+                if (!$variantImage) {
+                    continue;
+                }
+
+                $images[] = [
+                    'url' =>
+                        $variantImage,
+
+                    'alt' =>
+                        trim((string) ($product['name'] ?? ''))
+                        !== ''
+                            ? $product['name'] . ' | Curated Wellness'
+                            : 'Curated Wellness',
+                ];
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 4. Generic images array
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            isset($product['images'])
+            && is_array($product['images'])
+        ) {
+            foreach ($product['images'] as $image) {
+                if (is_string($image)) {
+                    $url = $image;
+                } elseif (is_array($image)) {
+                    $url =
+                        $image['url']
+                        ?? $image['src']
+                        ?? $image['image_url_large']
+                        ?? $image['image_url_medium']
+                        ?? $image['image_url_small']
+                        ?? null;
+                } else {
+                    $url = null;
+                }
+
+                if (!$url) {
+                    continue;
+                }
+
+                $images[] = [
+                    'url' =>
+                        $url,
+
+                    'alt' =>
+                        trim((string) ($product['name'] ?? ''))
+                        !== ''
+                            ? $product['name'] . ' | Curated Wellness'
+                            : 'Curated Wellness',
+                ];
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Remove duplicate image URLs
+        |--------------------------------------------------------------------------
+        */
+
+        $unique = [];
+
+        foreach ($images as $image) {
+            $url = trim((string) ($image['url'] ?? ''));
+
+            if ($url === '') {
+                continue;
+            }
+
+            if (isset($unique[$url])) {
+                continue;
+            }
+
+            $unique[$url] = $image;
+        }
+
+        return array_values($unique);
     }
 
 }
