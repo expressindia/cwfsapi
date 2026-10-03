@@ -159,7 +159,7 @@
         </div>
 
         @if($paginator->hasPages())
-            <div class="card-footer">{{ $paginator->withQueryString()->links() }}</div>
+            <div class="card-footer">{{ $paginator->withQueryString()->links('pagination::bootstrap-5') }}</div>
         @endif
     </div>
 </div>
