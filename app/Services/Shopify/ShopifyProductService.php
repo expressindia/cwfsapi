@@ -1590,7 +1590,19 @@ GRAPHQL;
 
         }
 
+        \Log::info(
+    'SHOPIFY PRODUCT IMAGE INPUT',
+    [
+        'title' =>
+            $product['title'] ?? null,
 
+        'images' =>
+            $product['images'] ?? [],
+
+        'files' =>
+            $input['files'] ?? [],
+    ]
+);
 
         /*
 
