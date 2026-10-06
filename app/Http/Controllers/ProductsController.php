@@ -666,7 +666,25 @@ class ProductsController extends Controller
                 //     continue;
                 // }
 
+                /*
+                |--------------------------------------------------------------------------
+                | SKU search
+                |--------------------------------------------------------------------------
+                |
+                | Search only by SKU.
+                | Product title is intentionally not searched.
+                |
+                */
 
+                if (
+                    $search !== ''
+                    && stripos(
+                        $normalized['sku'],
+                        $search
+                    ) === false
+                ) {
+                    continue;
+                }
 
                 /*
 

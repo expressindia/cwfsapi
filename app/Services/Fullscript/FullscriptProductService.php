@@ -143,7 +143,7 @@ class FullscriptProductService
      * $brandId must be the Fullscript brand ID,
      * not the brand name.
      */
-    public function searchProducts(
+        public function searchProducts(
         ?string $brandId = null,
         ?string $search = null,
         int $page = 1,
@@ -175,9 +175,6 @@ class FullscriptProductService
         |--------------------------------------------------------------------------
         | Brand filter
         |--------------------------------------------------------------------------
-        |
-        | Fullscript search uses the brand ID.
-        |
         */
 
         if (
@@ -190,17 +187,18 @@ class FullscriptProductService
 
         /*
         |--------------------------------------------------------------------------
-        | Product search
+        | SKU search
         |--------------------------------------------------------------------------
+        |
+        | IMPORTANT:
+        | Do not send the search value as "query".
+        |
+        | Fullscript's "query" parameter is not reliably filtering
+        | products by title/SKU.
+        |
+        | SKU filtering will be handled by ProductsController.
+        |
         */
-
-        if (
-            $search !== null
-            && $search !== ''
-        ) {
-            $query['query'] =
-                $search;
-        }
 
         $url =
             $baseUrl
@@ -214,6 +212,9 @@ class FullscriptProductService
 
                 'query' =>
                     $query,
+
+                'sku_search' =>
+                    $search,
             ]
         );
 
@@ -241,24 +242,24 @@ class FullscriptProductService
         }
 
         Log::info(
-    'FULLSCRIPT SEARCH API RESPONSE',
-    [
-        'url' =>
-            $url,
+            'FULLSCRIPT SEARCH API RESPONSE',
+            [
+                'url' =>
+                    $url,
 
-        'query' =>
-            $query,
+                'query' =>
+                    $query,
 
-        'status' =>
-            $response->status(),
+                'sku_search' =>
+                    $search,
 
-        'successful' =>
-            $response->successful(),
+                'status' =>
+                    $response->status(),
 
-        'json' =>
-            $response->json(),
-    ]
-);
+                'successful' =>
+                    $response->successful(),
+            ]
+        );
 
         if ($response->failed()) {
             throw new RuntimeException(
