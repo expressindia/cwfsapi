@@ -1968,7 +1968,7 @@ class ProductsController extends Controller
 
         }
 
-
+        $variantCount = (int) ( $product['variant_count'] ?? 0 );
 
         $sku =
 

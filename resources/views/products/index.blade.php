@@ -83,6 +83,7 @@
                     <th><input type="checkbox" class="form-check-input" id="selectAll"></th>
                     <th>Image</th>
                     <th>Product</th>
+                    <th>Variants</th>
                     <th>Brand</th>
                     <th>SKU</th>
                     <th>Availability</th>
@@ -133,6 +134,11 @@
                             @else
                                 <span class="fw-semibold">{{ $product['title'] }}</span>
                             @endif
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis">
+                                {{ $product['variant_count'] ?? 0 }}
+                            </span>
                         </td>
                         <td>{{ $product['brand'] }}</td>
                         <td><code>{{ $product['sku'] ?: '—' }}</code></td>
