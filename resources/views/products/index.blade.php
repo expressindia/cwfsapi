@@ -167,19 +167,18 @@
 
         @if($paginator->hasPages())
             <div class="card-footer bg-white border-top py-3">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-                    <div class="small text-muted">
-                        Showing
-                        <strong>{{ $paginator->firstItem() }}</strong>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        Showing {{ $products->firstItem() }}
                         to
-                        <strong>{{ $paginator->lastItem() }}</strong>
+                        {{ $products->lastItem() }}
                         of
-                        <strong>{{ number_format($paginator->total()) }}</strong>
+                        {{ $products->total() }}
                         products
                     </div>
 
-                    <div class="products-pagination">
-                        {{ $paginator->withQueryString()->links('pagination::bootstrap-5') }}
+                    <div>
+                        {{ $products->links() }}
                     </div>
                 </div>
             </div>
