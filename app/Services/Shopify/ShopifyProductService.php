@@ -3459,23 +3459,7 @@ GRAPHQL;
 
 
 
-                        'quantity' =>
-
-
-
-                            (int) config(
-
-
-
-                                'fullscript.default_inventory',
-
-
-
-                                88
-
-
-
-                            ),
+                        'quantity' => (int) ( $variant['inventory_quantity'] ?? 0 ),
 
 
 
