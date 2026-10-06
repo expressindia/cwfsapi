@@ -143,14 +143,6 @@ class FullscriptProductService
      * $brandId must be the Fullscript brand ID,
      * not the brand name.
      */
-        /**
- * Search Fullscript products.
- *
- * SKU search is handled locally because the Fullscript
- * catalog search endpoint does not reliably filter by SKU.
- *
- * Brand filtering is still sent to Fullscript using brand_id.
- */
     public function searchProducts(
         ?string $brandId = null,
         ?string $search = null,
@@ -171,33 +163,6 @@ class FullscriptProductService
         $accessToken =
             $this->tokenService->freshAccessToken();
 
-        /*
-        |--------------------------------------------------------------------------
-        | SKU search
-        |--------------------------------------------------------------------------
-        */
-
-        $search = trim(
-            (string) $search
-        );
-
-        if ($search !== '') {
-            return $this->searchProductsBySku(
-                $accessToken,
-                $baseUrl,
-                $brandId,
-                $search,
-                $page,
-                $perPage
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Normal filtered catalog request
-        |--------------------------------------------------------------------------
-        */
-
         $query = [
             'page[number]' =>
                 $page,
@@ -206,12 +171,35 @@ class FullscriptProductService
                 $perPage,
         ];
 
+        /*
+        |--------------------------------------------------------------------------
+        | Brand filter
+        |--------------------------------------------------------------------------
+        |
+        | Fullscript search uses the brand ID.
+        |
+        */
+
         if (
             $brandId !== null
             && $brandId !== ''
         ) {
             $query['brand_id'] =
                 $brandId;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Product search
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $search !== null
+            && $search !== ''
+        ) {
+            $query['query'] =
+                $search;
         }
 
         $url =
@@ -252,6 +240,23 @@ class FullscriptProductService
             );
         }
 
+        Log::info(
+            'FULLSCRIPT SEARCH API RESPONSE',
+            [
+                'url' =>
+                    $url,
+
+                'query' =>
+                    $query,
+
+                'status' =>
+                    $response->status(),
+
+                'successful' =>
+                    $response->successful(),
+            ]
+        );
+
         if ($response->failed()) {
             throw new RuntimeException(
                 $this->responseMessage(
@@ -263,423 +268,6 @@ class FullscriptProductService
         return $response->json();
     }
 
-
-
-    /**
- * Search the Fullscript catalog by SKU.
- *
- * Fullscript's catalog search endpoint does not reliably
- * filter the returned products by SKU, so we search the
- * catalog pages and build the SKU result set ourselves.
- */
-    protected function searchProductsBySku(
-        string $accessToken,
-        string $baseUrl,
-        ?string $brandId,
-        string $search,
-        int $page,
-        int $perPage
-    ): array {
-
-        $url =
-            $baseUrl
-            . '/catalog/search/products';
-
-        /*
-        |--------------------------------------------------------------------------
-        | Use 100 products per Fullscript API request
-        |--------------------------------------------------------------------------
-        |
-        | This reduces the number of API requests substantially.
-        |
-        */
-
-        $apiPerPage = 100;
-
-        $apiPage = 1;
-
-        $matchingProducts = [];
-
-        $totalApiPages = 1;
-
-        Log::info(
-            'FULLSCRIPT SKU SEARCH START',
-            [
-                'sku' =>
-                    $search,
-
-                'brand_id' =>
-                    $brandId,
-
-                'requested_page' =>
-                    $page,
-
-                'requested_per_page' =>
-                    $perPage,
-            ]
-        );
-
-        while ($apiPage <= $totalApiPages) {
-
-            $query = [
-                'page[number]' =>
-                    $apiPage,
-
-                'page[size]' =>
-                    $apiPerPage,
-            ];
-
-            if (
-                $brandId !== null
-                && $brandId !== ''
-            ) {
-                $query['brand_id'] =
-                    $brandId;
-            }
-
-            Log::info(
-                'FULLSCRIPT SKU SEARCH PAGE',
-                [
-                    'page' =>
-                        $apiPage,
-
-                    'query' =>
-                        $query,
-
-                    'sku' =>
-                        $search,
-                ]
-            );
-
-            try {
-
-                $response = Http::withToken(
-                    $accessToken
-                )
-                    ->acceptJson()
-                    ->connectTimeout(10)
-                    ->timeout(30)
-                    ->get(
-                        $url,
-                        $query
-                    );
-
-            } catch (ConnectionException $e) {
-
-                throw new RuntimeException(
-                    'Unable to connect to Fullscript SKU search API: '
-                    . $e->getMessage(),
-                    0,
-                    $e
-                );
-            }
-
-            if ($response->failed()) {
-                throw new RuntimeException(
-                    $this->responseMessage(
-                        $response
-                    )
-                );
-            }
-
-            $json =
-                $response->json();
-
-            $rawProducts =
-                $json['products']
-                ?? $json['data']
-                ?? [];
-
-            if (!is_array($rawProducts)) {
-                $rawProducts = [];
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Find total API pages
-            |--------------------------------------------------------------------------
-            */
-
-            $meta =
-                $json['meta']
-                ?? [];
-
-            $totalApiPages =
-                (int) (
-                    $meta['total_pages']
-                    ?? $meta['last_page']
-                    ?? 1
-                );
-
-            if ($totalApiPages <= 0) {
-                $totalApiPages = 1;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Check every product for SKU
-            |--------------------------------------------------------------------------
-            */
-
-            foreach ($rawProducts as $product) {
-
-                if (!is_array($product)) {
-                    continue;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | JSON:API support
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    isset($product['attributes'])
-                    && is_array(
-                        $product['attributes']
-                    )
-                ) {
-
-                    $product =
-                        array_merge(
-                            [
-                                'id' =>
-                                    $product['id']
-                                    ?? null,
-                            ],
-                            $product['attributes']
-                        );
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | Get SKU
-                |--------------------------------------------------------------------------
-                */
-
-                $sku = '';
-
-                if (
-                    isset(
-                        $product['primary_variant']
-                    )
-                    && is_array(
-                        $product['primary_variant']
-                    )
-                ) {
-
-                    $sku =
-                        trim(
-                            (string) (
-                                $product[
-                                    'primary_variant'
-                                ]['sku']
-                                ?? ''
-                            )
-                        );
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | Fallback SKU fields
-                |--------------------------------------------------------------------------
-                */
-
-                if ($sku === '') {
-
-                    $sku =
-                        trim(
-                            (string) (
-                                $product['sku']
-                                ?? ''
-                            )
-                        );
-                }
-
-                if ($sku === '') {
-                    continue;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | SKU match
-                |--------------------------------------------------------------------------
-                |
-                | Case-insensitive partial SKU search.
-                |
-                | Example:
-                |
-                | Search: VN-FO
-                |
-                | Matches:
-                | VN-FO130
-                | VN-FO2
-                | VN-FO430
-                |
-                */
-
-                if (
-                    stripos(
-                        $sku,
-                        $search
-                    ) === false
-                ) {
-                    continue;
-                }
-
-                $matchingProducts[] =
-                    $product;
-            }
-
-            $apiPage++;
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Remove duplicates
-        |--------------------------------------------------------------------------
-        */
-
-        $uniqueProducts = [];
-
-        foreach (
-            $matchingProducts
-            as $product
-        ) {
-
-            $id =
-                (string) (
-                    $product['id']
-                    ?? ''
-                );
-
-            $sku = '';
-
-            if (
-                isset(
-                    $product['primary_variant']
-                )
-                && is_array(
-                    $product['primary_variant']
-                )
-            ) {
-
-                $sku =
-                    trim(
-                        (string) (
-                            $product[
-                                'primary_variant'
-                            ]['sku']
-                            ?? ''
-                        )
-                    );
-            }
-
-            $key =
-                $id !== ''
-                ? $id
-                : $sku;
-
-            if ($key === '') {
-                continue;
-            }
-
-            $uniqueProducts[$key] =
-                $product;
-        }
-
-        $matchingProducts =
-            array_values(
-                $uniqueProducts
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Correct search pagination
-        |--------------------------------------------------------------------------
-        */
-
-        $total =
-            count(
-                $matchingProducts
-            );
-
-        $totalPages =
-            max(
-                1,
-                (int) ceil(
-                    $total / $perPage
-                )
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Keep requested page inside valid range
-        |--------------------------------------------------------------------------
-        */
-
-        $page =
-            min(
-                max($page, 1),
-                $totalPages
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Slice products for requested page
-        |--------------------------------------------------------------------------
-        */
-
-        $offset =
-            ($page - 1)
-            * $perPage;
-
-        $pageProducts =
-            array_slice(
-                $matchingProducts,
-                $offset,
-                $perPage
-            );
-
-        Log::info(
-            'FULLSCRIPT SKU SEARCH RESULT',
-            [
-                'sku' =>
-                    $search,
-
-                'total_matches' =>
-                    $total,
-
-                'total_pages' =>
-                    $totalPages,
-
-                'requested_page' =>
-                    $page,
-
-                'returned_products' =>
-                    count($pageProducts),
-            ]
-        );
-
-        return [
-            'products' =>
-                array_values(
-                    $pageProducts
-                ),
-
-            'meta' => [
-                'current_page' =>
-                    $page,
-
-                'total_count' =>
-                    $total,
-
-                'total_pages' =>
-                    $totalPages,
-            ],
-        ];
-    }
     /**
      * Get Fullscript brands.
      */
