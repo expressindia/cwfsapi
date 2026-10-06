@@ -1968,17 +1968,11 @@ class ProductsController extends Controller
 
         }
 
+        
+
+        $sku = $product['sku'] ?? $product['SKU'] ?? '';
+
         $variantCount = (int) ( $product['variant_count'] ?? 0 );
-
-        $sku =
-
-            $product['sku']
-
-            ?? $product['SKU']
-
-            ?? '';
-
-
 
         /*
 
