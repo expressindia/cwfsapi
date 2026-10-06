@@ -2374,13 +2374,13 @@ class ProductsController extends Controller
 
                 ),
 
-
+            'variant_count' => $variantCount,
 
             'raw' =>
 
                 $product,
 
-
+            
 
             'shopify_status' =>
 
