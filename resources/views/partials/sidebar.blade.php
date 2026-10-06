@@ -104,7 +104,7 @@
         <a
         href="{{ route('vendor-inventory.index') }}" class="nav-link">
             <i class="bi bi-box-seam"></i>
-            <span>Vendor Inventory</span>
+            <span>Inventory Location Status</span>
         </a>
 
     </nav>
