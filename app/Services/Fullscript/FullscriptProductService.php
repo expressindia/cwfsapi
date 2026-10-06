@@ -241,21 +241,24 @@ class FullscriptProductService
         }
 
         Log::info(
-            'FULLSCRIPT SEARCH API RESPONSE',
-            [
-                'url' =>
-                    $url,
+    'FULLSCRIPT SEARCH API RESPONSE',
+    [
+        'url' =>
+            $url,
 
-                'query' =>
-                    $query,
+        'query' =>
+            $query,
 
-                'status' =>
-                    $response->status(),
+        'status' =>
+            $response->status(),
 
-                'successful' =>
-                    $response->successful(),
-            ]
-        );
+        'successful' =>
+            $response->successful(),
+
+        'json' =>
+            $response->json(),
+    ]
+);
 
         if ($response->failed()) {
             throw new RuntimeException(
