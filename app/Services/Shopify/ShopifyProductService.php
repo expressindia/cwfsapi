@@ -879,6 +879,7 @@ query SearchVariants($query: String!) {
                 title
                 handle
                 status
+                updatedAt
             }
 
             inventoryItem {

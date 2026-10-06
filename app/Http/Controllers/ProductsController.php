@@ -812,34 +812,79 @@ class ProductsController extends Controller
                 );
 
                 if ($sku === '') {
-                    $products[$index]['shopify_status'] = 'Not Found';
-                    $products[$index]['shopify_status_text'] = 'No SKU';
-                    $products[$index]['shopify_product_id'] = null;
-                    $products[$index]['action'] = 'push';
+                    $products[$index]['shopify_status'] =
+                        'Not Found';
+
+                    $products[$index]['shopify_status_text'] =
+                        'No SKU';
+
+                    $products[$index]['shopify_product_id'] =
+                        null;
+
+                    $products[$index]['updated_at'] =
+                        null;
+
+                    $products[$index]['action'] =
+                        'push';
+
                     continue;
                 }
 
                 if ($shopifyMatches === null) {
-                    $products[$index]['shopify_status'] = 'Error';
-                    $products[$index]['shopify_status_text'] = 'Unable to check';
-                    $products[$index]['shopify_product_id'] = null;
-                    $products[$index]['action'] = 'push';
+                    $products[$index]['shopify_status'] =
+                        'Error';
+
+                    $products[$index]['shopify_status_text'] =
+                        'Unable to check';
+
+                    $products[$index]['shopify_product_id'] =
+                        null;
+
+                    $products[$index]['updated_at'] =
+                        null;
+
+                    $products[$index]['action'] =
+                        'push';
+
                     continue;
                 }
 
                 $variant = $shopifyMatches[$sku] ?? null;
 
                 if ($variant) {
-                    $products[$index]['shopify_status'] = 'Exists';
-                    $products[$index]['shopify_status_text'] = 'Will update';
+                    $products[$index]['shopify_status'] =
+                        'Exists';
+
+                    $products[$index]['shopify_status_text'] =
+                        'Will update';
+
                     $products[$index]['shopify_product_id'] =
-                        $variant['product']['id'] ?? null;
-                    $products[$index]['action'] = 'update';
+                        $variant['product']['id']
+                        ?? null;
+
+                    $products[$index]['updated_at'] =
+                        $this->formatDate(
+                            $variant['product']['updatedAt']
+                            ?? null
+                        );
+
+                    $products[$index]['action'] =
+                        'update';
                 } else {
-                    $products[$index]['shopify_status'] = 'Not Found';
-                    $products[$index]['shopify_status_text'] = 'Will create';
-                    $products[$index]['shopify_product_id'] = null;
-                    $products[$index]['action'] = 'push';
+                    $products[$index]['shopify_status'] =
+                        'Not Found';
+
+                    $products[$index]['shopify_status_text'] =
+                        'Will create';
+
+                    $products[$index]['shopify_product_id'] =
+                        null;
+
+                    $products[$index]['updated_at'] =
+                        null;
+
+                    $products[$index]['action'] =
+                        'push';
                 }
             }
 
