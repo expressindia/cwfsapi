@@ -3509,11 +3509,9 @@ class ProductsController extends Controller
 
                     $productId,
 
+                'updated_at' => $this->formatDate( $variant['product']['updatedAt'] ?? null ),
 
-
-                'action' =>
-
-                    'update',
+                'action' => 'update',
 
             ];
 
@@ -3545,7 +3543,7 @@ class ProductsController extends Controller
 
                     null,
 
-
+                'updated_at' => null,
 
                 'action' =>
 

@@ -579,6 +579,7 @@ query SearchVariants($query: String!) {
 
 
                 status
+                updatedAt
 
 
 
