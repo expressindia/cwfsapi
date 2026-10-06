@@ -2087,29 +2087,121 @@ class ProductsController extends Controller
 
 
         /*
-
         |--------------------------------------------------------------------------
-
         | Availability
-
         |--------------------------------------------------------------------------
-
+        |
+        | Fullscript can return a product-level status such as "unavailable"
+        | while the actual variant has a more specific status such as
+        | "discontinued". Prefer the primary variant status first.
+        |
         */
 
+        $availability = null;
 
+        /*
+        |--------------------------------------------------------------------------
+        | Primary variant
+        |--------------------------------------------------------------------------
+        */
+
+        $primaryVariant =
+            $product['primary_variant']
+            ?? null;
+
+        if (
+            is_array($primaryVariant)
+        ) {
+            $availability =
+                $primaryVariant['availability']
+                ?? $primaryVariant['status']
+                ?? null;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Variants fallback
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !$availability
+            && isset($product['variants'])
+            && is_array($product['variants'])
+        ) {
+
+            foreach (
+                $product['variants'] as $variant
+            ) {
+
+                if (
+                    !is_array($variant)
+                ) {
+                    continue;
+                }
+
+                /*
+                | Prefer the primary variant if one exists.
+                */
+                if (
+                    !empty($variant['primary'])
+                ) {
+
+                    $availability =
+                        $variant['availability']
+                        ?? $variant['status']
+                        ?? null;
+
+                    break;
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | If no primary variant was found, use the first variant with a status.
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                !$availability
+            ) {
+
+                foreach (
+                    $product['variants'] as $variant
+                ) {
+
+                    if (
+                        !is_array($variant)
+                    ) {
+                        continue;
+                    }
+
+                    $availability =
+                        $variant['availability']
+                        ?? $variant['status']
+                        ?? null;
+
+                    if (
+                        $availability
+                    ) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Product-level fallback
+        |--------------------------------------------------------------------------
+        */
 
         $availability =
-
-            $product['availability']
-
+            $availability
+            ?? $product['availability']
             ?? $product['availability_status']
-
             ?? $product['status']
-
             ?? '';
-
-
-
         /*
 
         |--------------------------------------------------------------------------
