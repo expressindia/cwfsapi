@@ -662,31 +662,9 @@ class ProductsController extends Controller
 
 
 
-                if (
-
-                    $search !== ''
-
-                    && stripos(
-
-                        $normalized['title'],
-
-                        $search
-
-                    ) === false
-
-                    && stripos(
-
-                        $normalized['sku'],
-
-                        $search
-
-                    ) === false
-
-                ) {
-
-                    continue;
-
-                }
+                // if ( $search !== '' && stripos( $normalized['title'], $search  ) === false && stripos(  $normalized['sku'], $search ) === false ) {
+                //     continue;
+                // }
 
 
 
