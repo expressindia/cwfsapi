@@ -14,6 +14,12 @@ class ShopifyOAuthController extends Controller
 {
     /**
      * Start Shopify OAuth installation.
+     *
+     * This application is non-embedded, so it uses the
+     * Shopify Authorization Code Grant.
+     *
+     * No grant_options[]=per-user is used because we want
+     * an offline access token.
      */
     public function install(Request $request): RedirectResponse
     {
@@ -36,6 +42,9 @@ class ShopifyOAuthController extends Controller
             'Invalid Shopify shop domain.'
         );
 
+        /*
+         * Generate CSRF state.
+         */
         $state = Str::random(64);
 
         $request->session()->put(
@@ -43,14 +52,20 @@ class ShopifyOAuthController extends Controller
             $state
         );
 
+        /*
+         * Build Shopify authorization URL.
+         *
+         * We intentionally DO NOT include:
+         *
+         * grant_options[]=per-user
+         *
+         * Therefore Shopify will issue an offline access token.
+         */
         $params = http_build_query([
             'client_id' => config('shopify.client_id'),
             'scope' => config('shopify.scopes'),
             'redirect_uri' => config('shopify.redirect_uri'),
             'state' => $state,
-
-            // Request an online/per-user access token.
-            'grant_options[]' => 'per-user',
         ]);
 
         return redirect()->away(
@@ -60,14 +75,18 @@ class ShopifyOAuthController extends Controller
 
     /**
      * Handle Shopify OAuth callback.
+     *
+     * Exchanges the authorization code for an OFFLINE
+     * Shopify Admin API access token and stores it in
+     * the shopify_tokens table.
      */
     public function callback(Request $request): RedirectResponse
     {
         /*
-        |--------------------------------------------------------------------------
-        | 1. Handle Shopify OAuth errors
-        |--------------------------------------------------------------------------
-        */
+         * ---------------------------------------------------------
+         * 1. Handle Shopify OAuth errors
+         * ---------------------------------------------------------
+         */
 
         if ($request->filled('error')) {
             return redirect()
@@ -82,10 +101,10 @@ class ShopifyOAuthController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | 2. Validate required parameters
-        |--------------------------------------------------------------------------
-        */
+         * ---------------------------------------------------------
+         * 2. Validate required callback parameters
+         * ---------------------------------------------------------
+         */
 
         abort_unless(
             $request->filled('shop'),
@@ -111,15 +130,17 @@ class ShopifyOAuthController extends Controller
             'Shopify OAuth HMAC is missing.'
         );
 
-        $shop = strtolower(
-            trim($request->string('shop')->toString())
-        );
-
         /*
-        |--------------------------------------------------------------------------
-        | 3. Validate shop domain
-        |--------------------------------------------------------------------------
-        */
+         * ---------------------------------------------------------
+         * 3. Validate Shopify shop domain
+         * ---------------------------------------------------------
+         */
+
+        $shop = strtolower(
+            trim(
+                $request->string('shop')->toString()
+            )
+        );
 
         abort_unless(
             preg_match(
@@ -131,10 +152,13 @@ class ShopifyOAuthController extends Controller
         );
 
         /*
-        |--------------------------------------------------------------------------
-        | 4. Validate OAuth state
-        |--------------------------------------------------------------------------
-        */
+         * ---------------------------------------------------------
+         * 4. Validate OAuth state
+         * ---------------------------------------------------------
+         *
+         * The state was generated before redirecting to Shopify
+         * and is now compared with the returned state.
+         */
 
         $expectedState = $request->session()->pull(
             'shopify.oauth_state'
@@ -145,16 +169,19 @@ class ShopifyOAuthController extends Controller
         abort_unless(
             filled($expectedState)
             && filled($receivedState)
-            && hash_equals($expectedState, $receivedState),
+            && hash_equals(
+                $expectedState,
+                $receivedState
+            ),
             403,
             'Invalid Shopify OAuth state.'
         );
 
         /*
-        |--------------------------------------------------------------------------
-        | 5. Validate Shopify HMAC
-        |--------------------------------------------------------------------------
-        */
+         * ---------------------------------------------------------
+         * 5. Validate Shopify HMAC
+         * ---------------------------------------------------------
+         */
 
         $query = $request->query();
 
@@ -162,13 +189,11 @@ class ShopifyOAuthController extends Controller
 
         ksort($query);
 
-        $message = urldecode(
-            http_build_query(
-                $query,
-                '',
-                '&',
-                PHP_QUERY_RFC3986
-            )
+        $message = http_build_query(
+            $query,
+            '',
+            '&',
+            PHP_QUERY_RFC3986
         );
 
         $calculatedHmac = hash_hmac(
@@ -180,16 +205,26 @@ class ShopifyOAuthController extends Controller
         $receivedHmac = $request->string('hmac')->toString();
 
         abort_unless(
-            hash_equals($calculatedHmac, $receivedHmac),
+            hash_equals(
+                $calculatedHmac,
+                $receivedHmac
+            ),
             403,
             'Invalid Shopify OAuth HMAC.'
         );
 
         /*
-        |--------------------------------------------------------------------------
-        | 6. Exchange authorization code for online access token
-        |--------------------------------------------------------------------------
-        */
+         * ---------------------------------------------------------
+         * 6. Exchange authorization code for OFFLINE token
+         * ---------------------------------------------------------
+         *
+         * Because this is a non-embedded app, Shopify uses the
+         * Authorization Code Grant.
+         *
+         * We do NOT send grant_options[]=per-user.
+         *
+         * Therefore the token is an offline access token.
+         */
 
         try {
             $response = Http::asForm()
@@ -199,8 +234,23 @@ class ShopifyOAuthController extends Controller
                     "https://{$shop}/admin/oauth/access_token",
                     [
                         'client_id' => config('shopify.client_id'),
-                        'client_secret' => config('shopify.client_secret'),
-                        'code' => $request->string('code')->toString(),
+
+                        'client_secret' => config(
+                            'shopify.client_secret'
+                        ),
+
+                        'code' => $request
+                            ->string('code')
+                            ->toString(),
+
+                        /*
+                         * Explicitly request the non-expiring
+                         * offline token behavior.
+                         *
+                         * For this custom-distributed app,
+                         * expiring=0 is appropriate.
+                         */
+                        'expiring' => '0',
                     ]
                 );
 
@@ -225,75 +275,70 @@ class ShopifyOAuthController extends Controller
             $tokenData = $response->json();
 
             /*
-            |--------------------------------------------------------------------------
-            | 7. Validate token response
-            |--------------------------------------------------------------------------
-            */
+             * -----------------------------------------------------
+             * 7. Validate token response
+             * -----------------------------------------------------
+             */
 
             abort_unless(
-                filled($tokenData['access_token'] ?? null),
+                filled(
+                    $tokenData['access_token'] ?? null
+                ),
                 500,
                 'Shopify did not return an access token.'
             );
 
             /*
-            |--------------------------------------------------------------------------
-            | 8. Extract associated Shopify user
-            |--------------------------------------------------------------------------
-            */
-
-            $associatedUser = $tokenData['associated_user'] ?? null;
-
-            abort_unless(
-                is_array($associatedUser)
-                && filled($associatedUser['id'] ?? null),
-                500,
-                'Shopify did not return the associated user.'
-            );
-
-            /*
-            |--------------------------------------------------------------------------
-            | 9. Store Shopify token
-            |--------------------------------------------------------------------------
-            */
-
-            $expiresAt = null;
-
-            if (isset($tokenData['expires_in'])) {
-                $expiresAt = now()->addSeconds(
-                    (int) $tokenData['expires_in']
-                );
-            }
+             * -----------------------------------------------------
+             * 8. Store ONE token for this store
+             * -----------------------------------------------------
+             *
+             * shop_domain is unique in your database.
+             *
+             * We therefore store one offline token for:
+             *
+             * curated-supplement.myshopify.com
+             *
+             * or the development store.
+             */
 
             $shopifyToken = ShopifyToken::updateOrCreate(
                 [
                     'shop_domain' => $shop,
-                    'associated_user_id' => (string) $associatedUser['id'],
                 ],
                 [
-                    'access_token' => $tokenData['access_token'],
-                    'scope' => $tokenData['associated_user_scope']
-                        ?? $tokenData['scope']
-                        ?? null,
+                    'access_token' => $tokenData[
+                        'access_token'
+                    ],
 
-                    'associated_user_email' =>
-                        $associatedUser['email'] ?? null,
+                    'scope' => $tokenData[
+                        'scope'
+                    ] ?? null,
 
-                    'associated_user_first_name' =>
-                        $associatedUser['first_name'] ?? null,
+                    /*
+                     * Offline token does not use the
+                     * associated Shopify staff user.
+                     */
+                    'associated_user_id' => null,
 
-                    'associated_user_last_name' =>
-                        $associatedUser['last_name'] ?? null,
+                    'associated_user_email' => null,
 
-                    'expires_at' => $expiresAt,
+                    'associated_user_first_name' => null,
+
+                    'associated_user_last_name' => null,
+
+                    /*
+                     * Non-expiring offline token.
+                     */
+                    'expires_at' => null,
                 ]
             );
 
             /*
-            |--------------------------------------------------------------------------
-            | 10. Create Laravel authenticated session
-            |--------------------------------------------------------------------------
-            */
+             * -----------------------------------------------------
+             * 9. Create Laravel authenticated session
+             * -----------------------------------------------------
+             */
 
             $request->session()->regenerate();
 
@@ -312,23 +357,24 @@ class ShopifyOAuthController extends Controller
                 $shopifyToken->id
             );
 
+            /*
+             * These user fields are intentionally not populated
+             * because we are using an offline token.
+             */
+
             $request->session()->put(
                 'shopify.user_id',
-                (string) $associatedUser['id']
+                null
             );
 
             $request->session()->put(
                 'shopify.user_email',
-                $associatedUser['email'] ?? null
+                null
             );
 
             $request->session()->put(
                 'shopify.user_name',
-                trim(
-                    ($associatedUser['first_name'] ?? '')
-                    . ' '
-                    . ($associatedUser['last_name'] ?? '')
-                )
+                null
             );
 
             return redirect()
@@ -337,7 +383,6 @@ class ShopifyOAuthController extends Controller
                     'shopify_success',
                     'Shopify authentication successful.'
                 );
-
         } catch (Throwable $exception) {
             Log::error(
                 'Shopify OAuth callback exception.',

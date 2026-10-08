@@ -12,7 +12,7 @@ class ShopifyGraphQLService
     protected string $apiVersion;
 
     public function __construct(
-        protected ShopifyClientCredentialsService $clientCredentials
+        protected ShopifyAccessTokenService $accessTokenService
     ) {
         $this->storeDomain = (string) config(
             'shopify.store_domain'
@@ -25,11 +25,11 @@ class ShopifyGraphQLService
     }
 
     /**
-     * Execute a GraphQL request using Shopify Client Credentials.
+     * Execute a GraphQL request using the Shopify access token
+     * stored in the database.
      *
-     * A fresh/cached Client Credentials access token is obtained
-     * automatically. If Shopify returns 401, the cached token is
-     * cleared and a new token is requested before retrying once.
+     * Both development and production use the same
+     * shopify_tokens database table.
      */
     public function execute(
         string $query,
@@ -41,40 +41,14 @@ class ShopifyGraphQLService
             );
         }
 
-        $accessToken = $this->clientCredentials->getAccessToken();
+        $accessToken = $this->accessTokenService->getAccessToken();
 
-        try {
-            return $this->sendRequest(
-                $this->storeDomain,
-                $accessToken,
-                $query,
-                $variables
-            );
-        } catch (RuntimeException $exception) {
-            /*
-             * If the cached Client Credentials token is no longer
-             * accepted by Shopify, clear it and obtain a new token.
-             */
-            if (
-                str_contains(
-                    $exception->getMessage(),
-                    'Shopify HTTP error: 401'
-                )
-            ) {
-                $this->clientCredentials->clearToken();
-
-                $accessToken = $this->clientCredentials->getAccessToken();
-
-                return $this->sendRequest(
-                    $this->storeDomain,
-                    $accessToken,
-                    $query,
-                    $variables
-                );
-            }
-
-            throw $exception;
-        }
+        return $this->sendRequest(
+            $this->storeDomain,
+            $accessToken,
+            $query,
+            $variables
+        );
     }
 
     /**
@@ -139,7 +113,7 @@ class ShopifyGraphQLService
             ->retry(
                 3,
                 1000,
-                throw: false 
+                throw: false
             )
             ->withHeaders([
                 'Content-Type' => 'application/json',
