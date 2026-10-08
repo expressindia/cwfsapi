@@ -82,7 +82,7 @@ Route::get('/callback', [FullscriptOAuthController::class, 'callback'])->name('f
 
 /*
 |--------------------------------------------------------------------------
-|  Add webhook route 
+| Add webhook route 
 | Shopify webhook url
 |--------------------------------------------------------------------------
 */

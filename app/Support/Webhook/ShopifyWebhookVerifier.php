@@ -4,10 +4,7 @@ namespace App\Support\Webhook;
 
 class ShopifyWebhookVerifier
 {
-    public function verify(
-        string $rawBody,
-        ?string $providedHmac
-    ): bool {
+    public function verify( string $rawBody, ?string $providedHmac ): bool {
 
         if (blank($providedHmac)) {
             return false;
@@ -19,18 +16,8 @@ class ShopifyWebhookVerifier
             return false;
         }
 
-        $calculatedHmac = base64_encode(
-            hash_hmac(
-                'sha256',
-                $rawBody,
-                $secret,
-                true
-            )
-        );
+        $calculatedHmac = base64_encode( hash_hmac( 'sha256', $rawBody, $secret, true ) );
 
-        return hash_equals(
-            $calculatedHmac,
-            $providedHmac
-        );
+        return hash_equals( $calculatedHmac, $providedHmac );
     }
 }

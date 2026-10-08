@@ -12,37 +12,23 @@ use Illuminate\Support\Facades\Log;
 
 class ShopifyWebhookController extends Controller
 {
-    public function fulfillmentRequest(
-        Request $request,
-        ShopifyWebhookVerifier $verifier
-    ): Response {
+    public function fulfillmentRequest( Request $request, ShopifyWebhookVerifier $verifier ): Response {
         $rawBody = $request->getContent();
-
         $hmac = $request->header('X-Shopify-Hmac-SHA256');
-
         $shop = $request->header('X-Shopify-Shop-Domain');
-
         $topic = $request->header('X-Shopify-Topic');
 
         $webhookId = $request->header('X-Shopify-Webhook-Id');
 
-        Log::info(
-            'Shopify fulfillment webhook received.',
+        Log::info( 'Shopify fulfillment webhook received.',
             [
                 'method' => $request->method(),
-
                 'path' => $request->path(),
-
                 'shop' => $shop,
-
                 'topic' => $topic,
-
                 'webhook_id' => $webhookId,
-
                 'hmac_present' => filled($hmac),
-
                 'body_length' => strlen($rawBody),
-
                 'body' => $rawBody,
             ]
         );
@@ -54,8 +40,7 @@ class ShopifyWebhookController extends Controller
         */
 
         if (! $verifier->verify($rawBody, $hmac)) {
-            Log::warning(
-                'Invalid Shopify webhook HMAC.',
+            Log::warning( 'Invalid Shopify webhook HMAC.',
                 [
                     'shop' => $shop,
                     'topic' => $topic,
@@ -79,10 +64,7 @@ class ShopifyWebhookController extends Controller
         */
 
         if (blank($shop)) {
-            Log::warning(
-                'Shopify webhook missing shop domain.'
-            );
-
+            Log::warning( 'Shopify webhook missing shop domain.' );
             return response('Missing shop domain', 400);
         }
 
@@ -92,10 +74,7 @@ class ShopifyWebhookController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $shopifyToken = ShopifyToken::where(
-            'shop_domain',
-            $shop
-        )->first();
+        $shopifyToken = ShopifyToken::where( 'shop_domain', $shop )->first();
 
         if (! $shopifyToken) {
             Log::warning(
@@ -166,10 +145,7 @@ class ShopifyWebhookController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $fulfillmentOrderId =
-            $payload['submitted_fulfillment_order']['id']
-            ?? $payload['original_fulfillment_order']['id']
-            ?? null;
+        $fulfillmentOrderId = $payload['submitted_fulfillment_order']['id'] ?? $payload['original_fulfillment_order']['id'] ?? null;
 
         if (blank($fulfillmentOrderId)) {
             Log::error(
@@ -181,10 +157,7 @@ class ShopifyWebhookController extends Controller
                 ]
             );
 
-            return response(
-                'Missing fulfillment order ID',
-                400
-            );
+            return response( 'Missing fulfillment order ID', 400 );
         }
 
         /*
@@ -197,12 +170,10 @@ class ShopifyWebhookController extends Controller
             $event = WebhookEvent::firstOrCreate(
                 [
                     'provider' => 'shopify',
-
                     'webhook_id' => $webhookId,
                 ],
                 [
                     'topic' => $topic,
-
                     'payload' => $payload,
                 ]
             );
@@ -211,9 +182,7 @@ class ShopifyWebhookController extends Controller
                 'Unable to store Shopify webhook.',
                 [
                     'shop' => $shop,
-
                     'webhook_id' => $webhookId,
-
                     'error' => $e->getMessage(),
                 ]
             );
@@ -231,10 +200,7 @@ class ShopifyWebhookController extends Controller
         */
 
         if ($event->processed_at) {
-            return response(
-                'Already processed',
-                200
-            );
+            return response( 'Already processed', 200 );
         }
 
         /*
@@ -247,11 +213,7 @@ class ShopifyWebhookController extends Controller
         |
         */
 
-        ProcessShopifyFulfillmentRequest::dispatch(
-            $event->id,
-            (string) $fulfillmentOrderId,
-            $shopifyToken->id
-        );
+        ProcessShopifyFulfillmentRequest::dispatch( $event->id, (string) $fulfillmentOrderId, $shopifyToken->id);
 
         /*
         |--------------------------------------------------------------------------
@@ -259,9 +221,6 @@ class ShopifyWebhookController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        return response(
-            'Accepted',
-            202
-        );
+        return response( 'Accepted', 202 );
     }
 }

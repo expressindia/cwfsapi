@@ -13,33 +13,22 @@ use Throwable;
 class ProcessShopifyFulfillmentRequest implements ShouldQueue
 {
     use Queueable;
-
     public int $tries = 3;
-
     public int $backoff = 30;
 
-    public function __construct(
-        public int $webhookEventId,
-        public string $fulfillmentOrderId,
-        public int $shopifyTokenId
-    ) {
+    public function __construct( public int $webhookEventId, public string $fulfillmentOrderId, public int $shopifyTokenId ) {
     }
 
-    public function handle(
-        ShopifyFulfillmentService $service
-    ): void {
+    public function handle( ShopifyFulfillmentService $service ): void {
 
-        $event = WebhookEvent::find(
-            $this->webhookEventId
-        );
+        $event = WebhookEvent::find( $this->webhookEventId );
 
         if (! $event) {
 
             Log::error(
                 'Webhook event not found.',
                 [
-                    'webhook_event_id' =>
-                        $this->webhookEventId,
+                    'webhook_event_id' => $this->webhookEventId,
                 ]
             );
 
@@ -51,34 +40,23 @@ class ProcessShopifyFulfillmentRequest implements ShouldQueue
             Log::info(
                 'Webhook already processed.',
                 [
-                    'webhook_event_id' =>
-                        $event->id,
+                    'webhook_event_id' => $event->id,
                 ]
             );
 
             return;
         }
 
-        $service->processFulfillmentRequest(
-            $this->fulfillmentOrderId,
-            $this->shopifyTokenId
-        );
+        $service->processFulfillmentRequest( $this->fulfillmentOrderId, $this->shopifyTokenId );
 
-        $event->update([
-            'processed_at' => Carbon::now(),
-        ]);
+        $event->update([ 'processed_at' => Carbon::now(), ]);
 
         Log::info(
             'Shopify fulfillment request processed.',
             [
-                'webhook_event_id' =>
-                    $event->id,
-
-                'fulfillment_order_id' =>
-                    $this->fulfillmentOrderId,
-
-                'shopify_token_id' =>
-                    $this->shopifyTokenId,
+                'webhook_event_id' => $event->id,
+                'fulfillment_order_id' => $this->fulfillmentOrderId,
+                'shopify_token_id' => $this->shopifyTokenId,
             ]
         );
     }
@@ -88,17 +66,10 @@ class ProcessShopifyFulfillmentRequest implements ShouldQueue
         Log::error(
             'Shopify fulfillment job failed.',
             [
-                'webhook_event_id' =>
-                    $this->webhookEventId,
-
-                'fulfillment_order_id' =>
-                    $this->fulfillmentOrderId,
-
-                'shopify_token_id' =>
-                    $this->shopifyTokenId,
-
-                'error' =>
-                    $exception->getMessage(),
+                'webhook_event_id' => $this->webhookEventId,
+                'fulfillment_order_id' => $this->fulfillmentOrderId,
+                'shopify_token_id' => $this->shopifyTokenId,
+                'error' => $exception->getMessage(),
             ]
         );
     }
