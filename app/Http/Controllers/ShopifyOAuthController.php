@@ -72,7 +72,7 @@ class ShopifyOAuthController extends Controller
             "https://{$shop}/admin/oauth/authorize?{$params}"
         );
     }
-
+      
     /**
      * Handle Shopify OAuth callback.
      *
