@@ -249,8 +249,8 @@ class ShopifyOAuthController extends Controller
                          *
                          * For this custom-distributed app,
                          * expiring=0 is appropriate.
-                         */
-                        'expiring' => '0',
+                         
+                        'expiring' => '0',*/
                     ]
                 );
 
