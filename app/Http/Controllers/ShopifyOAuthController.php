@@ -82,6 +82,12 @@ class ShopifyOAuthController extends Controller
      */
     public function callback(Request $request): RedirectResponse
     {
+        Log::info('SHOPIFY OAUTH CALLBACK REACHED', [
+            'shop' => $request->input('shop'),
+            'has_code' => $request->filled('code'),
+            'has_state' => $request->filled('state'),
+            'has_hmac' => $request->filled('hmac'),
+        ]);
         /*
          * ---------------------------------------------------------
          * 1. Handle Shopify OAuth errors
