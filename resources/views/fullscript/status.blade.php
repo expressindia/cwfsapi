@@ -199,6 +199,53 @@
 
     </div>
 
+
+
+    {{-- Fullscript Token Recovery Actions --}}
+    <div class="card dashboard-card mb-4">
+        <div class="card-body p-4">
+
+            <h5 class="fw-semibold mb-2">
+                <i class="bi bi-shield-lock me-2"></i>
+                Fullscript Connection Recovery
+            </h5>
+
+            <p class="text-muted mb-3">
+                If your access token has expired, try refreshing it.
+                If refreshing fails, reconnect your Fullscript account.
+            </p>
+
+            {{-- Refresh Token Button --}}
+            <div class="d-flex flex-wrap gap-2">
+
+                <form method="POST"
+                      action="{{ route('fullscript.refresh') }}">
+                    @csrf
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise me-1"></i>
+                        Refresh Token
+                    </button>
+                </form>
+
+                {{-- Reconnect Fullscript Button --}}
+                <form method="POST"
+                      action="{{ route('fullscript.reconnect') }}"
+                      onsubmit="return confirm('Reconnect Fullscript? You will be redirected to authorize the connection again.');">
+                    @csrf
+
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="bi bi-link-45deg me-1"></i>
+                        Reconnect Fullscript
+                    </button>
+                </form>
+
+            </div>
+
+        </div>
+    </div>
+
+
 </div>
 
 @endsection
