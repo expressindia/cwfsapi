@@ -202,6 +202,7 @@
 
 
     {{-- Fullscript Token Recovery Actions --}}
+    @if($expired)
     <div class="card dashboard-card mb-4">
         <div class="card-body p-4">
 
@@ -244,7 +245,7 @@
 
         </div>
     </div>
-
+    @endif
 
 </div>
 
