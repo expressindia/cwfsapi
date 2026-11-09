@@ -21,7 +21,7 @@ class FullscriptStatusController extends Controller
             'expires_at' => $token?->expires_at?->toIso8601String(),
             'expired' => $token?->expiresSoon() ?? true,
             'scope' => $token?->scope,
-            'environment' => 'sandbox',
+            'environment' => config('fullscript.environment', 'sandbox'),
         ]);
     }
 

@@ -53,6 +53,6 @@ class FullscriptOAuthController extends Controller
             return redirect('/')->with('fullscript_error', $exception->getMessage());
         }
 
-        return redirect('/')->with('fullscript_success', 'Fullscript Sandbox connected.');
+        return redirect('/')->with('fullscript_success', 'Fullscript Sandbox/Live connected.');
     }
 }

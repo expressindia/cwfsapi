@@ -22,7 +22,7 @@ return [
     | Fullscript API
     |--------------------------------------------------------------------------
     */
-
+    'environment' => env('APP_ENV', 'sandbox'),
     'api_base_url' => env( 'FULLSCRIPT_API_BASE_URL', 'https://api-us-snd.fullscript.io/api' ),
 
     'webhook' => [
