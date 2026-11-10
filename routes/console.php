@@ -11,7 +11,7 @@ Artisan::command('inspire', function () {
 // Keep the single Fullscript OAuth token fresh. This does not affect Shopify auth.
 app(Schedule::class)
     ->command('fullscript:refresh --if-expiring')
-    ->everyFiveMinutes()
+    ->everyMinute()
     ->withoutOverlapping();
 /*
 Need to add 
