@@ -12,8 +12,7 @@ Artisan::command('inspire', function () {
 app(Schedule::class)
     ->command('fullscript:refresh --if-expiring')
     ->everyFiveMinutes()
-    ->withoutOverlapping()
-    ->appendOutputTo(storage_path('logs/fullscript-refresh.log'));
+    ->withoutOverlapping();
 /*
 Need to add 
 app(Schedule::class)
