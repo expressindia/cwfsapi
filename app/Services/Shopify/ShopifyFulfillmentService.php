@@ -428,11 +428,7 @@ class ShopifyFulfillmentService
 
             try {
 
-                $this->updateFullscriptOrderMetafield(
-                    $shopifyOrderId,
-                    (string) $fullscriptOrderId,
-                    $shopifyTokenId
-                );
+                $this->updateFullscriptOrderMetafield( $shopifyOrderId, (string) $fullscriptOrderId, $shopifyTokenId );
 
             } catch (\Throwable $e) {
 

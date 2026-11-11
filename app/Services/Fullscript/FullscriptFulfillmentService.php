@@ -5,6 +5,7 @@ namespace App\Services\Fullscript;
 use App\Services\FullscriptTokenService;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class FullscriptFulfillmentService
@@ -228,10 +229,54 @@ class FullscriptFulfillmentService
         ];
     }
 
-    protected function responseMessage(
-        Response $response
-    ): string {
 
+    /**
+     * Retrieve an existing Fullscript fulfillment order.
+     */
+    public function retrieveOrder(string $orderId): array
+    {
+        $baseUrl = rtrim(
+            config('fullscript.api_base_url'),
+            '/'
+        );
+
+        if (blank($baseUrl)) {
+            throw new RuntimeException(
+                'FULLSCRIPT_API_BASE_URL is not configured.'
+            );
+        }
+
+        $accessToken = $this->tokenService->freshAccessToken();
+
+        $response = Http::withToken($accessToken)
+            ->acceptJson()
+            ->timeout(60)
+            ->get(
+                $baseUrl . '/fulfillment/orders/' . urlencode($orderId)
+            );
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                'Fullscript order retrieval failed (HTTP ' .
+                $response->status() . '): ' .
+                (
+                    $response->json('message')
+                    ?? $response->body()
+                )
+            );
+        }
+
+        $result = $response->json();
+
+        Log::info('Fullscript existing order details retrieved.', [
+            'fullscript_order_id' => $orderId,
+            'response' => $result,
+        ]);
+
+        return $result;
+    }
+
+    protected function responseMessage( Response $response ): string {
         return
             'Fullscript fulfillment request failed (HTTP ' .
             $response->status() .
