@@ -415,6 +415,45 @@ class ShopifyFulfillmentService
             ]
         );
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update Shopify Order with Fullscript Order ID
+        |--------------------------------------------------------------------------
+        */
+
+        $shopifyOrderId = $fulfillmentOrder['order']['id'] ?? null;
+
+        if (filled($fullscriptOrderId) && filled($shopifyOrderId)) {
+
+            try {
+
+                $this->updateFullscriptOrderMetafield(
+                    $shopifyOrderId,
+                    (string) $fullscriptOrderId,
+                    $shopifyTokenId
+                );
+
+            } catch (\Throwable $e) {
+
+                Log::error('Failed to save Fullscript Order ID to Shopify order.', [
+                    'shopify_order_id' => $shopifyOrderId,
+                    'shopify_order_name' => $fulfillmentOrder['order']['name'] ?? null,
+                    'fullscript_order_id' => $fullscriptOrderId,
+                    'error' => $e->getMessage(),
+                ]);
+
+            }
+
+        } else {
+
+            Log::warning('Shopify metafield update skipped. Missing order ID.', [
+                'shopify_order_id' => $shopifyOrderId,
+                'fullscript_order_id' => $fullscriptOrderId,
+            ]);
+
+        }
+
         /*
         |--------------------------------------------------------------------------
         | Log Successful Submission
@@ -933,6 +972,93 @@ class ShopifyFulfillmentService
 
         // Default for Standard, Complimentary, Free Shipping, etc.
         return 'Standard';
+    }
+
+
+
+/**
+ * Save Fullscript Order ID to Shopify order metafield.
+ */
+    public function updateFullscriptOrderMetafield(
+        string $shopifyOrderId,
+        string $fullscriptOrderId,
+        int $shopifyTokenId
+    ): array {
+
+        if (blank($shopifyOrderId) || blank($fullscriptOrderId)) {
+            throw new RuntimeException(
+                'Shopify Order ID or Fullscript Order ID is missing.'
+            );
+        }
+
+        $mutation = <<<'GRAPHQL'
+            mutation SetFullscriptOrderId(
+                $metafields: [MetafieldsSetInput!]!
+            ) {
+                metafieldsSet(metafields: $metafields) {
+                    metafields {
+                        id
+                        namespace
+                        key
+                        value
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+            GRAPHQL;
+
+        $variables = [
+            'metafields' => [
+                [
+                    'ownerId' => $shopifyOrderId,
+                    'namespace' => 'custom',
+                    'key' => 'fullscript_order_id',
+                    'type' => 'single_line_text_field',
+                    'value' => $fullscriptOrderId,
+                ],
+            ],
+        ];
+
+        Log::info('Updating Shopify order with Fullscript Order ID.', [
+            'shopify_order_id' => $shopifyOrderId,
+            'fullscript_order_id' => $fullscriptOrderId,
+        ]);
+
+        $data = $this->executeForStore(
+            $shopifyTokenId,
+            $mutation,
+            $variables
+        );
+
+        $result = $data['metafieldsSet'] ?? null;
+
+        if (!$result) {
+            throw new RuntimeException(
+                'Shopify metafieldsSet returned no result.'
+            );
+        }
+
+        if (!empty($result['userErrors'])) {
+            Log::error('Failed to update Shopify Fullscript Order ID metafield.', [
+                'shopify_order_id' => $shopifyOrderId,
+                'user_errors' => $result['userErrors'],
+            ]);
+
+            throw new RuntimeException(
+                'Shopify metafield update failed: ' .
+                json_encode($result['userErrors'])
+            );
+        }
+
+        Log::info('Shopify Fullscript Order ID metafield updated successfully.', [
+            'shopify_order_id' => $shopifyOrderId,
+            'fullscript_order_id' => $fullscriptOrderId,
+        ]);
+
+        return $result;
     }
 
 }
