@@ -306,7 +306,7 @@ class ShopifyFulfillmentService
         | Shipping Method
         |--------------------------------------------------------------------------
         */
-
+        /*
         $shippingMethod = 'Standard';
 
         $shippingLines = $fulfillmentOrder['order']['shippingLines']['edges'] ?? [];
@@ -318,6 +318,18 @@ class ShopifyFulfillmentService
                 $shippingMethod = $title;
             }
         }
+        */
+        $shippingLines = $fulfillmentOrder['order']['shippingLines']['edges'] ?? [];
+
+        $shippingTitle = $shippingLines[0]['node']['title'] ?? null;
+
+        // Convert Shopify shipping title to Fullscript supported method
+        $shippingMethod = $this->mapShippingMethod($shippingTitle);
+
+        Log::info('Shopify shipping method mapped for Fullscript.', [
+            'shopify_shipping_title' => $shippingTitle,
+            'fullscript_shipping_method' => $shippingMethod,
+        ]);
 
         /*
         |--------------------------------------------------------------------------
@@ -888,4 +900,39 @@ class ShopifyFulfillmentService
 
         return $result['fulfillment'];
     }
+
+
+
+/**
+ * Map Shopify shipping titles to Fullscript supported methods.
+ */
+    private function mapShippingMethod(?string $shippingTitle): string
+    {
+        $title = strtolower(trim($shippingTitle ?? ''));
+
+        // Overnight shipping
+        if (
+            str_contains($title, 'overnight') ||
+            str_contains($title, '1 business day')
+        ) {
+            return 'Overnight';
+        }
+
+        // Three-day shipping
+        if (str_contains($title, 'three day')) {
+            return 'Three day';
+        }
+
+        // Priority shipping
+        if (
+            str_contains($title, 'priority') ||
+            str_contains($title, '2 business days')
+        ) {
+            return 'Priority';
+        }
+
+        // Default for Standard, Complimentary, Free Shipping, etc.
+        return 'Standard';
+    }
+
 }
